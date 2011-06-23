@@ -1,0 +1,57 @@
+{-
+ - Tests asynchronous I/O and type dynamic.
+ -}
+
+import "Std/Io"
+import "Posix/Args"
+import "Posix/Sockets"
+import "Contrib/TD"
+
+val [intOpts _ boolOpts _] =
+  (args.getOpts
+   (cons ["port" "p"] nil) nil
+   (cons ["server" "s"] nil) exn.exit)
+
+val port = (exn.try #String #Int \(h) = (intOpts "port" h) \(_) = 5000)
+val serverMode = (boolOpts "server")
+
+def talk f:Fd = 
+(val sWr = (io.fdWr f)
+ val sRd = (io.fdRd f)
+ new cRd:^[]
+ new cWr:^[]
+ (prNL "(talking)");
+ (((prNL (+$ "1) Received " ($$ (td.int.unmarshall sRd exn.exit))));
+   (prNL (+$ > "2) Received \"" (td.string.unmarshall sRd exn.exit) "\""));
+   (prNL (+$ "3) Received " ($$ (td.int.unmarshall sRd exn.exit))));
+   cRd![]
+  ) | (
+   (prErrNL "1) Sending 1"); (td.int.marshall sWr 1);
+   (prErrNL "2) Sending \"two\""); (td.string.marshall sWr "two");
+   (prErrNL "3) Sending 3"); (td.int.marshall sWr 3);
+   cWr![]
+  ) |
+   cRd?[] = cWr?[] = ((prNL "(closing)"); (fd.close f); ())
+  )
+)
+
+def client [] = 
+((pr "*** CLIENT ***\n");
+ (pr "(making connection)\n");
+ val s  = (sockets.streamSocket exn.exit)
+ val port = 5000
+ val a  = (sockets.getHostByName "localhost" port exn.exit)
+ (fd.mkASync s exn.exit);
+ val fd = (sockets.connect s a exn.exit)
+ talk!fd)
+
+def server [] = 
+((pr "*** SERVER ***\n");
+ (pr "(waiting for connection)\n");
+ val s   = (sockets.streamSocket exn.exit)
+ val port = 5000
+ (sockets.bindAny s port 4 exn.exit);
+ (fd.mkASync s exn.exit);
+ talk!(sockets.accept s exn.exit))
+
+run if serverMode then server![] else client![]

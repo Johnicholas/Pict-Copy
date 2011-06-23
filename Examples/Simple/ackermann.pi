@@ -1,0 +1,12 @@
+{-
+ - Ackermann's function
+ -}
+
+def ack (x:Int y:Int) : Int =
+  if (== y 0) then 0 else if (== x 0) then (* y 2)
+  else if (== y 1) then 2 else (ack (dec x) (ack x (dec y)))
+
+(pr "(ack 1 20) = "); (int.pr (ack 1 20));
+(pr ", (ack 2 4) = "); (int.pr (ack 2 4));
+(pr ", (ack 3 3) = "); (int.pr (ack 3 3));
+(nl);

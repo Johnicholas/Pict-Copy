@@ -1,0 +1,322 @@
+\section{@Picture/Basic@: Basic Picture Primitives}
+
+All the operations in this module are re-exported from the module
+@Picture/Picture@ (where they are documented).
+
+##import "Std/Array2"
+##import "Std/Hash"
+##import "Std/Io"
+##import "Contrib/Ppm"
+##import "Picture/Utils"
+##import "Picture/Types"
+
+##val basic : [
+#*null = Picture
+#*point = /[Int Int /Picture] 
+#*line = /[Int Int Int Int /Picture] 
+#*hLine = Picture
+#*vLine = Picture
+#*quad = /[Int Int Int Int Int Int Int Int /Picture] 
+#*fillQuad = /[Int Int Int Int Int Int Int Int /Picture] 
+#*rect = /[Int Int Int Int /Picture] 
+#*fillRect = /[Int Int Int Int /Picture] 
+#*clickable = /[Int Int Int Int /[Button Bool Int Int Int Int] /Picture] 
+#*spacer = /[Int Int Int Int /Picture] 
+#*ellipse = /[Int Int Int Int /Picture] 
+#*fillEllipse = /[Int Int Int Int /Picture] 
+#*text = /[String /Picture] 
+#*pixmap = /[String Exn /Picture]
+#{#}
+] = (
+
+val null : Picture =
+  [#[] #[]
+   [constant = true
+    reconfigure = \(_ _ _) = []
+    delete = \(_) = []
+    boundary = \(_) = [0 0 0 0]
+    move = \(_ _ _) = []
+    scale = \(_ _ _ _ _) = []
+    rotate = \(_ _) = []
+    rot90 = \(_) = [] 
+    rot180 = \(_) = [] 
+    rot270 = \(_) = []
+    button = \(_ _ _ _ _ _ _) = false
+    render = \(_ _) = []
+    init = \(_ _) = []]
+   []]
+
+def point (x:Int y:Int) : Picture =
+  [#[Int Int] #[Int Int]
+   [constant = true
+    reconfigure = \(_ s _) = s
+    delete = \(_) = []
+    boundary = \([x y]) = [x (inc x) y (inc y)]
+    move = \([x y] dx dy) = [(+ x dx) (+ y dy)]
+    scale = \([x y] sx dx sy dy) =
+      [(div (* x dx) sx) (div (* y dy) sy)] 
+    rotate = \([x y] a) = [(utils.rotx x y a) (utils.roty x y a)] 
+    rot90 = \([x y]) = [(neg y) x] 
+    rot180 = \([x y]) = [(neg x) (neg y)] 
+    rot270 = \([x y]) = [y (neg x)]
+    button = \([x y] _ bx by _ _ t) =
+      (&& (<= (int.abs (- bx x)) t) (<= (int.abs (- by y)) t))
+    render = \([x y] cx) =
+      (xlib.drawPoint cx.display cx.window cx.gc x y)
+    init = \(s _) = s]
+   [x y]]
+
+def checkGradiant (x:Int y:Int x0:Int y0:Int x1:Int y1:Int):Bool =
+  if (&& (<= x0 x) (<= x x1)) then
+    if (&& (<= y0 y) (<= y y1)) then
+      (== y (+ (div (* (- y1 y0) (- x x0)) (- x1 x0)) y0))
+    else
+      false
+  else
+    false
+
+def hitLine (x:Int y:Int x0:Int y0:Int x1:Int y1:Int):Bool =
+  if (<< x0 x1) then
+    if (<< y0 y1) then (checkGradiant x y x0 y0 x1 y1)
+    else if (<< y1 y0) then (checkGradiant x y x0 y1 x1 y0)
+    else (&& > (== y y0) (<= x0 x) (<= x x1))
+  else if (<< x1 x0) then
+    if (<< y0 y1) then (checkGradiant x y x1 y0 x0 y1)
+    else if (<< y1 y0) then (checkGradiant x y x1 y1 x0 y0)
+    else (&& > (== y y0) (<= x1 x) (<= x x0))
+  else if (== x x0) then
+    if (<< y0 y1) then (&& (<= y0 y) (<= y y1))
+    else (&& (<= y1 y) (<= y y0))
+  else
+    false
+
+def line (x0:Int y0:Int x1:Int y1:Int):Picture =
+  [#[Int Int Int Int] #[Int Int Int Int]
+   [constant = true
+    reconfigure = \(_ s _) = s
+    delete = \(_) = []
+    boundary = \([x0 y0 x1 y1]) = 
+      [(min x0 x1) (max x0 x1) (max y0 y1) (min y0 y1)]
+    move = \([x0 y0 x1 y1] dx dy) = 
+      [(+ x0 dx) (+ y0 dy) (+ x1 dx) (+ y1 dy)] 
+    scale = \([x0 y0 x1 y1] sx dx sy dy) = 
+      [(div (* x0 dx) sx) (div (* y0 dy) sy)
+	(div (* x1 dx) sx) (div (* y1 dy) sy)] 
+    rotate = \([x0 y0 x1 y1] a) = 
+      [(utils.rotx x0 y0 a) (utils.roty x0 y0 a)
+       (utils.rotx x1 y1 a) (utils.roty x1 y1 a)]
+    rot90 = \([x0 y0 x1 y1]) = 
+      [(neg y0) x0 (neg y1) x1]
+    rot180 = \([x0 y0 x1 y1]) = 
+      [(neg x0) (neg y0) (neg x1) (neg y1)]
+    rot270 = \([x0 y0 x1 y1]) = 
+      [y0 (neg x0) y1 (neg x1)]
+    button = \([x0 y0 x1 y1] _ bx by _ _ t) = (hitLine bx by x0 y0 x1 y1)
+    render = \([x0 y0 x1 y1] cx) = 
+      (xlib.drawLine cx.display cx.window cx.gc x0 y0 x1 y1)
+    init = \(s _) = s]
+  [x0 y0 x1 y1]]
+
+val hLine:Picture = (line 0 0 1 0)
+val vLine:Picture = (line 0 0 0 1)
+
+def crossesLine (x:Int y:Int x0:Int y0:Int x1:Int y1:Int):Bool =
+  if (|| (&& (<= y1 y) (<< y y0)) (&& (<= y0 y) (<< y y1))) then
+    (<< x (+ x1 (div (* (- x0 x1) (- y y1)) (- y0 y1))))
+  else
+    false
+
+type S = [Int Int Int Int Int Int Int Int /[Button Bool Int Int Int Int]]
+
+val methods:(M S S) = [
+  constant = true
+  reconfigure = \(_ s _) = s
+  delete = \(_) = []
+  boundary = \([x0 y0 x1 y1 x2 y2 x3 y3 _]) = 
+    [(min (min x0 x1) (min x2 x3)) (max (max x0 x1) (max x2 x3))
+     (max (max y0 y1) (max y2 y3)) (min (min y0 y1) (min y2 y3))] 
+  move = \([x0 y0 x1 y1 x2 y2 x3 y3 cl] dx dy) = 
+    [(+ x0 dx) (+ y0 dy) (+ x1 dx) (+ y1 dy)
+     (+ x2 dx) (+ y2 dy) (+ x3 dx) (+ y3 dy) cl] 
+  scale = \([x0 y0 x1 y1 x2 y2 x3 y3 cl] sx dx sy dy) = 
+    [(div (* x0 dx) sx) (div (* y0 dy) sy) 
+     (div (* x1 dx) sx) (div (* y1 dy) sy) 
+     (div (* x2 dx) sx) (div (* y2 dy) sy) 
+     (div (* x3 dx) sx) (div (* y3 dy) sy) cl] 
+  rotate = \([x0 y0 x1 y1 x2 y2 x3 y3 cl] a) = 
+    [(utils.rotx x0 y0 a) (utils.roty x0 y0 a)
+     (utils.rotx x1 y1 a) (utils.roty x1 y1 a) 
+     (utils.rotx x2 y2 a) (utils.roty x2 y2 a)
+     (utils.rotx x3 y3 a) (utils.roty x3 y3 a) cl] 
+  rot90 = \([x0 y0 x1 y1 x2 y2 x3 y3 cl]) = 
+    [(neg y0) x0 (neg y1) x1 (neg y2) x2 (neg y3) x3 cl]
+  rot180 = \([x0 y0 x1 y1 x2 y2 x3 y3 cl]) = 
+    [(neg x0) (neg y0) (neg x1) (neg y1)
+     (neg x2) (neg y2) (neg x3) (neg y3) cl]
+  rot270 = \([x0 y0 x1 y1 x2 y2 x3 y3 cl]) = 
+    [y0 (neg x0) y1 (neg x1) y2 (neg x2) y3 (neg x3) cl]
+  button = \([x0 y0 x1 y1 x2 y2 x3 y3 cl] _ bx by _ _ _) =
+    if (hitLine bx by x0 y0 x1 y1) then true else
+    if (hitLine bx by x1 y1 x2 y2) then true else
+    if (hitLine bx by x2 y2 x3 y3) then true else
+    (hitLine bx by x3 y3 x0 y0)
+  render = \([x0 y0 x1 y1 x2 y2 x3 y3 _] cx) =
+    (xlib.drawQuad cx.display cx.window cx.gc x0 y0 x1 y1 x2 y2 x3 y3)
+  init = \(s _) = s
+]
+
+def quad (x0:Int y0:Int x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int):Picture =
+  [#S #S methods [x0 y0 x1 y1 x2 y2 x3 y3 \_ = ()]]
+
+def inside
+  ([x0:Int y0:Int x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int]
+   bx:Int by:Int):Bool
+ =
+  (xor >
+   (crossesLine bx by x0 y0 x1 y1) (crossesLine bx by x1 y1 x2 y2)
+   (crossesLine bx by x2 y2 x3 y3) (crossesLine bx by x3 y3 x0 y0))
+
+def fillQuad
+  (x0:Int y0:Int x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int):Picture
+ =
+  [#S #S
+   (methods where
+    button = \(s:S _:CX bx:Int by:Int _:Button _:Bool _:Int):Bool =
+      (inside s bx by)
+    render =
+      \([x0:Int y0:Int x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int] cx:CX):[] =
+      (xlib.fillQuad cx.display cx.window cx.gc x0 y0 x1 y1 x2 y2 x3 y3))
+   [x0 y0 x1 y1 x2 y2 x3 y3 \_ = ()]]
+
+def rect (x:Int y:Int w:Int h:Int):Picture =
+  (quad x y (+ x w) y (+ x w) (+ y h) x (+ y h))
+def fillRect (x:Int y:Int w:Int h:Int):Picture =
+  (fillQuad x y (+ x w) y (+ x w) (+ y h) x (+ y h))
+
+def intersectsAt (x0:Int y0:Int x1:Int y1:Int bx:Int by:Int):[Int Int] =
+  (val dx = (- x1 x0)
+   val dy = (- y1 y0)
+   [(-  (* (- y0 by) (- y0 y1))  (* (- x0 bx) (- x1 x0)))
+    (+ (* dx dx) (* dy dy))])
+
+def notifyClick
+  ([x0:Int y0:Int x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int
+    a:/[Button Bool Int Int Int Int]] bx:Int by:Int b:Button ud:Bool):[]
+ =
+  (val [f g] = (intersectsAt x0 y0 x1 y1 bx by)
+   val [h i] = (intersectsAt x0 y0 x3 y3 bx by)
+   (write a [b ud f g h i]))
+
+def clickable
+  (x:Int y:Int w:Int h:Int a:/[Button Bool Int Int Int Int]):Picture
+ =
+  [(methods where
+    button = \(s:S _:CX bx:Int by:Int b:Button ud:Bool _:Int):Bool =
+      if (inside s bx by) then ((notifyClick s bx by b ud); true) else false)
+   [x y (+ x w) y (+ x w) (+ y h) x (+ y h) a]]
+
+def spacer (x:Int y:Int w:Int h:Int):Picture =
+  [#S #S
+   (methods where
+    button = \(_:S _:CX _:Int _:Int _:Button _:Bool _:Int):Bool = false
+    render = \(_:S _:CX):[] = [])
+   [x y (+ x w) y (+ x w) (+ y h) x (+ y h) \_ = ()]]
+
+type S = [Int Int Int Int]
+
+val ellipseMethods:(M S S) =
+  [constant = true
+   reconfigure = \(_ s _) = s
+   delete = \(_) = []
+   boundary = \([x y w h]) = [(- x w) (+ x w) (+ y h) (- y h)] 
+   move = \([x y w h] dx dy) = [(+ x dx) (+ y dy) w h] 
+   scale = \([x y w h] sx dx sy dy) =
+     [(div (* x dx) sx) (div (* y dy) sy)
+      (div (* w dx) sx) (div (* h dy) sy)] 
+   rotate = \([x y w h] a) = [(utils.rotx x y a) (utils.roty x y a) w h] 
+   rot90 = \([x y w h]) = [(neg y) x w h] 
+   rot180 = \([x y w h]) = [(neg x) (neg y) w h] 
+   rot270 = \([x y w h]) = [y (neg x) w h] 
+   button = \([x y w h] _ bx by _ _ t) = false
+   render = \([x y w h] cx) =
+     (xlib.drawArc cx.display cx.window cx.gc
+      (- x w) (- y h) (* w 2) (* h 2) 0 (* 360 64))
+   init = \(s _) = s]
+
+def ellipse (x:Int y:Int w:Int h:Int):Picture =
+  [ellipseMethods [x y (div w 2) (div h 2)]]
+
+def fillEllipse (x:Int y:Int w:Int h:Int):Picture =
+  [(ellipseMethods where
+    render = \([x:Int y:Int w:Int h:Int] cx:CX):[] =
+      (xlib.fillArc cx.display cx.window cx.gc
+       (- x w) (- y h) (* w 2) (* h 2) 0 (* 360 64)))
+   [x y (div w 2) (div h 2)]]
+
+def text (text:String):Picture =
+  [#String #[Int Int String TextExtents]
+   [constant = true
+    reconfigure = \(_ s _) = s
+    delete = \(_) = []
+    boundary = \([x y t e]) =
+      [x (+ x e.width) (+ > y e.fontAscent e.fontDescent) y]
+    move = \([x y t e] dx dy) = [(+ x dx) (+ y dy) t e] 
+    scale = \([x y t e] sx dx sy dy) =
+      [(div (* x dx) sx) (div (* y dy) sy) t e] 
+    rotate = \([x y t e] an) =
+      [(utils.rotx x y an) (utils.roty x y an) t e] 
+    rot90 = \([x y t e]) = [(neg y) x t e] 
+    rot180 = \([x y t e]) = [(neg x) (neg y) t e] 
+    rot270 = \([x y t e]) = [y (neg x) t e] 
+    button = \([x y t e] _ bx by _ _ t) =
+      (&& > (<= x bx) (<= bx (+ x e.width))
+       (<= y by) (<= by (+ > y e.fontAscent e.fontDescent)))
+    render = \([x y t e] cx) =
+      (xlib.drawString cx.display cx.window cx.gc
+       x (+ y e.fontAscent) t)
+    init = \(t cx) =
+      [0 0 t (xlib.textExtents cx.font t)]]
+  text]
+
+def pixmap (file:String fail:Exn):Picture =
+  [#[String Exn] #[Int Int Int Int Pixmap]
+   [constant = true
+    reconfigure = \(_ s _) = s
+    delete = \(_) = []
+    boundary = \([x y w h p]) = [x (+ x w) (+ y h) y]
+    move = \([x y w h p] dx dy) = [(+ x dx) (+ y dy) w h p] 
+    scale = \([x y w h p] sx dx sy dy) =
+      [(div (* x dx) sx) (div (* y dy) sy) w h p] 
+    rotate = \([x y w h p] an) =
+      [(utils.rotx x y an) (utils.roty x y an) w h p] 
+    rot90 = \([x y w h p]) = [(neg y) x w h p] 
+    rot180 = \([x y w h p]) = [(neg x) (neg y) w h p] 
+    rot270 = \([x y w h p]) = [y (neg x) w h p] 
+    button = \([x y w h p] _ bx by _ _ t) =
+      (&& > (<= x bx) (<= bx (+ x w)) (<= y by) (<= by (+ y h)))
+    render = \([x y w h p] cx) =
+      (xlib.copyArea cx.display p cx.window cx.gc
+       0 0 w h x y)
+    init = \([file fail] cx) =
+      (val f = (io.openRd file fail)
+       def failRGB _:[Int Int Int] = fail!"Widget.pixmap: color lookup failed"
+       def allocColor (r:Int g:Int b:Int):Color =
+	 (cx.newColorRGB r g b failRGB)
+       val array = (ppm.parse f fail allocColor) (f.close);
+       val [w h] = (array2.size array)
+       val pixmap =
+	 (xlib.createPixmap cx.display cx.root w h
+	  (xlib.defaultDepth cx.display cx.screen))
+       def setPixmapEntry (x:Int y:Int color:Color):[] =
+	 ((xlib.setForeground cx.display cx.gc color);
+	  (xlib.drawPoint cx.display pixmap cx.gc x y))
+       (array2.apply array setPixmapEntry);
+       [0 0 w h pixmap])]
+  [file fail]]
+
+[null=null point=point line=line hLine=hLine vLine=vLine quad=quad
+ fillQuad=fillQuad rect=rect fillRect=fillRect clickable=clickable
+ spacer=spacer ellipse=ellipse fillEllipse=fillEllipse text=text
+ pixmap=pixmap]
+
+)

@@ -1,0 +1,19 @@
+import "Posix/Args"
+import "Posix/Sockets"
+import "Contrib/Parse"
+
+val [intOpts _ _ _] =
+  (args.getOpts (cons ["port" "p"] nil) nil nil exn.exit)
+
+val port = (exn.try #String #Int \(h) = (intOpts "port" h) \(_) = 5001)
+val s = (sockets.streamSocket exn.exit)
+(sockets.bindAny s port 4 exn.exit);
+val f = (sockets.accept s exn.exit)
+val r = (io.fdRd f)
+(prErr "Reading message\n");
+val l = (parse.line r)
+(prErr "Message: "); (prErr l); (nlErr);
+(prErr "Sending reply\n");
+(fd.write f "SERVER REPLY\n");
+(prErr "Closing connection\n");
+(fd.close f);

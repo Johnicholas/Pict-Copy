@@ -1,0 +1,204 @@
+\section{@Std/Array2@: 2D Array Utilities}
+
+##import "Std/Array"
+##import "Std/Bool"
+##import "Std/List"
+##import "Std/Misc"
+
+##val [
+
+\subsection{Types}
+
+#*#Array2 : (Type -> Type)
+\begin{doc}
+@(Array2 X)@ is the type of two dimensional arrays which contain elements
+of type @X@.
+\end{doc}
+
+##array2:[
+
+\subsection{Creation}
+
+#*empty = /[#X /(Array2 X)] 
+\begin{doc}
+@(empty)@ returns a 2D array of size zero. This function is useful since,
+unlike @make@, it does not require an initializing element.
+\end{doc}
+
+#*make = /[#X X Int Int /(Array2 X)] 
+\begin{doc}
+@(make x w h)@ returns a new array of dimension @[w h]@, with each element
+initialized to @x@. Both the width @w@ and height @h@ must be greater than
+or equal to zero.
+\end{doc}
+
+#*tabulate = /[#X Int Int /[Int Int /X] /(Array2 X)] 
+\begin{doc}
+@(tabulate w h f)@ creates an array of size @[w h]@ where each element
+@[x y]@ is initialised to @(f x y)@.  Both @w@ and @h@ must be greater than
+or equal to zero. The function @f@ is called sequentially, and in order
+(@[0 0]@, @[0 1]@, $\ldots$, @[0 (h-1)]@, @[1 0]@, @[1 1]@, \ldots,
+@[w h]@).
+\end{doc}
+
+#*fromList = /[#X (List(List X)) /(Array2 X)] 
+\begin{doc}
+@(fromList l)@ creates an array from a list of lists of elements. The
+sub-lists of @l@ must all be of the same length (since @Array2@ only allows
+rectangular arrays). If this is not the case, we generate a runtime error.
+\end{doc}
+
+\subsection{Interrogation}
+
+#*size = /[#X (Array2 X) /[Int Int]] 
+\begin{doc}
+@(size a)@ returns the width and height of @a@.
+\end{doc}
+
+#*nth = /[#X (Array2 X) Int Int /X] 
+#*unsafeNth = /[#X (Array2 X) Int Int /X] 
+\begin{doc}
+@(nths a x y)@ looks up the element at position @[x y]@ in @a@. It must be
+the case that $@[0 0]@ \leq @[x y]@$ and $@[x y]@ < @(size a)@$, otherwise
+we generate a runtime error.  @unsafeNth@ behaves similarly, except that it
+does not do any range checking.
+\end{doc}
+
+\subsection{Modification}
+
+#*update = /[#X (Array2 X) Int Int X Sig] 
+#*unsafeUpdate = /[#X (Array2 X) Int Int X Sig] 
+\begin{doc}
+@(update a x y v)@ updates the element at @[x y]@ in @a@ to be @v@. If
+@[x y]@ is not a valid index for @a@ then we generate a runtime error.
+@unsafeUpdate@ behaves similarly, except that it does not do any range
+checking.
+\end{doc}
+
+#*reset = /[#X (Array2 X) X Sig] 
+\begin{doc}
+@(reset a x)@ sets the value of each array element to @x@.
+\end{doc}
+
+#*rotate = /[#X (Array2 X) Int Int Sig]
+\begin{doc}
+The expression @(rotate a dx dy)@ rotates @a@ so that the @[i j]@'th
+element of @a@ contains the value which used to be stored at index
+@[(+ i dx) (+ j dy)]@.  For example, the expression @(rotate a -1 -1)@
+shifts the contents of @a@ up and to the right by one.
+\end{doc}
+
+\subsection{Iteration}
+
+#*fold = /[#X #Y (Array2 X) /[Int Int X Y /Y] Y /Y] 
+#*revFold = /[#X #Y (Array2 X) /[Int Int X Y /Y] Y /Y] 
+\begin{doc}
+@(fold a f i)@ applies @f@ to each element of @a@ (plus its index),
+accumulating a result of type @Y@. @f@ is called sequentially, and in
+order, with the initial accumulated argument being @i@.  @revFold@ behaves
+similarly, except that it iterates over @a@ in reverse order.
+\end{doc}
+
+#*apply = /[#X (Array2 X) /[Int Int X Sig] Sig] 
+#*revApply = /[#X (Array2 X) /[Int Int X Sig] Sig] 
+\begin{doc}
+@(apply f a)@ applies @f@ to each element of @a@, along with its index. @f@
+is called sequentially, and in order.  @revMap@ behaves similarly, except
+that it iterates over @a@ in reverse order.
+\end{doc}
+
+#*map = /[#X (Array2 X) /[Int Int X /X] Sig] 
+#*revMap = /[#X (Array2 X) /[Int Int X /X] Sig] 
+\begin{doc}
+@(map a f)@ applies @f@ to each element of @a@, along with its index,
+updating each element in @a@ with the result of applying @f@. @f@ is called
+sequentially, and in order.  @revMap@ behaves similarly, except that it
+iterates over @a@ in reverse order.
+\end{doc}
+
+#{#}
+]]
+= (
+
+type (Array2 X) = (Array (Array X))
+
+def empty (#X) : (Array2 X) = (array.empty #(Array X)){-HACK-}
+
+def make (#X x:X w:Int h:Int) : (Array2 X) =
+  ((error.check "array2.make: negative size" (&& (>= w 0) (>= h 0)));
+   (array.tabulate #(Array X) w \(_) = (array.make #X x h)))
+
+def tabulate (#X w:Int h:Int init:/[Int Int /X]) : (Array2 X) =
+  ((error.check "array2.tabulate: negative size" (&& (>= w 0) (>= h 0)));
+   (array.tabulate #(Array X) w
+    \(x) = (array.tabulate #X h \(y) = (init x y))))
+
+def fromList (#X l:(List(List X))) : (Array2 X) =
+  (val width = (list.size l)
+   val height = if (== width 0) then 0 else (list.size (car l))
+   def makeColumn (column:(List X)):(Array X) =
+     ((error.check "array2.fromList: sub-lists have different lengths"
+       (== (list.size column) height));
+      (array.fromList column))
+   (array.fromList (list.map l makeColumn)))
+
+def size (#X a:(Array2 X)) : [Int Int] =
+  if (== (array.size a) 0) then [0 0]
+  else [(array.size a) (array.size (array.nth a 0))]
+
+inline def nth (#X a:(Array2 X) x:Int y:Int) : X =
+  (array.nth (array.nth a x) y)
+
+inline def unsafeNth (#X a:(Array2 X) x:Int y:Int) : X =
+  (array.unsafeNth (array.unsafeNth a x) y)
+
+inline def update (#X a:(Array2 X) x:Int y:Int v:X) : [] =
+  (array.update (array.nth a x) y v)
+
+inline def unsafeUpdate (#X a:(Array2 X) x:Int y:Int v:X) : [] =
+  (array.unsafeUpdate (array.unsafeNth a x) y v)
+
+def reset (#X a:(Array2 X) x:X) : [] =
+  (array.apply #(Array X) a \(_ col) = (array.reset col x))
+
+def rotate (#X a:(Array2 X) dx:Int dy:Int) : [] =
+  ((array.apply #(Array X) a \(_ col) = (array.rotate col dy));
+   (array.rotate a dx))
+
+def fold (#X #Y a:(Array2 X) f:/[Int Int X Y /Y] init:Y) : Y =
+  (def fCol (x:Int col:(Array X) acc:Y):Y =
+     (array.fold col \(y:Int v:X acc:Y):Y = (f x y v acc) acc)
+   (array.fold a fCol init))
+
+def revFold (#X #Y a:(Array2 X) f:/[Int Int X Y /Y] init:Y) : Y =
+  (def fCol (x:Int col:(Array X) acc:Y):Y =
+     (array.revFold col \(y:Int v:X acc:Y):Y = (f x y v acc) acc)
+   (array.revFold a fCol init))
+
+def apply (#X a:(Array2 X) f:/[Int Int X Sig]) : [] =
+  (def fCol (x:Int col:(Array X)):[] =
+     (array.apply col \(y:Int v:X):[] = (f x y v))
+   (array.apply a fCol))
+
+def revApply (#X a:(Array2 X) f:/[Int Int X Sig]) : [] =
+  (def fCol (x:Int col:(Array X)):[] =
+     (array.revApply col \(y:Int v:X):[] = (f x y v))
+   (array.revApply a fCol))
+
+def map (#X a:(Array2 X) f:/[Int Int X /X]) : [] =
+  (def fCol (x:Int col:(Array X)):[] =
+     (array.map col \(y:Int v:X):X = (f x y v))
+   (array.apply a fCol))
+
+def revMap (#X a:(Array2 X) f:/[Int Int X /X]) : [] =
+  (def fCol (x:Int col:(Array X)):[] =
+     (array.revMap col \(y:Int v:X):X = (f x y v))
+   (array.revApply a fCol))
+
+[#Array2
+ [empty=empty make=make tabulate=tabulate fromList=fromList size=size
+  nth=nth unsafeNth=unsafeNth update=update unsafeUpdate=unsafeUpdate
+  reset=reset rotate=rotate fold=fold revFold=revFold apply=apply
+  revApply=revApply map=map revMap=revMap]]
+
+)

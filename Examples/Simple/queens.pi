@@ -1,0 +1,47 @@
+{-
+ - Count the number of solutions to the "n queens" problem.
+ -}
+
+now (reset checks)
+now (setHeapSize 512)
+
+type Solution = (List (List Int))
+
+def nqueens (size:Int):Int = (
+  def safe (x:Int d:Int l:(List Int)):Bool =
+    if (null l) then
+      true
+    else
+      (val q = (car l)
+       if (&& > (<> x q) (<> x (+ q d)) (<> x (- q d))) then
+	 (safe x (inc d) (cdr l))
+       else
+	 false)
+
+  def tryPosition (q:Int b:(List Int) s:Solution) : Solution =
+    if (== q 0) then
+      s
+    else if (safe q 1 b) then
+      (tryPosition (dec q) b (cons (cons q b) s))
+    else
+      (tryPosition (dec q) b s)
+
+  def addSolution (b:(List Int) s:Solution) : Solution =
+    (tryPosition size b s)
+
+  def gen (x:Int) : Solution =
+    if (== x 0) then (cons #(List Int) nil nil){-HACK-}
+    else (list.fold (gen (dec x)) addSolution nil)
+
+  (list.size (gen size))
+)
+
+def test (x:Int):[] =
+  if (<= x 10) then
+    ((pr "(nqueens "); (int.pr x); (pr ") = ");
+     (int.pr (nqueens x)); (nl);
+     (test (inc x)))
+  else
+    []
+
+(test 0);

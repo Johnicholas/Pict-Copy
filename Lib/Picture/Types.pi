@@ -1,0 +1,137 @@
+# line 1 "/home/pierce/pict/Lib/Picture/Types.src"
+
+
+
+  import "X11/Xlib"
+  import "Picture/Utils"
+
+
+
+
+
+
+  type ResourceManager = [
+
+  newFont = /[String Exn /Font]
+
+
+
+
+
+
+
+  newColor = /[String Exn /Color]
+  newColorRGB = /[Int Int Int (Handler [Int Int Int]) /Color]
+
+
+
+
+
+
+
+
+  resource = /[String Exn /String]
+
+
+
+
+
+
+
+
+
+  colorResource = /[String String /Color]
+
+
+
+
+
+
+
+
+  fontResource = /[String String /Font]
+
+
+
+
+
+
+
+
+  intResource = /[String Int /Int]
+
+
+
+
+
+
+
+  boolResource = /[String Bool /Bool]
+
+
+
+
+
+
+
+  ]
+
+
+
+  type CX =
+    (ResourceManager with
+     display = Display
+     screen  = ScreenNum
+     root    = Window
+     window  = Window
+     font = Font
+     fg = Color
+     bg = Color
+     gc = GC
+     useGc   = /[/[GC Sig] Sig]
+     quit    = ![]
+     changed = ![])
+
+
+
+  type Bounds = [Int Int Int Int]
+
+
+
+  type (M I R) =
+    [constant = Bool
+     reconfigure = /[I R CX /R]
+     delete = /[R Sig]
+     boundary = /[R /Bounds] {- Combine with init method -}
+     move = /[R Int Int /R]
+     scale = /[R Int Int Int Int /R]
+     rotate = /[R Rot /R]
+     rot90 = /[R /R]
+     rot180 = /[R /R]
+     rot270 = /[R /R]
+     button = /[R CX Int Int Button Bool Int /Bool]
+     render = /[R CX Sig]
+     init = /[I CX /R]]
+
+
+
+  type Picture = [#I #R (M I R) I]
+
+
+
+
+
+
+  type Active = [#I #R (M I R) I R]
+
+
+
+  type Controller =
+    [map   = /[Sig]
+     unmap = /[Sig]
+     quit  = /[Sig]]
+
+  type Server =
+    (ResourceManager with
+     open = /[String Picture Sig]
+     openControlled = /[String Picture /Controller])

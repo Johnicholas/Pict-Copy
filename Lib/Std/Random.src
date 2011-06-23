@@ -1,0 +1,116 @@
+\section{@Std/Random@: Random Numbers}
+
+##import "Std/Misc"
+
+The random number generator used in this library is the PMMMLCG (Prime
+Modulus M Multiplicative Linear Congruential Generator), a modified version
+of the random number generator proposed by Park and Miller in ``Random
+Number Generators: Good Ones Are Hard to Find'', CACM October 1988, Vol 31,
+No. 10. It includes modifications proposed by Park to provide better
+statistical properties (i.e.\ more `random' -- less correlation between
+sets of generated numbers).  It was developed by John Burton ({\tt
+jcburt@@@@cs.wm.edu}) of G \& A Technical Software, Inc 28 Research Drive
+Hampton, Va. 23666.
+
+The generator is of the form $x = (x * A) \% M$ and has a period of
+$2^{31}-1$, with numbers generated in the range of $0 < x < M$. The
+generator can run on any machine with a 32-bit integer, without overflow.
+The choice of $A$ and $M$ can radically modify the properties of the
+generator.  The current values ($48271$ and $2147483647$) were chosen after
+followup work to the original paper mentioned above.
+
+##val random:[
+
+\subsection{Operations}
+
+#*randomize = /[Int /[]]
+\begin{doc}
+@(randomize x)@ sets the seed in the random number generator to @x@.
+\end{doc}
+
+#*max = Int
+\begin{doc}
+The upper limit on numbers produces by @random@.
+\end{doc}
+
+#*random = /[/Int]
+\begin{doc}
+Returns a random integer @r@ such that $@0@ < @r@ < @max@$.  Note that this
+function never returns zero, unlike @randomInt@.
+\end{doc}
+
+#*randomInt = /[Int /Int]
+\begin{doc}
+@(randomInt m)@ returns a random integer @r@ such that $@0@ \leq @r@ <
+@m@$.  Note that this function may return zero, unlike @random@.
+\end{doc}
+
+#*randomCoin = /[/Bool]
+\begin{doc}
+A special case of the random number generator that returns a random boolean.
+\end{doc}
+
+#{#}
+] = (
+
+(ccode 0 I "##include <math.h>");
+(ccode 0 I "extern long randomSeed;");
+(ccode 0 S "long randomSeed=123456789;");
+
+(ccode 0 I "extern long Random (void);");
+(ccode 0 I "extern long RandomInt (Val max);");
+(ccode 0 I "extern Val RandomCoin (void);");
+
+(ccode 0 S "
+long Random (void) {
+  long A = 48271;
+  long M = 2147483647;
+  long hi = randomSeed / (M / A);
+  long lo = randomSeed % (M / A);
+  long test = A * lo - (M % A) * hi;
+  randomSeed = (test > 0) ? (test) : (test + M);
+  return randomSeed;
+}");
+
+(ccode 0 S "
+long RandomInt (Val max) {
+  double f,r;
+  long A = 48271;
+  long M = 2147483647;
+  long hi = randomSeed / (M / A);
+  long lo = randomSeed % (M / A);
+  long test = A * lo - (M % A) * hi;
+  randomSeed = (test > 0) ? (test) : (test + M);
+  r = ((double)randomSeed * ((double)max / (double)M)); f = floor(r);
+  return ((r - f) < 0.5) ? (long)f : ((long)f)+1;
+}");
+
+(ccode 0 S "
+Val RandomCoin (void) {
+  long A = 48271;
+  long M = 2147483647;
+  long hi = randomSeed / (M / A);
+  long lo = randomSeed % (M / A);
+  long test = A * lo - (M % A) * hi;
+  randomSeed = (test > 0) ? (test) : (test + M);
+  return (randomSeed > (M/2));
+}");
+
+inline def randomize (x:Int) : [] =
+  (ccode 0 E "randomSeed = I(#);" x)
+
+val max = 2147483647
+
+inline def random () : Int =
+  (ccode 0 W "intInt(Random())")
+
+inline def randomInt (m:Int) : Int =
+  (ccode 0 W "intInt(RandomInt(I(#)))" m)
+
+inline def randomCoin () : Bool =
+  (ccode 0 W "RandomCoin()")
+
+[randomize=randomize max=max random=random randomInt=randomInt
+ randomCoin=randomCoin]
+
+)

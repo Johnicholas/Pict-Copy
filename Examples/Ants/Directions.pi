@@ -1,0 +1,26 @@
+{-
+ - The datatype of directions.
+ -}
+
+import "Std/Array"
+
+type AntDirection = Int
+val directions : Int = 8
+
+{-
+ - Create a "constant" vector of offsets for the directions.
+ -}
+
+val da = (array.make [0 0] 8)
+(array.update da 0 [ 0 -1]);   {- 0 = north     -}
+(array.update da 1 [ 1 -1]);   {- 1 = northeast -}
+(array.update da 2 [ 1  0]);   {- 2 = east      -}
+(array.update da 3 [ 1  1]);   {- 3 = southeast -}
+(array.update da 4 [ 0  1]);   {- 4 = south     -}
+(array.update da 5 [-1  1]);   {- 5 = southwest -} 
+(array.update da 6 [-1  0]);   {- 6 = west      -} 
+(array.update da 7 [-1 -1]);   {- 7 = northwest -}    
+
+inline def delta (d:AntDirection) : [Int Int] = (array.nth da d)
+inline def turnLeft (d:AntDirection) : AntDirection = (int.land (dec d) 7)
+inline def turnRight (d:AntDirection) : AntDirection = (int.land (inc d) 7)

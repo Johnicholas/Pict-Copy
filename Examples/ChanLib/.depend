@@ -1,0 +1,5 @@
+broadcast broadcast.px : broadcast.pi ../../Lib/lib.px 
+semaphore semaphore.px : semaphore.pi ../../Lib/lib.px ../../Lib/Std/Queue.px 
+simple simple.px : simple.pi ../../Lib/lib.px 
+sync sync.px : sync.pi ../../Lib/lib.px 
+torus torus.px : torus.pi ../../Lib/lib.px ../../Lib/Std/Array2.px 

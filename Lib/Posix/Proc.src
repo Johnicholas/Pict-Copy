@@ -1,0 +1,197 @@
+\section{@Posix/Proc@: Process Creation}
+
+##import "Std/Int"
+##import "Std/List"
+##import "Std/Opt"
+##import "Posix/Signals"
+
+This module provides some simple facilities for running Unix processes.
+
+##val [
+
+\subsection{Types}
+
+#*#PID
+\begin{doc}
+@PID@ is the type of proceess identifiers.
+\end{doc}
+
+#*#Status
+\begin{doc}
+@Status@ is the type of process status information.
+\end{doc}
+
+##proc:[
+
+\subsection{Process Identification}
+
+#*getpid = /[/PID]
+\begin{doc}
+Returns the process id of the current process.
+\end{doc}
+
+#*getppid = /[/PID]
+\begin{doc}
+Returns the process id of the parent of the current process.
+\end{doc}
+
+#*pidString = /[PID /String]
+\begin{doc}
+@(pidString p)@ Converts the process id @p@ to a string.
+\end{doc}
+
+\subsection{Process Status}
+
+#*waitpid = /[PID /Status]
+\begin{doc}
+@(wait p)@ waits for the child process @p@ to terminate, returning the exit
+status of @p@.
+\end{doc}
+
+#*exited = /[Status /Bool]
+\begin{doc}
+@(exited s)@ returns @true@ if the child process terminated normally with
+@exit@ or \verb#_exit#.
+\end{doc}
+
+#*exitStatus = /[Status /Int]
+\begin{doc}
+If @(exited s)@ is true then @(exitStatus s)@ returns the low-order
+8 bits of the exit status value from the child process.
+\end{doc}
+
+#*signalled = /[Status /Bool]
+\begin{doc}
+Returns @true@ if the child process terminated because it received
+a signal that was not handled.
+\end{doc}
+
+#*termSig = /[Status /Signal]
+\begin{doc}
+If @(signalled s)@ is true then @(termSig s)@ returns the signal
+number of the signal that terminated the child process.
+\end{doc}
+
+\subsection{Process Creation}
+
+#*exec = /[String (List String) /PID]
+\begin{doc}
+@(exec prog args)@ executes the program @prog@ with the given arguments (by
+creating a separate Unix process).  Returns the process id of the created
+process.
+\end{doc}
+
+#*exece = /[String (List String) (List String) /PID]
+\begin{doc}
+@exece@ is similar to @exec@ except that it allows an explicit environment
+(a list of strings of the form @VAR=value@, see Section~\ref{s:Env} for
+more details) to be passed to the program @prog@.  Returns the process id
+of the created process.
+\end{doc}
+
+#*shell = /[String /Status]
+\begin{doc}
+@(exec com)@ executes the shell command @com@ (using @/bin/sh@) and then
+waits for it to terminate.
+\end{doc}
+
+#*shelle = /[String (List String) /Status]
+\begin{doc}
+A variant of @shell@ which allows an explicit environment to be supplied
+for the shell process (a list of strings of the form @NAME=value@).
+\end{doc}
+
+#{#}
+]] = (
+
+(ccode 0 I "##include <unistd.h>");
+(ccode 0 I "##include <sys/types.h>");
+(ccode 0 I "##include <sys/wait.h>");
+
+type PID = Int
+
+inline def getpid () : PID =
+  (ccode 0 P "intInt(getpid())")
+
+inline def getppid () : PID =
+  (ccode 0 P "intInt(getppid())")
+
+inline def pidString (p:PID) : String =
+  ($$ p)
+
+val [#Status] = [#Top]
+
+inline def waitpid (pid:PID) : Status =
+  (val status:Status = (ccode 0 R "(Val)malloc(sizeof(int))")
+   (signals.retry signals.SIGCHLD \():(Opt Status) = (
+       val p:Int =
+         (ccode 0 W "intInt(waitpid(I(#),(int*)(#),WNOHANG))" pid status)
+       if (== p 0) then opt.no
+       else if (<< p 0) then (error.fatal "waitpid")
+       else (opt.yes status)
+   )))
+
+def exited (s:Status) : Bool =
+  (ccode 0 C "WIFEXITED(*(int*)(#))" s)
+def exitStatus (s:Status) : Int =
+  (ccode 0 C "intInt(WEXITSTATUS(*(int*)(#)))" s)
+def signalled (s:Status) : Bool =
+  (ccode 0 C "WIFSIGNALED(*(int*)(#))" s)
+def termSig (s:Status) : Signal =
+  (ccode 0 C "intInt(WTERMSIG(*(int*)(#)))" s)
+
+def exec (prog:String args:(List String)) : PID =
+  (val argc = (list.size args)
+   val a = (prim.alloc (* (inc argc) (ccode 0 P "intInt(sizeof(char*))")))
+   def setArg (x:Int arg:String):[] =
+     (ccode 0 E "((char**)S(#))[I(#)] = S(#);" a x arg)
+   (ccode 0 E "((char**)S(#))[I(#)] = NULL;" a argc);
+   (list.itApply args setArg);
+   val pid:Int = (ccode 0 W "intInt(fork())")
+   if (== pid 1) then
+     (error.fatal "exec: fork failed")
+   else if (== pid 0) then
+     if (ccode 0 W "(execv(S(#),(char**)S(#)) == -1)" prog a) then
+       (error.fatal "exec: failed")
+     else
+       (error.fatal "exec: should never reach this code")
+   else
+     pid)
+
+def exece (prog:String args:(List String) env:(List String)) : PID =
+  (val argc = (list.size args)
+   val a = (prim.alloc (* (inc argc) (ccode 0 P "intInt(sizeof(char*))")))
+   def setArg (x:Int arg:String):[] =
+     (ccode 0 E "((char**)S(#))[I(#)] = S(#);" a x arg)
+   (ccode 0 E "((char**)S(#))[I(#)] = NULL;" a argc);
+   (list.itApply args setArg);
+   val envc = (list.size env)
+   val e = (prim.alloc (* (inc envc) (ccode 0 P "intInt(sizeof(char*))")))
+   def setEnv (x:Int env:String):[] =
+     (ccode 0 E "((char**)S(#))[I(#)] = S(#);" e x env)
+   (ccode 0 E "((char**)S(#))[I(#)] = NULL;" e envc);
+   (list.itApply env setEnv);
+   val pid:Int = (ccode 0 W "intInt(fork())")
+   if (== pid 1) then
+     (error.fatal "exece: fork failed")
+   else if (== pid 0) then
+     if
+       (ccode 0 W "(execve(S(#),(char**)S(#),(char**)S(#)) == -1)" prog a e)
+     then
+       (error.fatal "exece: failed")
+     else
+       (error.fatal "exece: should never reach this code")
+   else
+     pid)
+
+def shell (cmd:String) : Status =
+  (waitpid(exec "/bin/sh" (cons > "/bin/sh" "-c" cmd nil)))
+
+def shelle (cmd:String env:(List String)) : Status =
+  (waitpid(exece "/bin/sh" (cons > "/bin/sh" "-c" cmd nil) env))
+
+[[getpid=getpid getppid=getppid pidString=pidString waitpid=waitpid
+  exited=exited exitStatus=exitStatus signalled=signalled termSig=termSig
+  exec=exec exece=exece shell=shell shelle=shelle]]
+
+)

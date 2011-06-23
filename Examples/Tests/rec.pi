@@ -1,0 +1,44 @@
+{-
+ - Recursive types.
+ -}
+
+type (ProcAlts X Proc) =
+  [Skip = /[/X]
+   In =   /[String String Proc /X]
+   RIn =  /[String String Proc /X]
+   Out =  /[String String /X]
+   Par =  /[Proc Proc /X]
+   New =  /[String Proc /X]]
+
+type Proc = (rec Proc = /[#X (ProcAlts X Proc) /X])
+
+val Skip : Proc =
+  (rec : Proc \(#X r:(ProcAlts X Proc)):X = (r.Skip))
+
+def In (i:String s:String p:Proc) : Proc =
+  (rec \(#X r:(ProcAlts X Proc)):X = (r.In i s p))
+
+def RIn (i:String s:String p:Proc) : Proc =
+  (rec \(#X r:(ProcAlts X Proc)):X = (r.RIn i s p))
+
+def Out (i:String j:String) : Proc =
+  (rec \(#X r:(ProcAlts X Proc)):X = (r.Out i j))
+
+def Par (p:Proc q:Proc) : Proc =
+  (rec \(#X r:(ProcAlts X Proc)):X = (r.Par p q))
+
+def New (s:String p:Proc) : Proc =
+  (rec \(#X r:(ProcAlts X Proc)):X = (r.New s p))
+
+def procString ((rec:Proc p)) : String =
+  (p #String [
+   Skip = \() = "skip"
+   In = \(n s q) = (+$ > n "?" s " = " (procString q))
+   RIn = \(n s q) = (+$ > n "?*" s " = " (procString q))
+   Out = \(i j) = (+$ > i "!" j)
+   Par = \(p q) = (+$ > "(" (procString p) " | " (procString q) ")")
+   New = \(s q) = (+$ > "(new " s " " (procString q) ")")
+  ])
+
+val p = (New "x" (New "y" (Par (Out "x" "y") (In "x" "z" Skip))))
+(pr (procString p)); (nl);

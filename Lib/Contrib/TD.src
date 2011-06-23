@@ -1,0 +1,224 @@
+\section{@Contrib/TD@: Type Descriptors}
+\label{s:TD}
+
+##import "Std/Io"
+##import "Contrib/Parse"
+
+Type descriptors support typesafe conversions between typed Pict values and
+streams of characters.  Applications include storing persistent data
+structures in files); marshalling data to be transmitted from one address
+space to another; and implementing a simple @Dynamic@ type and associated
+@typecase@ construct.
+
+Not every Pict type has an associated type descriptor.  In particular,
+there is no way to build a type descriptor for a channel type.  This is
+because the @TD@ library is entirely written in Pict, with no ``cheating,''
+and there is no typesafe way to coerce between strings and channels.
+Moreover, type descriptors are not generated automatically.  However, this
+library does provides predefined descriptors for some common base types and
+facilities for building type descriptors for more complex types by composing
+type descriptors.
+
+##val [
+
+\subsection{Types}
+
+#*#TD = \X =
+#*  [marshall = /[Wr X Sig] 
+#*   unmarshall = /[Rd Exn /X]]
+\begin{doc}
+@(TD X)@ denotes a type descriptor for a type @X@ and is a record
+containing two functions: @(marshall w x)@ prints a string representation
+of @x@ on @w@, while @(unmarshall r h)@, parses an element of @X@ from @r@,
+signalling on @h@ if we fail to parse a value of type @X@.
+\end{doc}
+
+\subsection{Descriptors For Basic Types}
+
+##td:[
+
+Type descriptors for basic types.
+
+#*int = (TD Int)
+#*char = (TD Char)
+#*bool = (TD Bool)
+#*string = (TD String)
+#*bytes = (TD Bytes)
+#*list = /[#X (TD X) /(TD (List X))]
+
+\subsection{Descriptors For Abstract Datatypes}
+       
+#*adt = /[#ADT #Rep /[ADT /Rep] /[Rep /ADT] (TD Rep) /(TD ADT)]
+\begin{doc}
+@(adt project inject repTD)@ allows type descriptors to be built for
+arbitrary abstract datatypes.  The functions @project@ and @inject@ are
+used to convert values between the abstract type @ADT@ and the
+representation type @Rep@.  To marshall a value of type @ADT@, we first
+convert it to a value of type @Rep@, using the @project@ function, and then
+marshall that value using @repTD@, a type descriptor for the type @Rep@.
+To unmarshall a value of type @ADT@ we first unmarshall a value of type
+@Rep@ using @repTD@.  We then use @inject@ to convert the resulting value
+to a value of type @ADT@.
+\end{doc}
+
+\subsection{Descriptors For Tuples}
+
+Given type descriptors for each of the component types, these functions
+build type descriptors for tuple types of various widths.
+
+#*unit = (TD [])
+#*singleton = /[#X (TD X) /(TD [X])]
+#*pair = /[#X #Y (TD X) (TD Y) /(TD [X Y])]
+#*triple = /[#X #Y #Z (TD X) (TD Y) (TD Z) /(TD [X Y Z])]
+#*quad = /[#W #X #Y #Z (TD W) (TD X) (TD Y) (TD Z) /(TD [W X Y Z])]
+
+\subsection{Descriptors For Recursive Types}
+
+#*recursive =
+#*  /[#M:(Type->Type) /[(TD (rec X = (M X))) /(TD (M (rec X = (M X))))]
+#*    /(TD (rec X = (M X)))]
+\begin{doc}
+Given a type @T@ of the form @(rec X = (M X))@, we can build a type
+descriptor for @T@ by supplying @recursive@ with a function from @(TD T)@
+to @(TD (M T))@ (i.e\ a type descriptor for the ``skeleton'' @M@ that is
+parametric in a type descriptor for @T@ itself).
+\end{doc}
+
+#{#}
+]] = (
+
+val safetd = true
+
+type (TD X) =
+  [marshall = /[Wr X Sig] 
+   unmarshall = /[Rd Exn /X]]
+
+val intTD : (TD Int) =
+  if safetd then
+    [marshall = \(str:Wr i:Int) = 
+     ((str.write "i");
+      (str.write "[");
+      (str.write ($$ i));
+      (str.write "]"))
+     unmarshall = \(str:Rd fail:Exn) = 
+     ((parse.char str 'i' fail);
+      (parse.char str '[' fail);
+      val i = (parse.int str fail)
+      (parse.char str ']' fail);
+      i)]
+  else
+    {- What's the best way to do this? -}
+    [marshall = \(str:Wr i:Int) = 
+     (val byte1 = (div i 16777216)
+      val bytes2to4 = (int.land i 16777215)
+      val byte2 = (div bytes2to4 65536)
+      val bytes3to4 = (int.land bytes2to4 65535)
+      val byte3 = (div bytes3to4 256)
+      val byte4 = (int.land bytes3to4 255)
+      (str.writeChar (char.fromInt byte1));
+      (str.writeChar (char.fromInt byte2));
+      (str.writeChar (char.fromInt byte3));
+      (str.writeChar (char.fromInt byte4)))
+     unmarshall = \(str:Rd fail:Exn) = 
+     (+ > (* (str.readChar fail) 16777216)
+      (* (str.readChar fail) 65536)
+      (* (str.readChar fail) 256)
+      (str.readChar fail))]
+       
+val charTD:(TD Char) =
+  [marshall = \(str c) = (str.writeChar c)
+   unmarshall = \(str fail) = (str.readChar fail)]
+       
+val boolTD:(TD Bool) =
+  [marshall = \(str b) = (str.writeChar  if b then 't' else 'f')
+   unmarshall = \(str fail) = (== (str.readChar fail) 't')]
+       
+val stringTD:(TD String) =
+  [marshall = \(str s) = ((intTD.marshall str (string.size s)); (str.write s))
+   unmarshall = \(str fail) = (str.read (intTD.unmarshall str fail) fail)]
+       
+def fillBytes (str:Rd b:Bytes from:Int n:Int fail:Exn):[] =
+  (val r = (str.readBytes b from n)
+   if (== r n) then []
+   else if (str.eof) then 
+     (exn.raise fail (+$ > "fillBytes: reached eof while trying to read"
+                      ($$ n) " bytes"))
+   else (fillBytes str b (+ from r) (- n r) fail))
+
+val bytesTD:(TD Bytes) =
+  [marshall = \(str b) = 
+     ((intTD.marshall str (bytes.size b));
+      (str.writeBytes b 0 (bytes.size b)))
+   unmarshall = \(str fail) = 
+     (val i = (intTD.unmarshall str fail)
+      val b = (bytes.make '\000' i)
+      (fillBytes str b 0 i fail);
+      b)]
+
+def listTD (#X tdx:(TD X)): (TD (List X)) =
+  [marshall = \(str l) = 
+     ((list.apply #X l \(x) = ((str.writeChar ','); (tdx.marshall str x)));
+      (str.write "."))
+   unmarshall = \(str fail) = 
+     (def loop ():(List X) = 
+        (val ch = (str.readChar fail)
+         if (== ch '.') then nil
+         else (cons (tdx.unmarshall str fail) (loop)))
+      (loop))]
+
+def adtTD
+  (#ADT #Rep project:/[ADT /Rep] inject:/[Rep /ADT] repTD:(TD Rep)):(TD ADT)
+=
+  [marshall = \(str ab) = (repTD.marshall str (project ab))
+   unmarshall = \(str fail) = (inject (repTD.unmarshall str fail))]
+
+val unitTD:(TD []) =
+  [marshall = \(str []) = []
+   unmarshall = \(str fail) = []]
+
+def singletonTD (#X tdX:(TD X)):(TD [X]) =
+  [marshall = \(str [x]) = (tdX.marshall str x)
+   unmarshall = \(str fail) = [(tdX.unmarshall str fail)]]
+
+def pairTD (#X #Y tdX:(TD X) tdY:(TD Y)):(TD [X Y]) =
+  [marshall = \(str [x y]) = 
+     ((tdX.marshall str x);
+      (tdY.marshall str y))
+   unmarshall = \(str fail) = 
+     [(tdX.unmarshall str fail) (tdY.unmarshall str fail)]]
+
+def tripleTD
+  (#X #Y #Z tdX:(TD X) tdY:(TD Y) tdZ:(TD Z)) : (TD [X Y Z])
+=
+  (def mkc ([x:X y:Y z:Z]):[X [Y Z]] = [x [y z]]
+   def mka ([x:X [y:Y z:Z]]):[X Y Z] = [x y z]
+   (adtTD mkc mka (pairTD tdX (pairTD tdY tdZ))))
+
+def quadTD
+  (#W #X #Y #Z tdW:(TD W) tdX:(TD X) tdY:(TD Y) tdZ:(TD Z))
+  : (TD [W X Y Z])
+=
+  (def mkc ([w:W x:X y:Y z:Z]):[[W X] [Y Z]] = [[w x] [y z]]
+   def mka ([[w:W x:X] [y:Y z:Z]]):[W X Y Z] = [w x y z]
+   (adtTD mkc mka (pairTD (pairTD tdW tdX) (pairTD tdY tdZ))))
+
+def recTD
+  (#M:(Type->Type)
+   bodyTD: /[(TD (rec X = (M X))) /(TD (M (rec X = (M X))))])
+  : (TD (rec X = (M X)))
+=
+ (type T = (rec X = (M X))
+  type M = [Wr T Sig] 
+  type U = [Rd Exn /T]
+  new m:^M new u:^U
+  val innerTD:(TD T) = [marshall= \x:M = m!x unmarshall= \x:U = u!x]
+  val td = (bodyTD innerTD)
+  run forward![m \(wr:Wr (rec:T v)):[] = (td.marshall wr v)]
+  run forward![u \(rd:Rd h:Exn):T = (rec:T (td.unmarshall rd h))]
+  innerTD)
+
+[[int=intTD char=charTD bool=boolTD string=stringTD bytes=bytesTD list=listTD
+  adt=adtTD unit=unitTD singleton=singletonTD pair=pairTD triple=tripleTD
+  quad=quadTD recursive=recTD]]
+
+)

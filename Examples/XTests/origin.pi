@@ -1,0 +1,35 @@
+{-
+ - Tests whether we can move picture origins correctly.
+ -}
+
+import "Picture/Picture"
+
+val s = (picture.server "" "Origin")
+val red = (s.newColor "Red" exn.exit)
+val blue = (s.newColor "Blue" exn.exit)
+
+val r = (picture.fg red (basic.fillRect 0 0 25 25))
+val b = (picture.fg blue (basic.rect -25 -25 50 50))
+
+def msg (s:String):/[Button Bool Int Int Int Int] = \[_ _ f g h i] =
+  ((pr (+$ > s ":" ($$ f) "," ($$ g) "," ($$ h) "," ($$ i) "\n")); ())
+
+def box (s:String f:/[Picture /Picture]):Picture =
+  (picture.add > (f r) b
+   (picture.clickable -25 -25 50 50 (msg s)))
+
+(s.open "Origin"
+ (picture.northwest
+  (picture.above >
+   (picture.beside >
+    (box "NW" picture.northwest)
+    (box "N" picture.north)
+    (box "NE" picture.northeast))
+   (picture.beside >
+    (box "W" picture.west)
+    (box "C" picture.center)
+    (box "E" picture.east))
+   (picture.beside >
+    (box "SW" picture.southwest)
+    (box "S" picture.south)
+    (box "SE" picture.southeast)))));

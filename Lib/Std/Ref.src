@@ -1,0 +1,57 @@
+\section{@Std/Ref@: Reference Cells}
+
+##import "Std/Misc"
+
+##val [
+
+\subsection{Types}
+
+#*#Ref = \X =
+#*  [get = /[/X] 
+#*   put = /[X Sig]]
+\begin{doc}
+The type @(Ref X)@ represents a reference cell, and supports @get@ and
+@put@ methods for reading and writing to the cell.
+\end{doc}
+
+##ref:[
+
+\subsection{Creation}
+
+#*make = /[#X X /(Ref X)]
+\begin{doc}
+@(make i)@ creates a reference cell with initial value @i@.
+\end{doc}
+
+#*empty = /[#X /(Ref X)]
+\begin{doc}
+@(empty)@ creates a reference cell with no initial value.  Calls to the
+@get@ method of an empty reference cell will block until a value is
+supplied using the @put@ method.
+\end{doc}
+
+#{#}
+]] = (
+
+type (Ref X) =
+  [get = /[/X] 
+   put = /[X Sig]]
+
+def make (#X init:X):(Ref X) =
+  (new l:^X
+   run l!init
+   [get = \[r]   = l?x = (r!x | l!x) 
+    put = \[n c] = l?_ = (l!n | c![])])
+
+def empty (#X):(Ref X) =
+  (new l:^X
+   new full:^Bool
+   run full!false
+   [get = \[r] = l?x = (r!x | l!x) 
+    put = \[n c] = full?f =
+      if f then l?_ = (full!true | l!n | c![])
+      else (full!true | l!n | c![])])
+
+[#Ref [make=make empty=empty]]
+
+)

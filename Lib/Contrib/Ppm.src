@@ -1,0 +1,132 @@
+\section{@Contrib/Ppm@: Portable Pixmap Utilities}
+
+The portable pixmap (ppm) format is a generic file format for color
+bitmaps, supported by a number of publically available utilities.  This
+library allows ppm files to be loaded and printed from Pict.
+
+##import "Std/Int"
+##import "Std/String"
+##import "Std/Array"
+##import "Std/Array2"
+##import "Std/Bytes"
+##import "Std/Char"
+##import "Std/Io"
+##import "Contrib/Parse"
+
+##val ppm : [
+
+#*parse = /[#X Rd Exn /[Int Int Int /X] /(Array2 X)]
+\begin{doc}
+@(parsePpm s h f)@ given a function @f@ which maps rgb triples to values of
+type @X@, @parse@ reads a ppm from @s@ and converts it into an array of
+@X@'s.  It calls the error handler @h@ if it cannot find a valid ppm.
+\end{doc}
+
+#*print = /[#X Wr String (Array2 X) /[X /[Int Int Int]] Bool Sig]
+\begin{doc}
+@(print s name p f bin)@ is the inverse of @parse@.  Given a conversion
+function from values of type @X@ to rgb triples, it writes a ppm on @s@.
+There are two kind of ppm file: the @bin@ flag indicates whether we should
+use the (more efficient) binary format.  The @name@ argument is stored in
+the ppm file.
+\end{doc}
+
+#{#}
+] = (
+
+def parsePpm
+  (#X s:Rd fail:Exn f:/[Int Int Int /X]) : (Array2 X)
+= (
+  def skipWhite ():[] =
+    ((parse.whitespace s);
+     if (== (s.peekChar fail) '#') then
+       ((await(parse.line s)); (skipWhite))
+     else
+       [])
+
+  (parse.char s 'P' (exn.tag fail "parsePpm: bad magic number"));
+
+  val fast = 
+    (val code = (s.readChar (exn.tag fail "parsePpm: bad magic number"))
+     if (== code '3') then false 
+     else if (== code '6') then true
+     else (exn.raise fail "parsePpm: bad magic number"))
+  
+  val bad = (exn.tag fail "parsePpm: bad file format")
+  val width = ((skipWhite); (parse.int s bad))
+  val height = ((skipWhite); (parse.int s bad))
+  val maxcolor = ((skipWhite); (parse.int s bad))
+
+  def parseRGBslow ():X =
+    (val r = ((skipWhite); (parse.int s bad))
+     val g = ((skipWhite); (parse.int s bad))
+     val b = ((skipWhite); (parse.int s bad))
+     (f (div (* r 65535) maxcolor) (div (* g 65535) maxcolor)
+      (div (* b 65535) maxcolor)))
+
+  val buffsize = (* width 3)
+  val buff = (bytes.make 'A' buffsize)
+
+  def parseRGBfast (i:Int):X =
+    (val r = (bytes.nth buff i)
+     val g = (bytes.nth buff (+ i 1))
+     val b = (bytes.nth buff (+ i 2))
+     (f (div (* r 65535) maxcolor) (div (* g 65535) maxcolor)
+      (div (* b 65535) maxcolor)))
+
+  val array = (array2.make (f 0 0 0) width height)
+
+  if fast then
+    ((await(s.readChar bad));
+     (int.for 0 (dec height) \(y) = (
+	(await(s.readBytes buff 0 buffsize));
+	(int.for 0 (dec width) \(x) =
+	   (array2.update array x y (parseRGBfast (* x 3)))
+	)
+     )))
+  else
+    (int.for 0 (dec height) \(y) =
+       (int.for 0 (dec width) \(x) =
+	  (array2.update array x y (parseRGBslow))
+       )
+    );
+
+  array
+)
+
+def printPpm
+  (#X s:Wr name:String p:(Array2 X) f:/[X /[Int Int Int]] bin:Bool) : [] 
+= (
+  val [width height] = (array2.size p)
+  val maxval = if bin then 255 else 65535
+  val buff = (bytes.make 'A' 3)
+
+  def writeColor ([r:Int g:Int b:Int]):[] =
+    if bin then
+      ((bytes.update buff 0 (char.fromInt (div (* r 65535) maxval)));
+       (bytes.update buff 1 (char.fromInt (div (* g 65535) maxval)));
+       (bytes.update buff 2 (char.fromInt (div (* b 65535) maxval)));
+       (s.writeBytes buff 0 3))
+    else
+      ((s.write ($$ r)); (s.write " ");
+       (s.write ($$ g)); (s.write " ");
+       (s.write ($$ b)); (s.write "\n"))
+
+  (s.write if bin then "P6\n" else "P3\n");
+  if (string.<>$ name "") then
+    ((s.write "# "); (s.write name); (s.write "\n"))
+  else
+    [];
+  (s.write ($$ width)); (s.write " ");
+  (s.write ($$ height)); (s.write "\n");
+  (s.write ($$ maxval)); (s.write "\n");
+  (int.for 0 (dec height) \(y) =
+     (int.for 0 (dec width) \(x) =
+        (writeColor (f (array2.nth p x y)))
+     )
+  )
+)
+
+[parse=parsePpm print=printPpm]
+
+)

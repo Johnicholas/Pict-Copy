@@ -1,0 +1,55 @@
+lib lib.px : lib.pi ./Std/Bool.px ./Std/Cmp.px ./Std/Exn.px ./Std/Int.px ./Std/List.px ./Std/Misc.px ./Std/Opt.px ./Std/String.px 
+Contrib/Chun Contrib/Chun.px : Contrib/Chun.pi ./Std/Exn.px ./Std/Io.px ./Std/Tags.px ./Contrib/TD.px ./Std/Hash.px ./Posix/Sockets.px ./Posix/Env.px 
+Contrib/Clock Contrib/Clock.px : Contrib/Clock.pi ./Std/Misc.px ./Std/Bool.px ./Std/List.px ./Posix/Signals.px 
+Contrib/Parse Contrib/Parse.px : Contrib/Parse.pi ./Std/Int.px ./Std/String.px ./Std/Bytes.px ./Std/Char.px ./Std/Io.px 
+Contrib/Ppm Contrib/Ppm.px : Contrib/Ppm.pi ./Std/Int.px ./Std/String.px ./Std/Array.px ./Std/Array2.px ./Std/Bytes.px ./Std/Char.px ./Std/Io.px ./Contrib/Parse.px 
+Contrib/TD Contrib/TD.px : Contrib/TD.pi ./Std/Io.px ./Contrib/Parse.px 
+Picture/Basic Picture/Basic.px : Picture/Basic.pi ./Std/Array2.px ./Std/Hash.px ./Std/Io.px ./Contrib/Ppm.px ./Picture/Utils.px ./Picture/Types.px 
+Picture/Combine Picture/Combine.px : Picture/Combine.pi ./Picture/Utils.px ./Picture/Types.px ./Picture/Basic.px ./Picture/Package.px ./Picture/Transform.px 
+Picture/Other Picture/Other.px : Picture/Other.pi ./Std/Array.px ./Std/Array2.px ./Std/Misc.px ./Std/Bool.px ./Std/Ref.px ./Picture/Utils.px ./Picture/Types.px ./Picture/Basic.px ./Picture/Package.px ./Picture/Transform.px ./Picture/Combine.px 
+Picture/Package Picture/Package.px : Picture/Package.pi ./Picture/Types.px 
+Picture/Picture Picture/Picture.px : Picture/Picture.pi ./Picture/Types.px ./Picture/Basic.px ./Picture/Transform.px ./Picture/Combine.px ./Picture/Other.px ./Picture/Server.px 
+Picture/Server Picture/Server.px : Picture/Server.pi ./Std/Hash.px ./Posix/Signals.px ./Posix/Fd.px ./X11/Xlib.px ./X11/Xrm.px ./Picture/Types.px ./Picture/Package.px 
+Picture/Transform Picture/Transform.px : Picture/Transform.pi ./Picture/Utils.px ./Picture/Types.px ./Picture/Basic.px ./Picture/Package.px 
+Picture/Types Picture/Types.px : Picture/Types.pi ./X11/Xlib.px ./Picture/Utils.px 
+Picture/Utils Picture/Utils.px : Picture/Utils.pi 
+Posix/Args Posix/Args.px : Posix/Args.pi ./Std/Int.px ./Std/Bool.px ./Std/Exn.px ./Std/List.px ./Std/Misc.px ./Std/Opt.px ./Std/String.px 
+Posix/Env Posix/Env.px : Posix/Env.pi ./Std/Exn.px ./Std/Misc.px ./Std/List.px ./Std/String.px 
+Posix/Fd Posix/Fd.px : Posix/Fd.pi ./Std/Bool.px ./Std/Char.px ./Std/Error.px ./Std/Int.px ./Std/String.px ./Std/Exn.px ./Std/Bytes.px ./Std/Opt.px ./Posix/Perm.px ./Posix/Signals.px 
+Posix/File Posix/File.px : Posix/File.pi ./Std/Bool.px ./Std/Int.px ./Std/List.px ./Std/String.px ./Posix/Fd.px ./Posix/Perm.px ./Posix/Proc.px 
+Posix/Perm Posix/Perm.px : Posix/Perm.pi ./Std/Bool.px ./Std/Int.px 
+Posix/Persona Posix/Persona.px : Posix/Persona.pi ./Std/Int.px ./Std/List.px ./Std/String.px 
+Posix/Proc Posix/Proc.px : Posix/Proc.pi ./Std/Int.px ./Std/List.px ./Std/Opt.px ./Posix/Signals.px 
+Posix/Signals Posix/Signals.px : Posix/Signals.pi ./Std/Bool.px ./Std/Error.px ./Std/Misc.px ./Std/List.px ./Std/Opt.px 
+Posix/Sockets Posix/Sockets.px : Posix/Sockets.pi ./Std/Bool.px ./Std/Int.px ./Std/Opt.px ./Posix/Signals.px ./Posix/Fd.px 
+Posix/Stat Posix/Stat.px : Posix/Stat.pi ./Posix/File.px ./Std/List.px ./Std/Io.px ./Contrib/TD.px 
+Posix/Time Posix/Time.px : Posix/Time.pi ./Std/Misc.px ./Std/Int.px ./Std/String.px 
+Std/Array Std/Array.px : Std/Array.pi ./Std/Bool.px ./Std/Misc.px ./Std/List.px 
+Std/Array2 Std/Array2.px : Std/Array2.pi ./Std/Array.px ./Std/Bool.px ./Std/List.px ./Std/Misc.px 
+Std/Bool Std/Bool.px : Std/Bool.pi ./Std/Misc.px ./Std/Prim.px ./Std/Exn.px 
+Std/Bytes Std/Bytes.px : Std/Bytes.pi ./Std/Bool.px ./Std/Error.px ./Std/Misc.px ./Std/String.px 
+Std/Char Std/Char.px : Std/Char.pi ./Std/Misc.px ./Std/Bool.px ./Std/Int.px 
+Std/Cmp Std/Cmp.px : Std/Cmp.pi ./Std/Prim.px ./Std/Misc.px 
+Std/Error Std/Error.px : Std/Error.pi 
+Std/Events Std/Events.px : Std/Events.pi ./Std/Misc.px ./Std/Int.px 
+Std/Exn Std/Exn.px : Std/Exn.pi ./Std/Error.px ./Std/Prim.px 
+Std/External Std/External.px : Std/External.pi ./Std/Misc.px 
+Std/Float Std/Float.px : Std/Float.pi ./Std/Bool.px ./Std/Cmp.px ./Std/Misc.px ./Std/Exn.px ./Std/String.px 
+Std/Hash Std/Hash.px : Std/Hash.pi ./Std/Int.px ./Std/List.px ./Std/Array.px ./Std/Opt.px 
+Std/Int Std/Int.px : Std/Int.pi ./Std/Bool.px ./Std/Cmp.px ./Std/Misc.px ./Std/Exn.px 
+Std/Io Std/Io.px : Std/Io.pi ./Std/Bool.px ./Std/Exn.px ./Std/Int.px ./Std/Bytes.px ./Std/Ref.px ./Std/String.px ./Posix/Fd.px 
+Std/List Std/List.px : Std/List.pi ./Std/Bool.px ./Std/Cmp.px ./Std/Error.px ./Std/Int.px ./Std/Misc.px ./Std/Stream.px 
+Std/MD5 Std/MD5.px : Std/MD5.pi ./Std/Bool.px ./Std/Cmp.px ./Std/Int.px ./Std/Prim.px ./Std/String.px ./Contrib/TD.px 
+Std/Match Std/Match.px : Std/Match.pi ./Std/Error.px ./Std/Exn.px ./Std/Int.px ./Std/String.px 
+Std/Misc Std/Misc.px : Std/Misc.pi 
+Std/Opt Std/Opt.px : Std/Opt.pi ./Std/Error.px ./Std/Misc.px 
+Std/PP Std/PP.px : Std/PP.pi ./Std/Io.px ./Std/List.px 
+Std/Prim Std/Prim.px : Std/Prim.pi ./Std/Error.px 
+Std/Queue Std/Queue.px : Std/Queue.pi ./Std/Bool.px ./Std/Error.px ./Std/List.px ./Std/Misc.px ./Std/Stream.px 
+Std/Random Std/Random.px : Std/Random.pi ./Std/Misc.px 
+Std/Ref Std/Ref.px : Std/Ref.pi ./Std/Misc.px 
+Std/Stream Std/Stream.px : Std/Stream.pi ./Std/Cmp.px ./Std/Error.px 
+Std/String Std/String.px : Std/String.pi ./Std/Char.px ./Std/Cmp.px ./Std/Prim.px ./Std/Misc.px ./Std/Bool.px ./Std/Exn.px ./Std/List.px ./Std/Int.px 
+Std/Tags Std/Tags.px : Std/Tags.pi ./Std/Misc.px ./Std/Int.px 
+X11/Xlib X11/Xlib.px : X11/Xlib.pi ./Std/Bool.px ./Std/Exn.px ./Std/Opt.px ./Std/External.px ./Posix/Fd.px 
+X11/Xrm X11/Xrm.px : X11/Xrm.pi ./Std/Misc.px ./Std/Exn.px ./X11/Xlib.px 

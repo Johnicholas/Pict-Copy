@@ -1,0 +1,94 @@
+#########################################################################
+###                                                                   ###
+###            All site-specific definitions live here                ###
+###                                                                   ###
+###   This file is included by the Makefiles in the subdirectories,   ###
+###   so be careful with relative pathnames.                          ###
+###                                                                   ###
+#########################################################################
+
+# Set INSTALLDIR and INSTALLLIB to the directories where the executable 
+# files and the library code is to be installed.  If you need to compile
+# Pict for multiple architectures, make sure to use architecture-dependent
+# values for *both* INSTALLDIR and INSTALLLIB.
+#
+# Use these settings to install Pict in your own home directory
+INSTALLDIR = $(HOME)/bin
+INSTALLLIB = $(HOME)/lib/pict
+#
+# Use these settings (as root) to install Pict for system-wide use
+# INSTALLDIR = /usr/local/bin
+# INSTALLLIB = /usr/local/lib/pict
+
+# The name of the Gnu C compiler.
+GCC = gcc
+
+# Set these variables to the location of the X11 include and lib files,
+# if the auto configuration doesn't work.  (On most systems, there should
+# be no need to set them explicitly.)
+# X11INCLUDE =
+# X11LIB =
+
+##########################################################################
+##########################################################################
+#                   DO NOT MODIFY ANYTHING AFTER HERE                    #
+##########################################################################
+##########################################################################
+
+# The current version of Pict:
+VERSION = 4.1
+
+##########################################################################
+# If we are building the system at a known site, set up some defaults
+
+ifndef PICTSITE
+  PICTSITE=default
+endif
+
+ifeq ($(PICTSITE),indiana)
+  ifndef OCAMLOPT
+    OCAMLOPT = yes
+  endif
+endif 
+
+ifeq ($(PICTSITE),indianaLaptop)
+  ifndef OCAMLOPT
+    OCAMLOPT = yes
+  endif
+  # TEXDIRECTIVES=\\usepackage{../Bcp/shortpage}
+endif 
+
+##########################################################################
+# Generic rules
+
+# Some declarations to speed up gmake
+.PHONY: all clean depend tags test safe safelib demo show
+
+# Generic all rule (must be the first rule).
+all:: $(TARGETS)
+tags::
+depend::
+test::
+demo::
+
+clean::
+	rm -rf $(LOCALLIBS) $(TARGETS) TAGS *~ *.tmp *.bak .nfs* .*~
+	rm -rf *.px *.px.o .PICT[0-9]*.c .PICT[0-9]*.o a.out '#'*'#'
+	rm -rf core camlpro.dump
+safe::
+	$(MAKE) -C $(SRCDIR) all
+safelib::
+	$(MAKE) -C $(SRCDIR)/Lib all
+
+###########################################################################
+# Default values
+
+# Miscellaneous settings
+SHELL = /bin/sh
+MAKEFLAGS += --no-builtin-rules
+CWD = $(shell pwd)
+
+# Preferred version of latex.
+ifndef LATEX
+  LATEX = latex
+endif

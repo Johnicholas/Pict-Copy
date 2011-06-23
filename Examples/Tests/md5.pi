@@ -1,0 +1,21 @@
+{-
+ - Tests md5 library (by calculating the md5 digest for a given file).
+ -}
+
+import "Std/MD5"
+import "Posix/Args"
+
+(error.check "Usage: md5 filename" (== args.argc 2));
+val file = (fd.openRd (args.argv 1) exn.exit)
+val buffer = (bytes.make 'x' 1024)
+val cx = (md5.init)
+
+def sum ():MD5Digest =
+  (val x = (fd.read file buffer 0 1024)
+   if (>> x 0) then
+     ((md5.update cx buffer idx=0 len=x); (sum))
+   else
+     (md5.finalise cx))
+
+(prNL (md5.toString (sum)));
+(fd.close file);

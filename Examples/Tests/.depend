@@ -1,0 +1,29 @@
+args args.px : args.pi ../../Lib/lib.px ../../Lib/Posix/Args.px 
+arrays arrays.px : arrays.pi ../../Lib/lib.px ../../Lib/Std/Array.px ../../Lib/Std/Char.px 
+async async.px : async.pi ../../Lib/lib.px ../../Lib/Std/Io.px ../../Lib/Posix/Args.px ../../Lib/Posix/Sockets.px ../../Lib/Contrib/TD.px 
+bool bool.px : bool.pi ../../Lib/lib.px 
+bytes bytes.px : bytes.pi ../../Lib/lib.px ../../Lib/Std/Bytes.px 
+chan chan.px : chan.pi ../../Lib/lib.px 
+char char.px : char.pi ../../Lib/lib.px ../../Lib/Std/Char.px 
+client client.px : client.pi ../../Lib/lib.px ../../Lib/Posix/Args.px ../../Lib/Posix/Sockets.px ../../Lib/Contrib/Parse.px 
+clock clock.px : clock.pi ../../Lib/lib.px ../../Lib/Contrib/Clock.px 
+env env.px : env.pi ../../Lib/lib.px ../../Lib/Posix/Env.px 
+events events.px : events.pi ../../Lib/lib.px ../../Lib/Std/Events.px 
+file file.px : file.pi ../../Lib/lib.px ../../Lib/Posix/File.px 
+float float.px : float.pi ../../Lib/lib.px ../../Lib/Std/Float.px ../../Lib/Std/Random.px 
+io io.px : io.pi ../../Lib/lib.px ../../Lib/Std/Bytes.px ../../Lib/Std/Io.px 
+lists lists.px : lists.pi ../../Lib/lib.px 
+match match.px : match.pi ../../Lib/lib.px ../../Lib/Std/Match.px 
+md5 md5.px : md5.pi ../../Lib/lib.px ../../Lib/Std/MD5.px ../../Lib/Posix/Args.px 
+parse parse.px : parse.pi ../../Lib/lib.px ../../Lib/Std/Io.px ../../Lib/Contrib/Parse.px 
+persona persona.px : persona.pi ../../Lib/lib.px ../../Lib/Posix/Persona.px 
+pp pp.px : pp.pi ../../Lib/lib.px ../../Lib/Std/PP.px 
+proc proc.px : proc.pi ../../Lib/lib.px ../../Lib/Posix/Proc.px 
+rec rec.px : rec.pi ../../Lib/lib.px 
+records records.px : records.pi ../../Lib/lib.px 
+server server.px : server.pi ../../Lib/lib.px ../../Lib/Posix/Args.px ../../Lib/Posix/Sockets.px ../../Lib/Contrib/Parse.px 
+stat stat.px : stat.pi ../../Lib/lib.px ../../Lib/Posix/File.px ../../Lib/Posix/Stat.px 
+strings strings.px : strings.pi ../../Lib/lib.px ../../Lib/Std/Char.px 
+tc1 tc1.px : tc1.pi ../../Lib/lib.px 
+tc2 tc2.px : tc2.pi ../../Lib/lib.px 
+tests tests.px : tests.pi ../../Lib/lib.px ../../Lib/Std/Random.px 

@@ -1,0 +1,143 @@
+\section{@Posix/Time@: Time and Date}
+
+##import "Std/Misc"
+##import "Std/Int"
+##import "Std/String"
+
+##val [
+
+\subsection{Types}
+
+#*#Time =
+#*  [seconds = Int    {- 0..59 -}
+#*   minutes = Int    {- 0..59 -}
+#*   hours = Int      {- 0..23 -}
+#*   days = Int       {- 1..31 -}
+#*   months = Int     {- 1..12 -}
+#*   years = Int      {- Years since 0 AD -}
+#*   weekDays = Int   {- Days since Sunday (0..6) -}
+#*   yearDays = Int]  {- Days since January 1 (0..365) -}
+
+##time : [
+
+\subsection{Operations}
+
+#*localTime  = /[/Time]
+\begin{doc}
+Gets the current local time.
+\end{doc}
+
+#*gmTime  = /[/Time]
+\begin{doc}
+Gets the current time represented in Greenwich mean time.
+\end{doc}
+
+\subsection{Conversion}
+
+#*weekDayString  = /[Int /String]
+\begin{doc}
+@(weekDayString d)@ returns a three-character string (@Mon@, @Tue@, @Wed@,
+\ldots) for each day of the week (generates a runtime error if @d@ is not
+in the range @0@ to @6@).
+\end{doc}
+
+#*monthString  = /[Int /String]
+\begin{doc}
+@(monthString m)@ returns a three-character string (@Jan@, @Feb@, @Mar@,
+\ldots) for each month of the year (generate a runtime error if @m@ is not
+in the range @1@ to @12@).
+\end{doc}
+
+#*toString  = /[Time /String]
+\begin{doc}
+@(toString t)@ converts a time @t@ into a string with the following
+fields, each separated by a single space: weekDay, month, date,
+hours:minutes:seconds, year.
+\end{doc}
+
+\subsection{Printing}
+
+#*pr = /[Time Sig]
+\begin{doc}
+@(pr t)@ prints out the time @t@ using the same format as @toString@.
+\end{doc}
+
+#{#}
+]] = (
+
+(ccode 0 I "##include <time.h>");
+
+type Time =
+  [seconds = Int    {- 0..59 -}
+   minutes = Int    {- 0..59 -}
+   hours = Int      {- 0..23 -}
+   days = Int       {- 1..31 -}
+   months = Int     {- 1..12 -}
+   years = Int      {- Years since 0 AD -}
+   weekDays = Int   {- Days since Sunday (0..6) -}
+   yearDays = Int]  {- Days since January 1 (0..365) -}
+
+inline def copyTime (t:Top) : Time =
+  [seconds = (ccode 0 P "intInt(((struct tm *)#)->tm_sec)" t) 
+   minutes = (ccode 0 P "intInt(((struct tm *)#)->tm_min)" t) 
+   hours = (ccode 0 P "intInt(((struct tm *)#)->tm_hour)" t) 
+   days = (ccode 0 P "intInt(((struct tm *)#)->tm_mday)" t) 
+   months = (inc (ccode 0 P "intInt(((struct tm *)#)->tm_mon)" t))
+   years = (+ (ccode 0 P "intInt(((struct tm *)#)->tm_year)" t) 1900)
+   weekDays = (ccode 0 P "intInt(((struct tm *)#)->tm_wday)" t) 
+   yearDays = (ccode 0 P "intInt(((struct tm *)#)->tm_yday)" t)]
+
+inline
+def localTime () : Time
+= (copyTime(ccode 0 R "({time_t t = time(NULL); (Val)localtime(&t);})"))
+
+inline
+def gmTime () : Time
+= (copyTime(ccode 0 R "({time_t t = time(NULL); (Val)gmtime(&t);})"))
+
+def weekDayString (d:Int) : String
+= if (== d 0) then "Sun"
+  else if (== d 1) then "Mon"
+  else if (== d 2) then "Tue"
+  else if (== d 3) then "Wed"
+  else if (== d 4) then "Thu"
+  else if (== d 5) then "Fri"
+  else if (== d 6) then "Sat"
+  else (error.fatal "weekDayString: Illegal value")
+
+def monthString (m:Int) : String
+= if (== m 1) then "Jan"
+  else if (== m 2) then "Feb"
+  else if (== m 3) then "Mar"
+  else if (== m 4) then "Apr"
+  else if (== m 5) then "May"
+  else if (== m 6) then "Jun"
+  else if (== m 7) then "Jul"
+  else if (== m 8) then "Aug"
+  else if (== m 9) then "Sep"
+  else if (== m 10) then "Oct"
+  else if (== m 11) then "Nov"
+  else if (== m 12) then "Dec"
+  else (error.fatal "printMonth: Illegal value")
+
+def toString (t:Time) : String
+= (+$ >
+   (weekDayString t.weekDays) " " (monthString t.months) " "
+   ($$ t.days) " " ($$ t.hours) ":"
+   ($$ t.minutes) ":" ($$ t.seconds) " "
+   ($$ t.years))
+
+def prTime (t:Time) : []
+= (
+  (pr (weekDayString t.weekDays)); (pr " ");
+  (pr (monthString t.months)); (pr " ");
+  (int.pr t.days); (pr " ");
+  (int.format "%02d" t.hours); (pr ":");
+  (int.format "%02d" t.minutes); (pr ":");
+  (int.format "%02d" t.seconds); (pr " ");
+  (int.pr t.years)
+)
+
+[[localTime=localTime gmTime=gmTime weekDayString=weekDayString
+  monthString=monthString toString=toString pr=prTime]]
+)

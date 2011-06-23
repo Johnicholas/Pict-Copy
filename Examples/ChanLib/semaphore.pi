@@ -1,0 +1,46 @@
+{-
+ - An implementation of semaphores using channels.
+ -}
+
+import "Std/Queue"
+
+type Sem = ^[Int (Queue Sig)]
+
+def newSem (n:Int) : Sem =
+  (new sem:Sem
+   run sem![n queue.empty]
+   sem)
+
+def getSem [s:Sem c:Sig] =
+  s?[n q] =
+  if (>> n 0) then
+    (s![(dec n) q] | c![])
+  else
+    s![(dec n) (queue.insertTl c q)]
+
+def putSem [s:Sem c:Sig] =
+  s?[n q] =
+  if (<< n 0) then
+    (val [b q] = (queue.removeHd q)
+     (s![(inc n) q] | b![] | c![]))
+  else
+    (s![(inc n) q] | c![])
+
+val s = (newSem 2)
+
+def doWork (x:Int):[] = (int.for 1 (* 100 x) \(_) = [])
+
+def worker x:Int =
+ ((prNL (+$ ($$ x) ": waiting for semaphore"));
+  (getSem s);
+  (prNL (+$ ($$ x) ": doing work"));
+  (doWork x);
+  (prNL (+$ ($$ x) ": releasing semaphore"));
+  (putSem s);
+  (prNL (+$ ($$ x) ": finished"));
+  ())
+
+run worker!1
+run worker!2
+run worker!3
+run worker!4

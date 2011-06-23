@@ -1,0 +1,17 @@
+{-
+ - Pattern matching.
+ -}
+
+import "Std/Match"
+
+def test (r:String s:String):[] =
+  ((pr "\""); (pr r); (pr "\" \""); (pr (string.toString s)); (pr "\" -> ");
+   (bool.pr (match.match (match.compile r exn.exit) s 0 (string.size s)));
+   (nl))
+
+(test "*" "Hello");
+(test "[A-Z]*.pi" "Hello.pi");
+(test "[a-z]*.pi" "Hello.pi");
+(test "*[0-9]*" "A 267 number");
+(test "??[0-9]*" "A 267 number");
+(test "?[0-9]*" "A 267 number");

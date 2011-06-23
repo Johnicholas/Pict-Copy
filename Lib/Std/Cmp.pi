@@ -1,0 +1,83 @@
+# line 1 "/home/pierce/pict/Lib/Std/Cmp.src"
+
+
+
+  import "Std/Prim"
+  import "Std/Misc"
+
+  val [
+
+
+
+  #Cmp
+
+
+
+
+
+
+
+  cmp:[
+
+
+
+  LT = Cmp
+  EQ = Cmp
+  GT = Cmp
+
+
+
+
+
+
+
+
+  lt = /[Cmp /Bool]
+  le = /[Cmp /Bool]
+  eq = /[Cmp /Bool]
+  ne = /[Cmp /Bool]
+  ge = /[Cmp /Bool]
+  gt = /[Cmp /Bool]
+
+
+
+
+
+
+
+
+  toString = /[Cmp /String]
+
+
+
+
+  pr = /[Cmp Sig]
+
+
+    
+]]
+= (
+
+type Cmp = Int
+
+{-
+ - Note that we interpret ANY strictly positive number as meaning GT,
+ - 0 as meaning EQ and ANY strictly negative number as meaning LT.
+ -}
+
+inline def toString (c:Cmp) : String =
+  if (prim.<< c 0) then "LT" else if (prim.>> c 0) then "GT" else "EQ"
+
+[#Cmp
+ [LT = -1
+  EQ = 0
+  GT = 1
+  lt = \(c) = (prim.<< c 0)
+  le = \(c) = (prim.<= c 0)
+  eq = \(c) = (prim.== c 0)
+  ne = \(c) = (prim.<> c 0)
+  ge = \(c) = (prim.>= c 0)
+  gt = \(c) = (prim.>> c 0)
+  toString = toString
+  pr = \(c) = (misc.pr (toString c))]]
+)

@@ -1,0 +1,21 @@
+Testing makeString and hashString...
+  "" 0
+  "A" 65
+  "BB" 1320
+  "CCC" 25527
+  "DDDD" 492320
+
+Testing +$...
+  "ABBCCCDDDD"
+
+Testing nthChar...
+  D C B A
+
+Testing inString...
+  true true true true true false
+
+Testing subString...
+  "" "A" "BB" "CCC" "DDDD"
+
+Testing tabulateString...
+  "" "A" "AB" "ABC" "ABCD"

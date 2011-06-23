@@ -1,0 +1,261 @@
+# line 1 "/home/pierce/pict/Lib/Posix/Sockets.src"
+
+
+
+
+  import "Std/Bool"
+  import "Std/Int"
+  import "Std/Opt"
+  import "Posix/Signals"
+  import "Posix/Fd"
+
+  val [
+
+
+
+  #Port = Int
+
+
+
+
+
+  #Address
+
+
+
+
+  #Socket < Fd
+
+
+
+
+  sockets:[
+
+
+
+  reservedPort = Port
+  userReservedPort = Port
+
+
+
+
+
+
+
+
+
+  getServicePortByName = /[String Exn /Port]
+
+
+
+
+
+
+
+
+  getHostByName = /[String Port Exn /Address]
+
+
+
+
+
+
+
+  addressString = /[Address /String]
+
+
+
+
+
+
+  streamSocket = /[Exn /Socket]
+
+
+
+
+
+
+
+
+
+  bind = /[Socket Address Int Exn Sig]
+
+
+
+
+
+
+
+  bindAny = /[Socket Port Int Exn Sig]
+
+
+
+
+
+
+
+  accept = /[Socket Exn /Fd]
+
+
+
+
+
+
+
+
+
+
+
+  connect = /[Socket Address Exn /Fd]
+
+
+
+
+
+
+
+
+
+
+    
+]] =(
+(ccode 0 I "##include <sys/types.h>");
+(ccode 0 I "##include <sys/socket.h>");
+(ccode 0 I "##include <netinet/in.h>");
+(ccode 0 I "##include <netinet/tcp.h>");
+(ccode 0 I "##include <arpa/inet.h>");
+(ccode 0 I "##include <netdb.h>");
+(ccode 0 I "##include <errno.h>");
+(ccode 0 I "
+##ifdef __USE_FIXED_PROTOTYPES__
+extern int socket(int,int,int);
+extern int bind(int,struct sockaddr *,int);
+extern int listen(int,int);
+extern int accept(int,struct sockaddr *,int*);
+extern int connect(int,struct sockaddr *,int);
+extern char *inet_ntoa(struct in_addr in);
+##endif
+");
+
+type Port = Int
+val reservedPort : Port = (ccode 0 C "intInt(IPPORT_RESERVED)")
+val userReservedPort : Port = (ccode 0 C "intInt(IPPORT_USERRESERVED)")
+
+inline
+def getServicePortByName (name:String fail:Exn) : Port
+= (
+  val se:CString = (ccode 0 R "(Val)getservbyname(S(#),\"tcp\")" name)
+  if (prim.nullPtr se) then
+    (int.fromString name (exn.rename fail "getServicePortByName"))
+  else
+    (ccode 0 P "intInt(ntohs(((struct servent *)#)->s_port))" se)
+)
+
+val [#Address] = [#Top]
+
+def getHostByName (name:String p:Port fail:Exn) : Address
+= (val h:CString = (ccode 0 R "(Val)gethostbyname(S(#))" name)
+   val sa:Address = (ccode 0 R "(Val)malloc(sizeof(struct sockaddr_in))")
+   (error.check "getHostByName: malloc failed" (not(prim.nullPtr sa)));
+   if (prim.nullPtr h) then
+     (exn.raise fail "getHostByName: Failed to get host address")
+   else
+    if (ccode 0 R "(((struct hostent *)#)->h_addrtype != AF_INET)" h) then
+      (exn.raise fail "getHostByName: Non-Internet address")
+    else
+      ((ccode 0 E "((struct sockaddr_in *)#)->sin_family = AF_INET;" sa);
+       (ccode 0 E "((struct sockaddr_in *)#)->sin_port = htons(I(#));" sa p);
+       (ccode 0 E "
+         ((struct sockaddr_in *)#)->sin_addr.s_addr =
+           *(unsigned long int *)((struct hostent *)#)->h_addr_list[0];
+        " sa h);
+        sa))
+
+inline def addressString (a:Address):String =
+  (ccode 0 P "(Val)inet_ntoa(((struct sockaddr_in *)#)->sin_addr)" a)
+
+type Socket = Fd
+inline def isBad (#X x:X) : Bool = (ccode 0 C "(# == -One)" x)
+
+inline def streamSocket (fail:Exn):Socket =
+  (val s:Socket = (ccode 0 W "intInt(socket(PF_INET,SOCK_STREAM,0))")
+   if (isBad s) then (exn.raise fail "streamSocket") else s)
+
+inline def bind (s:Socket a:Address backlog:Int fail:Exn):[] =
+  if
+    (ccode 0 W
+     "(bind(I(#),(struct sockaddr *)#,sizeof(struct sockaddr_in)) == 0)" s a)
+  then
+    if (not (ccode 0 W "(listen(I(#),I(#)) == 0)" s backlog)) then
+      (exn.raise fail "bind: listen failed")
+    else
+      []
+  else
+    (exn.raise fail "bind: bind failed")
+
+inline
+def bindAny (s:Socket p:Port backlog:Int fail:Exn) : []
+= (
+   val ok:Bool = (ccode 0 W "({
+     struct sockaddr_in sa;
+     sa.sin_addr.s_addr = INADDR_ANY;
+     sa.sin_family = AF_INET; sa.sin_port = htons(I(#));
+     (bind(I(#),(struct sockaddr *)&sa,sizeof(struct sockaddr_in)) == 0);
+   })" p s)
+   if ok then
+     if (not (ccode 0 W "(listen(I(#),I(#)) == 0)" s backlog)) then
+       (exn.raise fail "bindAny: listen failed")
+     else
+       []
+   else
+     (exn.raise fail (+$ "bindAny: bind failed with errno " 
+                      ($$ (ccode 0 R "intInt(errno)"))))
+  )
+
+def accept (s:Socket fail:Exn) : Fd
+= (val err =
+     (signals.retry signals.SIGIO \():(Opt Fd) =
+        (val err:Fd = (ccode 0 W "({
+           struct sockaddr sa;
+           int len=sizeof(struct sockaddr);
+           intInt(accept(I(#),&sa,&len));
+         })" s)
+        if (isBad err) then
+          if (|| (ccode 0 R "(errno == EINTR)")
+                (ccode 0 R "(errno == EWOULDBLOCK)"))
+          then opt.no
+          else (opt.yes err)
+        else
+          (opt.yes err)))
+   if (isBad err) then
+     (exn.raise fail (+$ "accept: failed with errno="
+                      ($$ (ccode 0 R "intInt(errno)"))))
+   else
+     err)
+
+def connect (s:Socket a:Address fail:Exn) : Fd
+= (val err =
+     (signals.retry signals.SIGIO \():(Opt Int) =
+      (val err:Int = (ccode 0 W "
+         intInt(connect(I(#),(struct sockaddr *)#,sizeof(struct sockaddr)))
+       " s a)
+       if (&& (== err -1) (ccode 0 R "(errno != EISCONN)")) then
+         if
+           (|| > (ccode 0 R "(errno == EINPROGRESS)")
+            (ccode 0 R "(errno == EALREADY)")
+            (ccode 0 R "(errno == EWOULDBLOCK)"))
+         then
+           opt.no
+         else
+           (opt.yes err)
+       else
+         (opt.yes 0)))
+   if (== err 0) then (ccode 0 P "#" s) else
+   (exn.raise fail (+$ "connect: failed " ($$ (ccode 0 R "intInt(errno)")))))
+
+[#Port #Address #Socket
+ [reservedPort=reservedPort userReservedPort=userReservedPort
+  getServicePortByName=getServicePortByName getHostByName=getHostByName
+  addressString=addressString streamSocket=streamSocket bind=bind
+  bindAny=bindAny accept=accept connect=connect]]
+)

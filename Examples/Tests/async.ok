@@ -1,0 +1,20 @@
+*** SERVER ***
+(waiting for connection)
+(talking)
+1) Received 1
+2) Received "two"
+3) Received 3
+(closing)
+1) Sending 1
+2) Sending "two"
+3) Sending 3
+*** CLIENT ***
+(making connection)
+(talking)
+1) Received 1
+2) Received "two"
+3) Received 3
+(closing)
+1) Sending 1
+2) Sending "two"
+3) Sending 3

@@ -1,0 +1,346 @@
+\section{@Std/Io@: Input/Output}
+\label{s:Io}
+
+##import "Std/Bool"
+##import "Std/Exn"
+##import "Std/Int"
+##import "Std/Bytes"
+##import "Std/Ref"
+##import "Std/String"
+##import "Posix/Fd"
+
+This library implements a high-level non-blocking input/output abstraction.
+
+##val [
+
+\subsection{Input Streams}
+
+#*#Rd =
+#*  [eof = /[/Bool] 
+#*   read = /[Int Exn /String] 
+#*   readChar = /[Exn /Char] 
+#*   peekChar = /[Exn /Char] 
+#*   readBytes = /[Bytes Int Int /Int] 
+#*   close = /[Sig]]
+\begin{doc}
+The type @Rd@ describes character stream objects for which we have read
+capability.  The @eof@ method says whether we have reached the end of file.
+The @(read h n)@ method reads @n@ characters from the file and returns them
+as a string.  If there are not @n@ characters available before the end of
+file, @(read h n)@ signals an exception on the handler @h@.  @readChar@
+reads the next character from the stream, or calls the given handler if we
+have reached the end of file.  @peekChar@ is similar, except that it does
+not remove the character from the buffer.  @(readBytes buff i n)@ reads at
+most @n@ characters into @buff@, starting at offset @i@, and returns the
+number of characters read.  (The number of characters actually read depends
+on the number available from the file at this moment: if there are fewer
+than @n@ available now but the file is not at the @eof@ marker, @readBytes@
+just reads those that are available now.)  The @close@ method closes the
+file.  Calling any stream methods after a stream has been closed will cause
+a deadlock.
+\end{doc}
+
+\subsection{Output Streams}
+
+#*#Wr =
+#*  [write = /[String Sig] 
+#*   writeChar = /[Char Sig] 
+#*   writeSubstring = /[String Int Int Sig] 
+#*   writeBytes = /[Bytes Int Int Sig] 
+#*   close = /[Sig]]
+\begin{doc}
+The type @Wr@ describes character stream objects for which we have write
+capability.  The expression @(write s)@ writes the string @s@ on the
+stream.  The @writeChar@ writes a character on the stream.
+@(writeSubstring s i n)@ writes @n@ characters beginning from position @i@
+in the string @s@ (it must be the case that that @i@ and @n@ denote a valid
+substring of @s@).  The expression @(writeBytes buff i n)@ writes @n@
+characters from @buff@ beginning from position @i@ (it must be the case
+that that @i@ and @n@ denote a valid sub-array of @buff@).  The @close@
+method closes the stream.  Calling any stream methods after a stream has
+been closed will cause a deadlock.
+\end{doc}
+
+##io:[
+
+\subsection{Operations}
+
+#*fdRd = /[Fd /Rd]
+#*stringRd = /[String /Rd]
+#*openRd = /[String Exn /Rd]
+\begin{doc}
+The function @fdRd@ takes a file descriptor (which must be be opened for
+reading) and creates a buffered stream for that descriptor. @stringRd@
+takes a string a treats it as a stream. @openRd@ takes a filename @n@ and
+creates a stream connected to that file, calling the given handler if the
+file could not be opened.
+\end{doc}
+
+#*fdWr = /[Fd /Wr]
+\begin{doc}
+The function @fdWr@ takes a file descriptor (which must be be opened for
+writing) and creates a buffered stream for that descriptor.
+\end{doc}
+
+#*openGenWr = /[String Bool Bool Bool Perm Exn /Wr]
+#*openWr = /[String Exn /Wr]
+\begin{doc}
+@(openGenWr f create excl trunc p h)@ opens the file @f@ for writing. If
+@create@ is true, and the file does not already exist, then @f@ is created
+with permissions @p@. The given permissions are modified by the Unix
+process' umask in the normal way.  If both @create@ and @excl@ are true
+then @openGenWr@ fails if the specified file already exists.  If @trunc@ is
+true and the file does already exist, the file is truncated when it is
+opened. If @f@ cannot be opened the handler @h@ is called.  @(openWr f h)@
+is a simplified version of @openGenWr@.  If the file @f@ already exists, it
+truncates it. If @f@ does not already exist, it creates @f@ with read and
+write permissions enabled.  If @f@ cannot be opened the handler @h@ is
+called.
+\end{doc}
+
+#*fnWr = /[/[String Sig] /Wr]
+\begin{doc}
+Builds a writer that calls the given function to process anything 
+written on it.
+\end{doc}
+
+\subsection{Debugging Streams}
+
+#*traceRd = /[Rd String Wr /Rd]
+#*traceWr = /[Wr String Wr /Wr]
+\begin{doc}
+@(traceRd rd s tr)@ create a reader that behaves just like @rd@ except that
+every operation on it is echoed to the tracing stream @tr@ along with the
+identifying string @s@.  @traceWr@ behaves similarly, constructed a traced
+version of a writer.
+\end{doc}
+
+#{#}
+]] = (
+
+type Rd =
+  [eof = /[/Bool] 
+   read = /[Int Exn /String] 
+   readChar = /[Exn /Char] 
+   peekChar = /[Exn /Char] 
+   readBytes = /[Bytes Int Int /Int] 
+   close = /[Sig]]
+
+type Wr =
+  [write = /[String Sig] 
+   writeChar = /[Char Sig] 
+   writeSubstring = /[String Int Int Sig] 
+   writeBytes = /[Bytes Int Int Sig] 
+   close = /[Sig]]
+
+def fdRd (f:Fd):Rd =
+ (type S = [eof=Bool buf=Bytes pos=Int max=Int]
+
+  val bufSize = 1024
+  (fd.mkASync f exn.exit);
+
+  new lock:^S
+  run lock![eof=false buf=(bytes.make '\000' bufSize) pos=1 max=0]
+
+  def refill (s:S):S =
+    if (&& (not s.eof) (>> s.pos s.max)) then
+      (val max = (dec (fd.read f s.buf 0 bufSize))
+       if (<< max 0) then
+         [eof = true buf = s.buf pos = 0 max = max]
+       else
+         [eof = false buf = s.buf pos = 0 max = max])
+    else
+      s
+
+  [eof = \[r] = lock?s =
+     (val s = (refill s) (r!s.eof | lock!s))
+   read = \[len onEof res] = lock?s = (
+      def loop (s:S str:String l:Int):[String S] =
+        (val s = (refill s)
+         if s.eof then
+           ((write lock s); (exn.raise onEof "read: eof"))
+         else
+           (val count = (int.min (inc (- s.max s.pos)) len)
+            val x = (bytes.toString s.buf idx=s.pos len=count)
+            if (== count l) then
+              [(+$ str x) (s where pos = (+ s.pos count))]
+            else
+              (loop (s where pos = (+ s.pos count)) (+$ str x)
+               (- l count))))
+      val [str s] = (loop s "" len)
+      (res!str | lock!s))
+    readChar = \[onEof res] = lock?s =
+      (val s = (refill s)
+       if s.eof then
+         (lock!s | onEof!"readChar: eof")
+       else
+         (val ch = (bytes.nth s.buf s.pos)
+          (lock!(s where pos = (inc s.pos)) | res!ch)))
+    peekChar = \[onEof res] = lock?s =
+      (val s = (refill s)
+       if s.eof then
+         (lock!s | onEof!"peekChar: eof")
+       else
+         (val ch = (bytes.nth s.buf s.pos)
+          (lock!s | res!ch)))
+    readBytes = \[clientBuff start len res] = lock?s =
+      if s.eof then
+        (res!0 | lock!s)
+      else if (<= s.pos s.max) then (
+        {- There are still some bytes left in the internal buffer -}
+        val clientBuffSize = (bytes.size clientBuff)
+        val count = (int.min (inc (- s.max s.pos)) len)
+        (bytes.copy src=s.buf srcIdx=s.pos len=count
+         dst=clientBuff dstIdx=start);
+        if (== count len) then
+          (res!count | lock!(s where pos = (+ s.pos count)))
+        else
+          {- Fill the remainder of clientBuff from the file -}
+          (val sz = (fd.read f clientBuff (+ count start) (- len count))
+           (res!(+ count sz) | lock!(s where pos = (+ s.pos count))))
+      ) else (
+        val r = (fd.read f clientBuff start len)
+        if (== r 0) then
+          (res!r | lock!(s where eof = true))
+        else
+          (res!r | lock!s)
+      )
+    close = \[c] = lock?_ =
+      fd.close![f c]
+  ]
+)
+
+def stringRd (from:String):Rd =
+ (new lock:^Int
+  run lock!0
+  val maxpos = (dec (string.size from))
+  [eof = \[c] = lock?pos =
+      (c!(>> pos maxpos) | lock!pos) 
+   read = \[len onEof res] = lock?pos = (
+      val count = (int.min (inc (- maxpos pos)) len)
+      if (== count len) then (
+        val s = (string.sub from pos count)
+        (res!s | lock!(+ pos count))
+      ) else (
+        lock!(+ pos count) | ((exn.raise onEof "stringRd.read: eof"); ())
+    ))
+   readChar = \[onEof res] = lock?pos = 
+      if (>> pos maxpos) then
+        (lock!pos | ((exn.raise onEof "stringRd: readChar: eof"); ()))
+      else
+        (val ch = (string.nth from pos) (lock!(inc pos) | res!ch))
+   peekChar = \[onEof res] = lock?pos = 
+      if (>> pos maxpos) then
+        (lock!pos | ((exn.raise onEof "stringRd: peekChar: eof"); ()))
+      else
+        (val ch = (string.nth from pos) (lock!pos | res!ch))
+   readBytes = \[clientBuff start len res] = lock?pos = (
+      val count = (int.min (inc (- maxpos pos)) len)
+      (bytes.copyFromString src=from srcIdx=pos len=count
+       dst=clientBuff dstIdx=start);
+      (res!count | lock!(+ pos count))
+    )
+   close = \[c] = lock?_ =
+      c![]
+  ]
+)
+
+def openRd (n:String onError:Exn):Rd =
+  (fdRd (fd.openRd n onError))
+
+def fdWr (f:Fd):Wr =
+  [write = \(s) = (fd.write f s) 
+   writeChar = \(c) = (fd.writeChar f c) 
+   writeSubstring = \(s i n) = (fd.writeSubstring f s i n) 
+   writeBytes = \(buff i n) = (fd.writeBytes f buff i n) 
+   close = \() = (fd.close f)]
+
+def openGenWr
+  (n:String create:Bool excl:Bool truncate:Bool perm:Perm onError:Exn):Wr
+=
+ (fdWr (fd.open n fd.writeOnly create truncate excl perm onError))
+
+def openWr (n:String onError:Exn):Wr =
+  (fdWr (fd.openWr n onError))
+
+def fnWr (f:/[String Sig]):Wr =
+  [write = f
+   writeChar = \(c) = (f (string.make c 1))
+   writeSubstring = \(s i n) = (f (string.sub s i n))
+   writeBytes = \(buff i n) = (f (bytes.toString buff idx=i len=n))
+   close = \() = []]
+
+def traceRd (rd:Rd tag:String tracewr:Wr):Rd =
+  [eof = \() =
+    ((tracewr.write (+$ > "(" tag ":eof?" ")"));
+      val r = (rd.eof)
+      (tracewr.write (+$ > "(" tag "->" 
+                        if r then "true" else "false"
+                        ")"));
+      r)
+   read = \(i fail) =
+     ((tracewr.write (+$ > "(" tag ":read " ($$ i) ")"));
+      val r = (rd.read i fail)
+      (tracewr.write (+$ > "(" tag ":read->" r ")"));
+      r)
+   readChar = \(h) =
+     ((tracewr.write (+$ > "(" tag ":readChar)"));
+      val r = (rd.readChar h)
+      (tracewr.write (+$ > "(" tag ":readChar->"));
+      (tracewr.writeChar r);
+      (tracewr.writeChar ')');
+      r)
+   peekChar = \(h) =
+     ((tracewr.write (+$ > "(" tag ":peekChar)"));
+      val r = (rd.peekChar h)
+      (tracewr.write (+$ > "(" tag ":peekChar->"));
+      (tracewr.writeChar r);
+      (tracewr.writeChar ')');
+      r)
+   readBytes = \(b i n) =
+     ((tracewr.write (+$ > "(" tag ":readBytes)"));
+      val r = (rd.readBytes b i n)
+      (tracewr.write (+$ > "(" tag ":readBytes->"));
+      (tracewr.writeBytes b i r);
+      (tracewr.writeChar ')');
+      r)
+   close = \() =
+     ((tracewr.write (+$ > "(" tag ":close)"));
+      (rd.close);
+      (tracewr.write (+$ > "(" tag ":close->closed")))
+  ]
+
+def traceWr (wr:Wr tag:String tracewr:Wr):Wr =
+  [write = \(s) = ((tracewr.write (+$ > "(" tag ":" s ")")); 
+                   (wr.write s))
+   writeChar = \(c) = 
+     ((tracewr.writeChar '(');
+      (tracewr.write tag);                                 
+      (tracewr.writeChar ':'); 
+      (tracewr.writeChar c); 
+      (tracewr.writeChar ')');                                 
+      (wr.writeChar c))
+   writeSubstring = \(s from n) = 
+     ((tracewr.writeChar '(');
+      (tracewr.write tag);                                 
+      (tracewr.writeChar ':');
+      (int.for from (- (+ from n) 1) \(i) = 
+        (tracewr.writeChar (string.nth s i)));
+      (tracewr.writeChar ')');
+      (wr.writeSubstring s from n))
+   writeBytes = \(b from n) = 
+     ((tracewr.writeChar '(');
+      (tracewr.write tag);                                 
+      (tracewr.writeChar ':');
+      (int.for from (- (+ from n) 1) \(i) =
+         (tracewr.writeChar (bytes.nth b i)));
+      (tracewr.writeChar ')');
+      (wr.writeBytes b from n))
+   close = \() = ((tracewr.write (+$ > "(" tag ": closing)")); 
+                  (wr.close))
+  ]
+
+[[fdRd=fdRd stringRd=stringRd openRd=openRd fdWr=fdWr openGenWr=openGenWr
+  openWr=openWr fnWr=fnWr traceRd=traceRd traceWr=traceWr]]
+
+)

@@ -1,0 +1,102 @@
+import "Std/Random"
+
+{-
+ - Integer parsing and printing.
+ -}
+
+def test (x:Int):[] =
+  if (>= x 0) then
+    ((pr " "); (int.pr x); (pr " ");
+     (int.pr (int.fromString ($$ x) exn.exit));
+     (pr " "); (int.pr (neg x)); (pr " ");
+     (int.pr (int.fromString ($$ (neg x)) exn.exit));
+     (nl); (test (dec x)))
+  else
+    []
+
+def checkConversions (x:Int):[] =
+  (val v =
+     if (random.randomCoin) then (random.random)
+     else (neg (random.random))
+   if (>= x 0) then
+     (val v' = (int.fromString ($$ v) exn.exit)
+      if (<> v v') then
+	(error.fatal
+	 (+$ > "checkConversions: bad toString or fromString conversion: "
+	  ($$ v) " <> " ($$ v')))
+      else
+	(checkConversions (dec x)))
+   else
+     [])
+
+(prNL "*** Integer parsing and printing ***");
+(test 16); (checkConversions 1000);
+
+{-
+ - Arithmetic functions.
+ -}
+
+def runTest (s:String f:/[Int Int /Bool]):[] =
+  (def loop (x:Int):[] =
+     if (== x 0) then
+       []
+     else
+       (val a = (random.random)
+	val a = if (random.randomCoin) then (neg a) else a
+	val b = (random.random)
+	val b = if (random.randomCoin) then (neg b) else b
+	if (f a b) then (loop (dec x))
+	else (error.fatal (+$ > "runTest: " ($$ a) " " ($$ b))))
+   (pr s); (loop 1000))
+
+(prNL "\n*** Arithmetic operations ***");
+
+(runTest
+ " y <> 0 ==> x == x * (x / y) + (x % y)\n"
+ \(x y) =
+  if (<> y 0) then (== x (+ (* (div x y) y) (mod x y)))
+  else true
+);
+
+(runTest
+ " x >= 0 && y >> 0 ==> 0 <= (x % y) << y\n"
+ \(x y) =
+  if (&& (>= x 0) (>> y 0)) then (val r = (mod x y)  (&& (<= 0 r) (<< r y)))
+  else true
+);
+
+(runTest " x + 0 == x\n" \(x y) = (== (+ x 0) x));
+(runTest " x + y == y + x\n" \(x y) = (== (+ x y) (+ y x)));
+    
+(runTest " x * 0 == 0\n" \(x y) = (== (* x 0) 0));
+(runTest " x * 1 == x\n" \(x y) = (== (* x 1) x));
+(runTest " x * y == y * x\n" \(x y) = (== (* x y) (* y x)));
+  
+(prNL "\n*** Bitwise arithmetic operations ***");
+(runTest " (lnot(lnot x)) == x\n" \(x _) = (== (int.lnot(int.lnot x)) x ));
+(pr " (lnot 0) = "); (int.pr (int.lnot 0)); (nl);
+(pr " (lnot 255) = "); (int.pr (int.lnot 255)); (nl);
+
+(runTest " (lor x x) == x\n" \(x _) = (== (int.lor x x) x));
+(runTest " (lor x y) == (lor y x)\n"
+ \(x y) = (== (int.lor x y) (int.lor y x)));
+(pr " (lor 32 15) = "); (int.pr (int.lor 32 15)); (nl);
+(pr " (lor 31 15) = "); (int.pr (int.lor 31 15)); (nl);
+
+(runTest " (land x x) == x\n" \(x _) = (== (int.land x x) x));
+(runTest " (land x y) == (land y x)\n"
+ \(x y) = (== (int.land x y) (int.land y x)));
+(pr " (land 32 15) = "); (int.pr (int.land 32 15)); (nl);
+(pr " (land 31 15) = "); (int.pr (int.land 31 15)); (nl);
+
+(runTest " (lxor x x) == 0\n" \(x _) = (== (int.lxor x x) 0));
+(runTest " (lxor x 0) == x\n" \(x _) = (== (int.lxor x 0) x));
+(runTest " (lxor x y) == (lxor y x)\n"
+ \(x y) = (== (int.lxor x y) (int.lxor y x)));
+(pr " (lxor 32 15) = "); (int.pr (int.lxor 32 15)); (nl);
+(pr " (lxor 31 15) = "); (int.pr (int.lxor 31 15)); (nl);
+
+(runTest " (lor (lnot x) x) == -1\n"
+ \(x _) = (== (int.lor (int.lnot x) x) -1));
+(runTest " (land (lnot x)) == 0\n"
+ \(x _) = (== (int.land (int.lnot x) x) 0));

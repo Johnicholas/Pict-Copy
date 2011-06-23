@@ -1,0 +1,10 @@
+{-
+ - Tests pixmap parsing.
+ -}
+
+import "Picture/Picture"
+
+val s = (picture.server "" "Pixmap")
+(s.open "Pixmap"
+ (picture.quitOnHit
+  (picture.pixmap "../Ants/bitmaps.26/ant0.ppm" exn.exit)));

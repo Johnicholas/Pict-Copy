@@ -1,0 +1,18 @@
+gcc -o test -Wall div.c
+-5 div 3 = -1
+-5 mod 3 = -2
+gcc -o test -Wall sprintf.c
+String 55 (length 2)
+gcc -o test -Wall bytecopy.c
+hasgot sigaction sigprocmask sigsuspend
+hasgot socket socketpair bind listen accept connect
+gcc -o test -Wall async.c
+Waiting
+Child running
+Writing character
+Got signal
+Waiting again
+Sleeping
+Exiting
+gcc -o test -Wall sockets.c
+gcc -o test -Wall x11.c -idirafter /usr/X11R6/include -L/usr/X11R6/lib -lX11

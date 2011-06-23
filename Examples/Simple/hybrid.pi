@@ -1,0 +1,56 @@
+{-
+ - Count the number of solutions to the "n queens" problem.
+ - This is a hybrid program: the innermost loop is implemented
+ - as a C function instead of a Pict function.
+ -}
+
+now (reset checks)
+now (setHeapSize 512)
+
+(ccode 0 I "Val safe (Val x,Val d,Val l);");
+
+(ccode 0 S "
+  Val safe (Val x,Val d,Val l) {
+    if (l == Zero) {
+      return 1;
+    } else {  
+      Val q = OFFSET(l,1);
+      if ((x != q) && (x != q+d) && (x != q-d)) {
+        return safe(x, d+2, OFFSET(l,2));
+      } else {
+	return 0;
+      }
+    }
+  }
+");
+
+type Solution = (List (List Int))
+
+def nqueens (size:Int):Int = (
+  def tryPosition (q:Int b:(List Int) s:Solution): Solution =
+    if (== q 0) then
+      s
+    else if (ccode 0 R "safe(#,#,#)" q 1 b) then
+      (tryPosition (dec q) b (cons (cons q b) s))
+    else
+      (tryPosition (dec q) b s)
+
+  def addSolution (b:(List Int) s:Solution) : Solution =
+    (tryPosition size b s)
+
+  def gen (x:Int) : Solution =
+    if (== x 0) then (cons #(List Int) nil nil){-HACK-}
+    else (list.fold (gen (dec x)) addSolution nil)
+
+  (list.size (gen size))
+)
+
+def test (x:Int):[] =
+  if (<= x 10) then
+    ((pr "(nqueens "); (int.pr x); (pr ") = ");
+     (int.pr (nqueens x)); (nl);
+     (test (inc x)))
+  else
+    []
+
+(test 0);

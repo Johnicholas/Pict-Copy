@@ -1,0 +1,136 @@
+\section{@Std/Match@: Wildcard Matching}
+
+This module provides a simple facility for matching strings against
+wildcard patterns.
+
+##import "Std/Error"
+##import "Std/Exn"
+##import "Std/Int"
+##import "Std/String"
+
+##val [
+
+\subsection{Types}
+
+#*#Match
+\begin{doc}
+@Match@ is the type of a compiled pattern match expression.
+\end{doc}
+
+##match : [
+
+\subsection{Compiling and Matching}
+
+#*compile = /[String Exn /Match]
+\begin{doc}
+@(compile s h)@ compiles a regular expression @s@ into a form that is
+suitable for subsequent matches.  The error handler @h@ is called if @s@
+does not denote a valid wildcard pattern.
+\end{doc}
+
+#*match = /[Match String Int Int /Bool]
+\begin{doc}
+@(search m s i len)@ returns @true@ if @m@ matches the substring of @s@
+starting at index @i@ and of length @len@.  It generates a runtime error if
+@i@ and @len@ do not denote a valid substring of @s@.
+\end{doc}
+
+#{#}
+]] = (
+
+type Match = /[String Int Int /Int]
+
+val matched = 0
+val failed = 1
+val abort = 2
+
+def compile (r:String fail:Exn):Match =
+  (def parseRange (x:Int literal:Bool):[(List Char) Int] =
+     if (== x (string.size r)) then
+       (exn.raise fail "Match.compile: no closing ]")
+     else
+       (val c = (string.nth r x)
+        if (&& (not literal) (== c '\\')) then
+          (parseRange (inc x) true)
+        else if (&& (not literal) (== c ']')) then
+          [nil (inc x)]
+        else
+          (parseAfter (inc x) c false))
+
+   and parseAfter (x:Int last:Char literal:Bool):[(List Char) Int] =
+     if (== x (string.size r)) then
+       (exn.raise fail "Match.compile: no closing ]")
+     else
+       (val c = (string.nth r x)
+        if (&& (not literal) (== c '\\')) then
+          (parseAfter (inc x) last true)
+        else if (&& (not literal) (== c '-')) then
+          (val [l y] = (parseRange (inc x) false)
+           if (null l) then
+             (exn.raise fail "Match.compile: bad range")
+           else if (<= last (car l)) then
+             [(int.fold #(List Char) last 1 (dec (car l))
+               \(x l) = (cons (char.fromInt x) l) l)
+              y]
+           else
+             (exn.raise fail "Match.compile: bad range"))
+        else if (&& (not literal) (== c ']')) then
+          [(cons last nil) (inc x)]
+        else
+          (val [l y] = (parseAfter (inc x) c false)
+           [(cons last l) y]))
+
+   def parse (x:Int literal:Bool):Match =
+     if (== x (string.size r)) then
+       if literal then
+         (exn.raise fail "Match.compile: bad literal at end of pattern")
+       else
+         \(s i sz) = if (== i sz) then matched else abort
+     else
+       (val c = (string.nth r x)
+        if (&& (not literal) (== c '\\')) then
+          (parse (inc x) true)
+        else if (&& (not literal) (== c '?')) then
+          (val regexp = (parse (inc x) false)
+           \(s i sz) = if (<< i sz) then (regexp s (inc i) sz) else abort)
+        else if (&& (not literal) (== c '*')) then
+          if (== (inc x) (string.size r)) then
+            {- Trailing star matches everything -}
+            \(_ _ _) = matched
+          else
+            (val regexp = (parse (inc x) false)
+             def star (s:String i:Int sz:Int):Int =
+               (val res = (regexp s i sz)
+                if (== res failed) then (star s (inc i) sz) else res)
+             star)
+        else if (&& (not literal) (== c '[')) then
+          (val [l y] = (parseRange (inc x) false)
+           val chars = (string.fromList l)
+           val regexp = (parse y false)
+           \(s i sz) =
+             if (<< i sz) then
+               if (string.occursIn (string.unsafeNth s i) chars) then
+                 (regexp s (inc i) sz)
+               else
+                 failed
+             else
+               abort)
+        else
+          (val regexp = (parse (inc x) false)
+           \(s i sz) =
+             if (<< i sz) then
+               if (== c (string.unsafeNth s i)) then (regexp s (inc i) sz)
+               else failed
+             else
+               abort))
+
+  (parse 0 false))
+
+def match (m:Match s:String i:Int len:Int):Bool =
+  ((error.check "Match.match"
+    (&& > (>= i 0) (>= len 0) (<= (+ i len) (string.size s))));
+   (== matched (m s i (+ i len))))
+
+[[compile=compile match=match]]
+
+)

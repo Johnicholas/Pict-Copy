@@ -1,0 +1,267 @@
+\section{@Posix/Fd@: Descriptor-based Input/Output}
+
+This module implements a procedural interface to Posix's descriptor-based
+input/output.  Some care is required when using these operations, since
+many have the potential to block the whole Pict system.  This module is not
+intended for general use: we provide high-level non-blocking file objects
+in the @Io@ module (Section~\ref{s:Io}).
+
+##import "Std/Bool"
+##import "Std/Char"
+##import "Std/Error"
+##import "Std/Int"
+##import "Std/String"
+##import "Std/Exn"
+##import "Std/Bytes"
+##import "Std/Opt"
+##import "Posix/Perm"
+##import "Posix/Signals"
+
+##val [
+
+\subsection{Types}
+
+#*#Fd
+\begin{doc}
+Values of type @Fd@ represent Unix file descriptors.
+\end{doc}
+
+#*#AccessMode
+\begin{doc}
+File access modes specify whether a file descriptor to be used for reading,
+writing, or both.
+\end{doc}
+
+##fd:[
+
+\subsection{Standard Input and Output}
+
+#*stdIn = Fd
+#*stdOut = Fd
+#*stdErr = Fd 
+\begin{doc}
+The values @stdIn@, @stdOut@ and @stdErr@ correspond to the standard Unix
+file descriptors of the same name.
+\end{doc}
+
+\subsection{Reading and Writing}
+
+The following operations read and write data on file descriptors.  If the
+file descriptor being written to or read from is set to be asynchronous,
+and the read/write operation would block, we suspend the operation until
+the next @SIGIO@ and then retry.
+
+#*read = /[Fd Bytes Int Int /Int] 
+\begin{doc}
+@(read fd b i n)@ reads a maximum of @n@ characters into @b@, starting at
+offset @i@, and returns the number of characters read.
+\end{doc}
+
+#*write = /[Fd String Sig] 
+\begin{doc}
+@(write fd s)@ writes the string @s@ on @fd@.
+\end{doc}
+
+#*writeChar = /[Fd Char Sig] 
+\begin{doc}
+@(writeChar fd c)@ writes the character @c@ on @fd@.
+\end{doc}
+
+#*writeSubstring = /[Fd String Int Int Sig] 
+\begin{doc}
+@(writeSubstring fd s i n)@ writes @n@ characters beginning from position
+@i@ in the string @s@ (it must be the case that @i@ and @n@ denote a valid
+substring of @s@).
+\end{doc}
+
+#*writeBytes = /[Fd Bytes Int Int Sig] 
+\begin{doc}
+@(writeBytes fd b i n)@ writes @n@ characters from @b@ beginning from
+position @i@ (it must be the case that that @i@ and @n@ denote a valid
+sub-array of @b@).
+\end{doc}
+
+\subsection{Access Modes}
+
+#*readOnly = AccessMode
+#*writeOnly = AccessMode
+#*readWrite = AccessMode
+\begin{doc}
+File access modes specify whether a file descriptor to be used for reading,
+writing, or both.  The access modes are chosen when the file descriptor is
+opened, and never change.
+\end{doc}
+
+\subsection{Opening and Closing Files}
+
+#*open = /[String AccessMode Bool Bool Bool Perm Exn /Fd] 
+\begin{doc}
+@(open f a create excl truncate p h)@ opens the file @f@ using the access
+mode @a@.  If @create@ is true, and the file does not already exist, then
+@f@ is created with permissions @p@ (the given permissions are modified by
+the Unix process' umask in the normal way).  If both @create@ and @excl@
+are true then @open@ fails if the specified file already exists.  If
+@truncate@ is true and @f@ already exists, @f@ is truncated when it is
+opened.  Calls the error handler @h@ if @f@ cannot be opened.
+\end{doc}
+
+#*openRd = /[String Exn /Fd] 
+\begin{doc}
+@(openRd f h)@ is a simplified version of @open@ which opens the file @f@
+for reading, calling the error handler @h@ if the file cannot be opened.
+\end{doc}
+
+#*openWr = /[String Exn /Fd] 
+\begin{doc}
+@(openWr f h)@ is a simplified version of @open@ which opens the file @f@
+for writing.  If @f@ already exists, it truncates it.  If @f@ does not
+already exist, it creates @f@ with read and write permissions enabled.
+\end{doc}
+
+#*close = /[Fd Sig]
+\begin{doc}
+@(close fd)@ closes @fd@.  Invoking any operations on @fd@ after it has
+been closed causes a runtime error.
+\end{doc}
+
+\subsection{Misc}
+
+#*mkASync = /[Fd Exn Sig] 
+\begin{doc}
+@(mkASync fd h)@ tries to make the file descriptor @fd@ use asynchronous
+I/O.  It calls the error handler @h@ if it fails to make @fd@ asynchronous.
+Note that all the read operations provided in this module work correctly
+with asynchronous file descriptors (if no data is available to be read,
+they block only the caller, not the whole runtime system).
+\end{doc}
+
+#{#}
+]] = (
+
+(ccode 0 I "##include <fcntl.h>");
+(ccode 0 I "##include <errno.h>");
+
+inline def wouldBlock ():Bool =
+  (ccode 0 R "(errno == EAGAIN || errno == EWOULDBLOCK)")
+
+type Fd = Int
+
+val stdIn = 0
+val stdOut = 1
+val stdErr = 2
+
+def read (fd:Fd b:Bytes start:Int len:Int):Int =
+  (val sz = (bytes.size b)
+   (error.check "fd.read"
+    (&& > (>= start 0) (>> len 0) (<= (+ start len) sz)));
+   val n =
+     (signals.retry signals.SIGIO \():(Opt Int) =
+       (val n:Int =
+          (ccode 0 W "intInt(read(I(#),S(#)+I(#),I(#)))" fd b start len)
+        if (<< n 0) then
+          if (wouldBlock) then opt.no else (opt.yes n)
+       else
+         (opt.yes n)))
+   if (<< n 0) then (error.fatal (+$ "fd.read failed on fd " ($$ fd)))
+   else n)
+
+def writeSubstring (fd:Fd s:String i:Int n:Int) : [] =
+  (val byteswritten = 
+     (signals.retry signals.SIGIO \():(Opt Int) =
+        (val e:Int =
+           (ccode 0 W "intInt(write(I(#),&S(#)[I(#)],I(#)))" fd s i n)
+         if (<< e 0) then
+           if (wouldBlock) then opt.no else (opt.yes e)
+         else (opt.yes e)))
+   if (<< byteswritten 0) then
+     (error.fatal (+$ "write on fd failed: " ($$ fd)))
+   else if (<< byteswritten n) then
+     (writeSubstring fd s (+ i byteswritten) (- n byteswritten))
+   else
+     [])
+
+def write (fd:Fd s:String):[] = (writeSubstring fd s 0 (string.size s))
+def writeChar (fd:Fd c:Char):[] = (writeSubstring fd (char.toString c) 0 1)
+
+def writeBytes (fd:Fd buff:Bytes i:Int n:Int):[] =
+  (val sz = (bytes.size buff)
+   (error.check "fd.writeBytes: index out of range"
+    (&& (>= i 0) (<= (+ i n) sz)));
+   (writeSubstring fd (bytes.unsafeCast buff) i n))
+
+type AccessMode = Int
+val readOnly:AccessMode = (ccode 0 C "intInt(O_RDONLY)")
+val writeOnly:AccessMode = (ccode 0 C "intInt(O_WRONLY)")
+val readWrite:AccessMode = (ccode 0 C "intInt(O_RDWR)")
+
+def open
+  (n:String a:AccessMode create:Bool excl:Bool truncate:Bool 
+   p:Perm fail:Exn) : Fd
+ =
+  (val create:Int = if create then (ccode 0 C "intInt(O_CREAT)") else 0
+   val excl:Int = if excl then (ccode 0 C "intInt(O_EXCL)") else 0
+   val truncate:Int = if truncate then (ccode 0 C "intInt(O_TRUNC)") else 0
+   val mode = (int.lor > a create excl truncate)
+   val fd:Int =
+     (ccode 0 W "intInt(open(S(#),I(#),I(#)))" n mode (perm.toInt p))
+   if (== fd -1) then
+     (exn.raise fail (+$ > "open failed for: " n 
+                      " with errno=" ($$ (ccode 0 R "intInt(errno)"))))
+   else
+     fd)
+
+inline def openRd (n:String fail:Exn):Fd =
+  (open n readOnly false false false perm.null fail)
+
+def openWr (n:String fail:Exn):Fd =
+  (open n writeOnly true false true 
+   [setuid=false setgid=false sticky=false
+    user=[read=true write=true execute=false]
+    group=[read=true write=true execute=false]
+    other=[read=true write=true execute=false]]
+   fail)
+
+def close (fd:Fd):[] =
+  if (<> (ccode 0 W "intInt(close(I(#)))" fd) 0) then
+    (error.fatal "close: Couldn't close file\n")
+  else
+    []
+
+inline def mkASync (fd:Fd fail:Exn):[] =
+  if (ccall 0 C "%async") then
+    (val fl:Int = (ccode 0 W "intInt(fcntl(I(#),F_GETFL))" fd)
+     if
+       (ccode 0 W "
+####ifdef USE_NDELAY
+         (fcntl(I(#),F_SETFL,I(#) | O_NDELAY | FASYNC) == -1)
+####else
+         (fcntl(I(#),F_SETFL,I(#) | O_NONBLOCK | FASYNC) == -1)
+####endif
+        " fd fl fd fl)
+     then
+       (exn.raise fail "mkASync: F_SETFL failed")
+     else if (ccode 0 W "fcntl(I(#),F_SETOWN,getpid()) == -1" fd) then
+       (prErr "Warning: mkASync: F_SETOWN failed\n")
+     else [])
+  else
+    (val fl:Int = (ccode 0 W "intInt(fcntl(I(#),F_GETFL))" fd)
+     if
+       (ccode 0 W "
+####ifdef USE_NDELAY
+         (fcntl(I(#),F_SETFL,I(#) | O_NDELAY) == -1)
+####else
+         (fcntl(I(#),F_SETFL,I(#) | O_NONBLOCK) == -1)
+####endif
+        " fd fl fd fl)
+     then
+       (exn.raise fail "mkASync: F_SETFL failed")
+     else
+       [])
+
+[[stdIn=stdIn stdOut=stdOut stdErr=stdErr read=read
+  write=write writeChar=writeChar writeSubstring=writeSubstring
+  writeBytes=writeBytes readOnly=readOnly writeOnly=writeOnly
+  readWrite=readWrite open=open openRd=openRd openWr=openWr
+  close=close mkASync=mkASync]]
+
+)

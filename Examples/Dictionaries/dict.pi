@@ -1,0 +1,112 @@
+{-
+ - An implementation of dictionaries using summation.
+ - This program is very inefficient, but is useful as a test
+ - for the code generator and garbage collector, since it does
+ - a lot of parallel stuff.
+ -}
+
+import "Std/Random"
+import "Std/Events"
+
+now (setHeapSize 512)
+
+type (Leq K) = /[K K /Bool]
+
+type (Dict K V) = [
+  add = ![K V Sig] 
+  remove = ![K Sig] 
+  lookup = ![K /V] 
+  iterate = ![/[K V Sig] ![] ![]]
+]
+
+def newDict (#K #V <=:(Leq K)) : (Dict K V) = (
+  val [addS add] = (events.make #[K V Sig])
+  val [removeS remove] = (events.make #[K Sig])
+  val [lookupS lookup] = (events.make #[K /V])
+  val [iterateS iterate] = (events.make #[/[K V Sig] ![] ![]])
+  val dict = [add=addS remove=removeS lookup=lookupS iterate=iterateS]
+
+  def eState [] =
+    events.sync!(events.choose >
+      (events.read add \[k:K v:V cont:Sig] =
+       (neState![k v (newDict #K #V <=)] | cont![]))
+      (events.read remove \[k:K cont:Sig] =
+       error.fail!"Dict.remove: Key not found")
+      (events.read lookup \[k:K res:/V] =
+       error.fail!"Dict.lookup: Key not found")
+      (events.read iterate \[_:/[K V Sig] commit:![] res:![]] =
+       (res![] | commit![] | eState![]))
+    )
+
+  and placeHolder tl:(Dict K V) =
+    events.sync!(events.choose >
+      (events.read add \[k:K v:V cont:Sig] =
+       ( tl.add![k v cont] | placeHolder!tl ))
+      (events.read remove \[k:K cont:Sig] =
+       ( tl.remove![k cont] | placeHolder!tl ))
+      (events.read lookup \[k:K res:/V] =
+       ( tl.lookup![k res] | placeHolder!tl ))
+      (events.read iterate \[f:/[K V Sig] commit:![] res:![]] =
+       ( tl.iterate![f commit res] | placeHolder!tl ))
+    )
+
+  and neState [thisK:K  thisV:V  tl:(Dict K V)] =
+    events.sync!(events.choose >
+      (events.read add \[k:K v:V cont:Sig] =
+        if (<= thisK k) then
+          if (<= k thisK) then
+            (cont![] | neState![k v tl])
+          else
+            ((tl.add k v); (neState![thisK thisV tl] | cont![]))
+        else
+          ((tl.add thisK thisV); (neState![k v tl] | cont![])))
+      (events.read remove \[k:K cont:Sig] =
+        if (<= thisK k) then
+          if (<= k thisK) then
+	    (cont![] | placeHolder!tl)
+	  else
+	    ((tl.remove k); (neState![thisK thisV tl] | cont![]))
+	else
+	  error.fail!"Dict.remove: Key not found")
+      (events.read lookup \[k:K res:/V] =
+        if (<= thisK k) then
+	  if (<= k thisK) then
+	    (res!thisV | neState![thisK thisV tl])
+	  else
+            (val v = (tl.lookup k) (neState![thisK thisV tl] | res!v))
+	else
+	  error.fail!"Dict.lookup: Key not found")
+      (events.read iterate \[f:/[K V Sig] commit:![] finished:![]] =
+        (new tlFinished:^[]
+	 new tlCommit:^[]
+	 (tl.iterate![f tlCommit tlFinished] |
+	  tlCommit?[] =
+	    (neState![thisK  thisV  tl] | commit![] |
+	     ((f thisK thisV); tlFinished?[] = finished![])))))
+    )
+
+  run eState![]
+  dict
+)
+
+val dict = (newDict #Int #Int <=)
+
+def add ([x:Int v:Int]):[] = ((pr "#"); (dict.add x v))
+
+def lookup ([x:Int v:Int]):[] =
+  if (== (dict.lookup x) v) then
+    ((pr "?"); (dict.remove x))
+  else
+    (error.fatal "lookup failed")
+
+def test (_:Int):[] =
+  (val x = (random.randomInt 30)
+   val v = (random.randomInt 1000)
+   (dict.add x v);
+   if (== (dict.lookup x) v) then (pr "$") else (error.fatal "lookup failed"))
+
+val l = (list.tabulate #[Int Int] 75 \(x) = [x (random.randomInt 1000)])
+
+(list.apply l add); (nl);
+(list.apply l lookup); (nl);
+(int.apply 1 1 75 test); (nl);

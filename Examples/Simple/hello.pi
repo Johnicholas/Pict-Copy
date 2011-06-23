@@ -1,0 +1,5 @@
+{-
+ - The Pict "Hello world" program.
+ -}
+
+(pr "Hello world\n");

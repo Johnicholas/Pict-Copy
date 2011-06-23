@@ -1,0 +1,151 @@
+\section{@Std/Events@: Events}
+
+##import "Std/Misc"
+##import "Std/Int"
+
+##val [
+
+\subsection{Types}
+
+#*#Event
+#*#EChan : (Type -> Type)
+\begin{doc}
+The type @(EChan T)@ describes ``input event channels'' from which elements
+of @T@ can be read using @read@.  The type @Event@ is the type of
+``potential communcations.''
+\end{doc}
+
+##events:[
+
+\subsection{Operations}
+
+#*make = /[#X /[!X (EChan X)]]
+\begin{doc}
+@(make)@ creates a fresh output channel and an input event channel,
+and returns the two as a pair.
+\end{doc}
+
+#*read = /[#X (EChan X) /X /Event] 
+\begin{doc}
+@(read r receiver)@ builds an event that, when triggered (with @sync@), will
+attempt to read a value from the event channel @r@ and pass it on to
+@receiver@.
+\end{doc}
+
+#*choose = /[Event Event /Event]
+\begin{doc}
+@(choose e1 e2)@ builds an event that, when triggered, will attempt to perform
+both @e1@ and @e2@ at the same time.  When either @e1@ or @e2@ succeeds,
+the other is aborted and the choose-event itself succeeds.
+\end{doc}
+
+#*null  = Event
+\begin{doc}
+An ``inert event'' that never succeeds.
+\end{doc}
+
+#*sync = /Event
+\begin{doc}
+@(sync e)@ triggers the event @e@.
+\end{doc}
+
+#{#}
+]]
+= (
+
+type Lock = ?[Bool /Bool]
+type (EChan X) = ^[Lock /X]
+
+def test [l:Lock res:/Bool] = l?[isSet grab] = (grab!false | res!isSet)
+def testAndSet [l:Lock res:/Bool] = l?[isSet grab] = (grab!true | res!isSet)
+
+def build (#X send:^X) : (EChan X) =
+  (new receive:^[Lock /X]
+
+   {- Internal queues of pending senders and receivers -}
+   new sendI:^X
+   new receiveI:^[Lock /X]
+   {- Queue of signals for pending send/receive requests.  Multiplexing
+    - both kinds of signals onto a single trigger channel allows them to
+    - be handled by a single loop without danger of blocking. -}
+   new mux:^Bool
+
+   {- Register external requests, redirect them to an appropriate internal
+    - queue, and trigger the handler. -}
+   def awaitIO [#X clientChan:^X internalChan:!X isSend:Bool] = clientChan?v =
+     (mux!isSend | internalChan!v | awaitIO![clientChan internalChan isSend])
+ 
+   {- Start up external request handlers for the "send" and "receive"
+    - channels. -}
+   run awaitIO![send sendI true]
+   run awaitIO![receive receiveI false]
+
+   {- The main event processing loop.  We maintain the invariant that
+    - "senders" and "receivers" are set to the number of pending send and
+    - receive requests -- i.e., the number of waiting writes on the queue
+    - channels "sendI" and "receiveI". -}
+   def ready [senders:Int receivers:Int] = mux?isSend =
+     if isSend then
+       process![(inc senders) receivers]
+     else
+       process![senders (inc receivers)]
+
+    {- Having received some kind of external event, we check whether there
+     - are currently any pending senders.  If so, we attempt to find a receiver
+     - whose lock is still not set; otherwise, we scan the receiver queue and
+     - discard any pending receivers whose locks are taken. -}
+   and process [senders:Int receivers:Int] =
+     if (>> senders 0) then
+       chooseReceiver![senders receivers]
+     else
+       scanReceivers![senders receivers]
+
+   and chooseReceiver [senders:Int receivers:Int] =
+     if (== receivers 0) then
+       ready![senders receivers]
+     else
+       receiveI?[lock res] =
+       if (testAndSet lock) then
+         sendI?v = (res!v | scanReceivers![(dec senders) (dec receivers)])
+       else
+         chooseReceiver![senders (dec receivers)]
+
+   and scanReceivers [senders:Int receivers:Int] =
+     (new temp:^[Lock /X]
+      def scan [n:Int receivers:Int] =
+        if (== n 0) then
+          (ready![senders receivers] |
+           forward![temp \v:[Lock /X] = receiveI!v])
+        else
+          receiveI?[lock res] =
+          if (test lock) then
+            (temp![lock res] | scan![(dec n) receivers])
+          else
+            scan![(dec n) (dec receivers)]
+      scan![receivers receivers])
+
+   run ready![0 0]
+   receive)
+
+def make (#X) : [!X (EChan X)] =
+  (new send:^X [send (build send)])
+
+type Event = !^[Bool /Bool]
+
+def read (#X r:(EChan X) receiver:/X) : Event =
+  \lock = r![lock receiver]
+
+def choose (e1:Event e2:Event) : Event =
+  \lock = (e1!lock | e2!lock)
+
+val null : Event =
+  \lock = ()
+
+def sync e:Event =
+  (new lock:^[Bool /Bool]
+   def loop b:Bool = if (lock b) then loop!false else loop!b
+   (loop!true | e!lock))
+
+[#Event #EChan [make=make read=read choose=choose null=null sync=sync]]
+
+)

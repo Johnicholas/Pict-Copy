@@ -1,0 +1,153 @@
+\section{@Picture/Combine@: Combining Pictures}
+
+All the operations in this module are re-exported from the module
+@Picture/Picture@ (where they are documented).
+
+##import "Picture/Utils"
+##import "Picture/Types"
+##import "Picture/Basic"
+##import "Picture/Package"
+##import "Picture/Transform"
+
+##val combine : [
+#*add = /[Picture Picture /Picture] 
+#*beside = /[Picture Picture /Picture] 
+#*above = /[Picture Picture /Picture] 
+#*scaledAbove = /[Int Int Picture Picture /Picture]
+#*scaledBeside = /[Int Int Picture Picture /Picture]
+#*background = /[Color Picture /Picture]
+#*border = /[Int Int Picture /Picture] 
+#{#}
+] = (
+
+def unionBounds (active1:Active active2:Active):[Bounds Active Active] =
+  (val [l1 r1 a1 b1] = (package.boundary active1)
+   val [l2 r2 a2 b2] = (package.boundary active2)
+   [[(min l1 l2) (max r1 r2) (max a1 a2) (min b1 b2)] active1 active2])
+
+val addMethods:(M [Picture Picture] [Bounds Active Active]) =
+  [constant = false
+   reconfigure = \([p1 p2] s@[_ a1 a2] cx) =
+     (unionBounds
+      if (package.constant p1) then a1 else (package.reconfigure a1 cx)
+      if (package.constant p2) then a2 else (package.reconfigure a2 cx))
+   delete = \([_ a1 a2]) = ((package.delete a1); (package.delete a2))
+   boundary = \([b _ _]) = b
+   move = \([_ a1 a2] dx dy) =
+     (unionBounds (package.move a1 dx dy) (package.move a2 dx dy))
+   scale = \([_ a1 a2] sx dx sy dy) =
+     (unionBounds (package.scale a1 sx dx sy dy)
+      (package.scale a2 sx dx sy dy))
+   rotate = \([_ a1 a2] a) =
+     (unionBounds (package.rotate a1 a) (package.rotate a2 a))
+   rot90 = \([_ a1 a2]) =
+     (unionBounds (package.rot90 a1) (package.rot90 a2))
+   rot180 = \([_ a1 a2]) =
+     (unionBounds (package.rot180 a1) (package.rot180 a2))
+   rot270 = \([_ a1 a2]) =
+     (unionBounds (package.rot270 a1) (package.rot270 a2))
+   button = \([[l r a b] a1 a2] cx bx by button ud t) =
+     if (&& > (>= bx l) (<= bx r) (>= by b) (<= by a)) then
+       (|| (package.button a1 cx bx by button ud t)
+	(package.button a2 cx bx by button ud t))
+     else
+       false
+   render = \([b a1 a2] cx) =
+     ((package.render a1 cx); (package.render a2 cx))
+   init = \([p q] cx) =
+     (unionBounds (package.init p cx) (package.init q cx))]
+
+def add (p:Picture q:Picture):Picture =
+  [(addMethods where
+    constant = (&& (package.constant p) (package.constant q)))
+   [p q]]
+
+def above (p:Picture q:Picture):Picture =
+  (add (transform.southwest p) (transform.northwest q))
+
+def beside (p:Picture q:Picture):Picture =
+  (add (transform.southeast p) (transform.southwest q))
+
+def scaledAbove (n1:Int n2:Int p1:Picture p2:Picture):Picture =
+  (def reconf (active1:Active active2:Active):[Bounds Active Active] =
+     (val [l1 r1 a1 b1] = (package.boundary active1)
+      val [l2 r2 a2 b2] = (package.boundary active2)
+      val w1 = (- r1 l1) val h1 = (- a1 b1)
+      val w2 = (- r2 l2) val h2 = (- a2 b2)
+      (unionBounds
+       (package.scale (package.move active1 (neg l1) (neg a1))
+	w1 (max w1 w2) (* n2 h1) (* n1 h2))
+       (package.scale (package.move active2 (neg l2) (neg b2))
+	w2 (max w1 w2) 1 1)))
+   [(addMethods where
+     constant = (&& (package.constant p1) (package.constant p2))
+     reconfigure =
+       \(_:[Picture Picture] [_:Bounds a1:Active a2:Active] cx:CX):
+         [Bounds Active Active] =
+       (reconf (package.reconfigure a1 cx) (package.reconfigure a2 cx))
+     init = \([p1:Picture p2:Picture] cx:CX):[Bounds Active Active] =
+       (reconf (package.init p1 cx) (package.init p2 cx)))
+    [p1 p2]])
+
+def scaledBeside (n1:Int n2:Int p1:Picture p2:Picture) : Picture =
+  (def reconf (active1:Active active2:Active):[Bounds Active Active] =
+     (val [l1 r1 a1 b1] = (package.boundary active1)
+      val [l2 r2 a2 b2] = (package.boundary active2)
+      val w1 = (- r1 l1) val h1 = (- a1 b1)
+      val w2 = (- r2 l2) val h2 = (- a2 b2)
+      (unionBounds
+       (package.scale (package.move active1 (neg r1) (neg b1))
+	(* n2 w1) (* n1 w2) h1 (max h1 h2))
+       (package.scale (package.move active2 (neg l2) (neg b2))
+	1 1 h2 (max h1 h2))))
+   [(addMethods where
+     constant = (&& (package.constant p1) (package.constant p2))
+     reconfigure =
+       \(_:[Picture Picture] [_:Bounds a1:Active a2:Active] cx:CX):
+         [Bounds Active Active] =
+       (reconf (package.reconfigure a1 cx) (package.reconfigure a2 cx))
+     init = \([p1:Picture p2:Picture] cx:CX):[Bounds Active Active] =
+       (reconf (package.init p1 cx) (package.init p2 cx)))
+    [p1 p2]])
+
+def background (c:Color p:Picture) : Picture =
+  [(addMethods where
+    constant = (package.constant p)
+    reconfigure = \([c:Color _:Picture] [_:Bounds bg:Active fg:Active] cx:CX):
+        [Bounds Active Active] =
+      (val fg = (package.reconfigure fg cx)
+       val [l r a b] = (package.boundary fg)
+       val back = (transform.fg c (basic.fillQuad l a r a r b l b))
+       (unionBounds (package.init back cx) fg))
+    init = \([c:Color p:Picture] cx:CX):[Bounds Active Active] =
+      (val active = (package.init p cx)
+       val [l r a b] = (package.boundary active)
+       val back = (transform.fg c (basic.fillQuad l a r a r b l b))
+       (unionBounds (package.init back cx) active)))
+   [c p]]
+
+def border (width:Int margin:Int p:Picture):Picture =
+  (def reconf (w:Int m:Int active:Active cx:CX):[Bounds Active Active] =
+     (val [l r a b] = (package.boundary active)
+      val horiz = (+ < (- r l) (* 2 m) (* 2 w))
+      val vert = (+ (- a b) (* 2 m))
+      val border =
+	(add >
+	 (basic.fillRect (- < l m w) (+ a m) horiz w)
+	 (basic.fillRect (- < l m w) (- b m) w vert) p
+	 (basic.fillRect (+ r m) (- b m) w vert)
+	 (basic.fillRect (- < l m w) (- < b m w) horiz w))
+      (unionBounds active (package.init border cx)))
+   [(addMethods where
+     constant = (package.constant p)
+     reconfigure =
+       \([w:Int m:Int _:Picture] [_:Bounds active:Active _:Active] cx:CX):
+         [Bounds Active Active] =
+       (reconf w m (package.reconfigure active cx) cx)
+     init = \([w:Int m:Int p:Picture] cx:CX):[Bounds Active Active] =
+       (reconf w m (package.init p cx) cx))
+    [width margin p]])
+
+[add=add beside=beside above=above scaledAbove=scaledAbove
+ scaledBeside=scaledBeside background=background border=border]
+)

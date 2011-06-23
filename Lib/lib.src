@@ -1,0 +1,15 @@
+
+To avoid having to write explicit @import@ statements for commonly-used
+library modules, the Pict compiler always imports the following modules
+before compilating any Pict program (this behaviour can be disabled by
+resetting the @lib@ flag).
+
+#{*}
+import "Std/Bool"
+import "Std/Cmp"
+import "Std/Exn"
+import "Std/Int"
+import "Std/List"
+import "Std/Misc"
+import "Std/Opt"
+import "Std/String"

@@ -1,0 +1,253 @@
+# line 1 "/home/pierce/pict/Lib/Std/Int.src"
+
+
+  import "Std/Bool"
+  import "Std/Cmp"
+  import "Std/Misc"
+  import "Std/Exn"
+
+
+
+
+
+  val int : [
+
+
+
+  + = /[Int Int /Int] 
+  - = /[Int Int /Int] 
+
+
+  * = /[Int Int /Int] 
+  div = /[Int Int /Int] 
+  mod = /[Int Int /Int] 
+
+
+
+
+
+
+
+  neg = /[Int /Int] 
+  dec = /[Int /Int] 
+  inc = /[Int /Int] 
+
+
+  sgn = /[Int /Int] 
+
+
+
+
+
+  abs = /[Int /Int] 
+
+
+
+
+
+
+  land = /[Int Int /Int] 
+  lor = /[Int Int /Int] 
+  lxor = /[Int Int /Int] 
+  lnot = /[Int /Int] 
+
+
+  bitIsSet = /[bit=Int Int /Bool]
+
+
+
+
+
+
+
+  max = /[Int Int /Int] 
+  min = /[Int Int /Int] 
+
+
+  == = /[Int Int /Bool] 
+  <> = /[Int Int /Bool] 
+
+
+  >> = /[Int Int /Bool] 
+  << = /[Int Int /Bool] 
+
+
+  >= = /[Int Int /Bool] 
+  <= = /[Int Int /Bool] 
+
+
+  cmp = /[Int Int /Cmp]
+
+
+
+
+
+
+
+  apply = /[Int Int Int /[Int Sig] Sig]
+
+
+
+
+
+
+  fold = /[#R Int Int Int /[Int R /R] R /R]
+
+
+
+
+
+
+
+
+  for = /[Int Int /[Int Sig] Sig]
+
+
+
+
+
+
+
+
+  fromString = /[String Exn /Int]
+
+
+
+
+
+
+  toString = /[Int /String]
+
+
+  hash = /[Int /Int]
+
+
+
+
+  pr = /[Int Sig]
+
+
+  format = /[String Int Sig]
+
+
+
+
+
+
+    
+]
+= (
+
+val + = prim.+
+val == = prim.==
+val <> = prim.<>
+val >> = prim.>>
+val << = prim.<<
+val >= = prim.>=
+val <= = prim.<=
+
+inline def - (x:Int y:Int) : Int = (ccode 0 C "(# - #)" x y)
+inline def * (x:Int y:Int) : Int = (ccode 0 C "(# * I(#))" x y)
+inline def div (x:Int y:Int) : Int =
+  ((error.check "Division by zero (div)" (<> y 0));
+   (ccode 0 C "intInt(# / #)" x y))
+inline def mod (x:Int y:Int) : Int =
+  ((error.check "Division by zero (mod)" (<> y 0));
+   (ccode 0 C "(# % #)" x y))
+
+inline def neg (x:Int) : Int = (- 0 x)
+inline def dec (x:Int) : Int = (- x 1)
+inline def inc (x:Int) : Int = (+ x 1)
+
+inline def sgn (x:Int) : Int =
+  (ccode 0 P "((# > 0) ? One : ((# == 0) ? Zero : -One))" x x)
+
+inline def abs (x:Int) : Int = (ccode 0 P "((# >= 0) ? # : -#)" x x x)
+
+inline def land (x:Int y:Int) : Int = (ccode 0 C "(# & #)" x y)
+inline def lor (x:Int y:Int) : Int = (ccode 0 C "(# | #)" x y)
+inline def lxor (x:Int y:Int) : Int = (ccode 0 C "(# ^ #)" x y)
+inline def lnot (x:Int) : Int = (ccode 0 C "((~#) - 1)" x)
+
+inline def bitIsSet (bit=i:Int x:Int):Bool =
+  (ccode 0 C "((# & (1 << I(#))) != 0)" x i)
+
+inline def max (x:Int y:Int) : Int = (ccode 0 P "((# >= #) ? # : #)" x y x y)
+inline def min (x:Int y:Int) : Int = (ccode 0 P "((# <= #) ? # : #)" x y x y)
+
+inline def cmp (x:Int y:Int) : Cmp = (ccode 0 C "(# - #)" x y)
+
+def apply (start:Int inc:Int finish:Int f:/[Int Sig]) : [] =
+  if (>> inc 0) then
+    (def loop (x:Int) : [] =
+       if (<= x finish) then ((f x); (loop (+ x inc))) else []
+     (loop start))
+  else
+    (def loop (x:Int) : [] =
+       if (>= x finish) then ((f x); (loop(+ x inc))) else []
+     (loop start))
+
+def fold (#R start:Int inc:Int finish:Int f:/[Int R /R] init:R) : R =
+  if (>> inc 0) then
+    (def loop (x:Int v:R) : R =
+       if (<= x finish) then (loop (+ x inc) (f x v)) else v
+     (loop start init))
+  else
+    (def loop (x:Int v:R) : R =
+       if (>= x finish) then (loop (+ x inc) (f x v)) else v
+     (loop start init))
+
+inline def for (min:Int max:Int f:/[Int Sig]) : [] = (apply min 1 max f)
+
+def fromString (s:String fail:Exn) : Int =
+  (val w = (prim.allocWord)
+   val ret:Int = (ccode 0 R "intInt(sscanf(S(#),\"%ld\",&OFFSET(#,1)))" s w)
+   if (== 1 ret) then (prim.readWord w)
+   else (exn.raise fail "Int.fromString"))
+
+inline def toString (x:Int) : String =
+  (val s = (prim.alloc 24)
+   (ccode 0 E "{
+##ifdef BAD_SPRINTF
+     char *p = sprintf(S(#),\"%ld\",(Val)I(#));
+     STATUS(#) = STRING(strlen(p)+1);
+##else
+     int n = sprintf(S(#),\"%ld\",(Val)I(#));
+     STATUS(#) = STRING(n+1);
+##endif
+    }" s x s s x s);
+   s)
+
+inline def hash (x:Int) : Int = x
+inline def pr (x:Int) : [] =
+  (ccode 0 E "printf(\"%ld\",(Val)I(#));" x)
+inline def format (s:String x:Int) : [] =
+  (ccode 0 E "printf(S(#),(Val)I(#));" s x)
+
+[+ = +  - = -  * = *  div=div mod=mod neg=neg
+ dec=dec inc=inc sgn=sgn abs=abs land=land lor=lor lxor=lxor
+ lnot=lnot bitIsSet=bitIsSet max=max min=min == = ==  <> = <>
+ >> = >>  << = << >= = >=  <= = <=  cmp=cmp apply=apply fold=fold for=for
+ fromString=fromString toString=toString hash=hash pr=pr
+ format=format]
+)
+
+
+
+  val + = int.+
+  val - = int.-
+  val inc = int.inc
+  val dec = int.dec
+  val neg = int.neg
+  val * = int.*
+  val div = int.div
+  val mod = int.mod
+  val == = int.==
+  val <> = int.<>
+  val >> = int.>>
+  val << = int.<<
+  val >= = int.>=
+  val <= = int.<=
+  val max = int.max
+  val min = int.min
+  val $$ = int.toString

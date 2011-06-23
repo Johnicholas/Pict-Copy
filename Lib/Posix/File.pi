@@ -1,0 +1,235 @@
+# line 1 "/home/pierce/pict/Lib/Posix/File.src"
+
+
+
+
+
+  import "Std/Bool"
+  import "Std/Int"
+  import "Std/List"
+  import "Std/String"
+  import "Posix/Fd"
+  import "Posix/Perm"
+  import "Posix/Proc"
+
+  val [
+
+
+
+  #Dir
+
+
+
+
+  file:[
+
+
+
+  chmod = /[String Perm Exn Sig]
+
+
+
+
+
+
+
+  unlink = /[String Exn Sig]
+
+
+
+
+
+  rmdir = /[String Exn Sig]
+
+
+
+
+
+
+
+  rename = /[String String Exn Sig]
+
+
+
+
+
+
+
+  link = /[String String Exn Sig]
+
+
+
+
+
+
+
+  getcwd = /[/String]
+
+
+
+
+
+
+  mkdir = /[String Perm Exn Sig]
+
+
+
+
+
+
+
+  openDir = /[String Exn /Dir]
+
+
+
+
+
+  closeDir = /[Dir Sig]
+
+
+
+
+  readDir = /[Dir Exn /String]
+
+
+
+
+
+
+
+
+  applyDir = /[String Exn /[String Sig] Sig]
+
+
+
+
+
+  foldDir = /[#X String Exn /[String X /X] X /X]
+
+
+
+
+
+
+  listDir = /[String Exn /(List String)]
+
+
+
+
+
+
+
+  lockFile = /[String Exn Sig]
+
+
+
+
+
+
+
+  unlockFile = /[String Exn Sig]
+
+
+
+
+
+    
+]] = (
+(ccode 0 I "##include <dirent.h>");
+(ccode 0 I "##include <errno.h>");
+(ccode 0 I "##include <sys/stat.h>");
+
+def chmod (f:String p:Perm onError:Exn):[] =
+  (val r:Int = (ccode 0 R "intInt(chmod(S(#),I(#)))" f (perm.toInt p))
+   if (== r -1) then (exn.raise onError (+$ "chmod failed for " f))
+   else [])
+
+def unlink (f:String fail:Exn):[] =
+  if (ccode 0 W "(unlink(S(#)) == 0)" f) then []
+  else (exn.raise fail "unlink")
+
+def rmdir (d:String fail:Exn):[] =
+  if (ccode 0 W "(rmdir(S(#)) == 0)" d) then []
+  else (exn.raise fail "rmdir")
+
+def rename (f:String n:String fail:Exn):[] =
+  if (ccode 0 W "(rename(S(#),S(#)) == 0)" f n) then []
+  else (exn.raise fail "rename")
+
+def link (f:String l:String fail:Exn):[] =
+  if (ccode 0 W "(link(S(#),S(#)) == 0)" f l) then []
+  else (exn.raise fail (+$ "link -- errno=" ($$ (ccode 0 R "intInt(errno)"))))
+
+def getcwd ():String =
+ (val s = (prim.alloc 100)
+  val cs:CString = (ccode 0 R "(Val)getcwd(S(#),100)" s)
+  if (prim.nullPtr cs) then
+    (def loop (x:Int):String =
+       (val s = (prim.alloc x)
+        val cs:CString = (ccode 0 R "(Val)getcwd(S(#),100)" s)
+        if (prim.nullPtr cs) then (loop (* x 2))
+        else ((prim.shorten s); s))
+       (loop 200))
+  else
+    ((prim.shorten s); s))
+
+def mkdir (d:String p:Perm onError:Exn):[] =
+  (val r:Int = (ccode 0 R "intInt(mkdir(S(#),I(#)))" d (perm.toInt p))
+   if (== r -1) then (exn.raise onError (+$ "mkdir failed for " d))
+   else [])
+  
+val [#Dir] = [#Top]
+
+inline def openDir (d:String fail:Exn):Dir =
+  (val dir:Dir = (ccode 0 R "(Val)opendir(S(#))" d)
+   if (prim.nullPtr dir) then (exn.raise fail (+$ "openDir: " d)) else dir)
+
+inline def closeDir (dir:Dir):[] =
+  if (== (ccode 0 W "intInt(closedir((DIR *)(#)))" dir) 0) then []
+  else (error.fatal "closeDir")
+
+val [#Dirent] = [#Top]
+
+def readDir (d:Dir fail:Exn):String =
+  (val dirent:Dirent = (ccode 0 W "(Val)readdir((DIR *)(#))" d)
+   if (prim.nullPtr dirent) then (exn.raise fail "readDir: eof") else
+   (val namec:CString =
+      (ccode 0 R "(Val)((struct dirent *)(#))->d_name" dirent)
+    val name = (prim.fromCString namec)
+    if (|| (==$ name ".") (==$ name "..")) then (readDir d fail)
+    else name))
+
+def applyDir (dir:String fail:Exn f:/[String Sig]):[] =
+  (val d = (openDir dir fail)
+   def loop (d:Dir):[] =
+     (exn.try #String #[] \(h) = ((f (readDir d h)); (loop d)) \(_) = [])
+   (loop d); (closeDir d))
+
+def foldDir (#X dir:String fail:Exn f:/[String X /X] init:X):X =
+  (val d = (openDir dir fail)
+   def loop (x:X d:Dir):X =
+     (exn.try #String #X \(h) = (loop (f (readDir d h) x) d) \(_) = x)
+   val x = (loop init d)
+   (closeDir d); x)
+
+def listDir (dir:String fail:Exn):(List String) =
+  (foldDir #(List String) dir fail \(x xs) = (cons x xs) nil)
+
+def lockFile (name:String fail:Exn):[] =
+  (val l =
+     (fd.open name fd.writeOnly true true false 
+      [setuid=false setgid=false sticky=false
+       user=perm.rw_ group=perm.___ other=perm.___]
+      fail)
+   (fd.write l (proc.pidString (proc.getpid)));
+   (fd.close l))
+
+def unlockFile (name:String fail:Exn):[] =
+  (unlink name fail)
+
+[[chmod=chmod unlink=unlink rmdir=rmdir rename=rename link=link
+  getcwd=getcwd mkdir=mkdir openDir=openDir closeDir=closeDir
+  readDir=readDir applyDir=applyDir foldDir=foldDir listDir=listDir
+  lockFile=lockFile unlockFile=unlockFile]]
+
+)

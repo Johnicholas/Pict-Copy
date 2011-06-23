@@ -1,0 +1,4 @@
+#!/bin/sh
+echo gcc -o test -Wall $* $libs >>config.output
+gcc -o test -Wall $* $libs 2>>config.output || exit 100
+exec ./test 2>>config.output

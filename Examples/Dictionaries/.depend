@@ -1,0 +1,3 @@
+bag bag.px : bag.pi ../../Lib/lib.px ../../Lib/Std/Random.px 
+dict dict.px : dict.pi ../../Lib/lib.px ../../Lib/Std/Random.px ../../Lib/Std/Events.px 
+hash hash.px : hash.pi ../../Lib/lib.px ../../Lib/Std/Hash.px ../../Lib/Std/Random.px 

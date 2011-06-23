@@ -1,0 +1,187 @@
+\section{@Std/Bytes@: Byte Arrays}
+
+##import "Std/Bool"
+##import "Std/Error"
+##import "Std/Misc"
+##import "Std/String"
+
+##val [
+
+\subsection{Types}
+
+#*#Bytes
+\begin{doc}
+We provide the type @Bytes@ since an array of bytes can be represented
+much more efficiently than array of type @(Array Char)@.
+\end{doc}
+
+##bytes:[
+
+\subsection{Creation}
+
+#*empty = /[/Bytes] 
+\begin{doc}
+Returns an array of bytes of length zero.
+\end{doc}
+
+#*make = /[Char Int /Bytes] 
+\begin{doc}
+@(make c n)@ returns a new array containing @n@ bytes, each initialized to
+@c@.  The array size @n@ must be greater than or equal to zero.
+\end{doc}
+
+#*extend = /[Bytes Char Int /Bytes] 
+\begin{doc}
+@(extend b c n)@ creates a new byte array which contains all the elements
+of @b@, followed by @n@ copies of the character @c@.
+\end{doc}
+
+#*fromString = /[String /Bytes] 
+\begin{doc}
+Creates a byte array from the given string.
+\end{doc}
+
+\subsection{Interrogation}
+
+#*size = /[Bytes /Int] 
+\begin{doc} @(size b)@ returns the size of the bytearray @b@. \end{doc}
+
+#*nth = /[Bytes Int /Char] 
+#*unsafeNth = /[Bytes Int /Char] 
+\begin{doc}
+@(nth b n)@ looks up the @n@'th element of the bytearray @b@, if $@0@ \leq
+@n@ < @(size b)@$.  If @n@ is not a valid index for @b@ then we generate a
+runtime error.  @unsafeNth@ behaves similarly, except that it does not do
+any bounds checking.
+\end{doc}
+
+\subsection{Modification}
+
+#*update = /[Bytes Int Char Sig] 
+#*unsafeUpdate = /[Bytes Int Char Sig] 
+\begin{doc}
+@(update b n c)@ updates the @n@'th element of @b@ to be @c@. If @n@ is not
+a valid index for @b@ then we generate a runtime error.  @unsafeUpdate@
+behaves similarly, except that it does not do any bounds checking.
+\end{doc}
+
+#*copy = /[src=Bytes srcIdx=Int len=Int dst=Bytes dstIdx=Int Sig] 
+\begin{doc}
+@(copy src=s srcIdx=i len=l dst=s dstIdx=j)@ copies @l@ bytes from
+@s@ (starting from @i@) into @d@ (starting from @j@).  @i@ and @j@ must be
+valid indexes for @s@ and @d@, @l@ must be greater than or equal to zero,
+@(+ i l)@ and @(+ j l)@ must be less than or equal to @(size s)@ and
+@(size d)@ respectively, otherwise we generate a runtime error.
+\end{doc}
+
+#*copyFromString =
+#*  /[src=String srcIdx=Int len=Int dst=Bytes dstIdx=Int Sig] 
+\begin{doc}
+@(copyFromString src=s srcIdx=i len=l dst=d dstIdx=j)@ copies @l@
+bytes from @s@ (starting from @i@) into @d@ (starting from @j@).  @i@ and
+@j@ must be valid indexes for @s@ and @d@, @l@ must be greater than or
+equal to zero, @(+ i l)@ and @(+ j l)@ must be less than or equal to
+@(string.size s)@ and @(size d)@ respectively, otherwise we generate a
+runtime error.
+\end{doc}
+
+\subsection{Conversion}
+
+#*toString = /[Bytes idx=Int len=Int /String]
+\begin{doc}
+@(toString b idx=i len=l)@ extracts a string of length @l@ from @b@,
+starting at @i@.  We generate a runtime error if @i@ is not a valid index
+for @b@, or if @(+ i l)@ is greater than @(size b)@.
+\end{doc}
+
+#*unsafeCast = /[Bytes /String]
+\begin{doc}
+Exposes the internal representation of a bytearray.  This function is only
+intended to be used in other library modules, and should not be relied upon
+in user programs (since the representation of bytearrays may well change in
+the future).
+\end{doc}
+
+#{#}
+]]
+= (
+
+type Bytes = String
+
+inline def empty () : Bytes = ""
+
+inline def make (c:Char n:Int) : Bytes =
+  ((error.check "bytes.make: negative size" (>= n 0));
+   (string.make c n))
+
+inline def size (b:Bytes) : Int =
+  (ccode 0 P "intInt(SIZE(STATUS(#))-1)" b)
+
+def extend (b:Bytes c:Char n:Int) : Bytes =
+  ((error.check "bytes.extend: negative size" (>= n 0));
+   val sz = (size b)
+   val dst = (prim.alloc (+ sz n))
+   (ccode 0 E "COPY(S(#),S(#),I(#));" dst b sz);
+   (ccode 0 E "{
+      int ch = I(#); int size = I(#);
+      unsigned char *ptr = S(#)+I(#);
+      while (size--) *ptr++ = ch;
+    }" c n dst sz);
+    dst)
+
+inline def fromString (s:String) : Bytes =
+  (val sz = (inc (string.size s))
+   val b = (prim.alloc sz)
+   (ccode 0 E "COPY(S(#),S(#),I(#));" b s sz);
+   b)
+
+inline def nth (b:Bytes n:Int) : Char =
+  ((error.check "bytes.nth: index out of range" (&& (>= n 0) (<< n (size b))));
+   (string.nth b n))
+
+inline def unsafeNth (b:Bytes n:Int) : Char =
+  ((error.assert "bytes.unsafeNth: index out of range"
+    (&& (>= n 0) (<< n (size b))));
+   (string.nth b n))
+
+inline def update (b:Bytes n:Int c:Char) : [] =
+  ((error.check "bytes.update: index out of range"
+    (&& (>= n 0) (<< n (size b))));
+   (ccode 0 E "S(#)[I(#)] = I(#);" b n c))
+
+inline def unsafeUpdate (b:Bytes n:Int c:Char) : [] =
+  ((error.assert "bytes.unsafeUpdate: index out of range"
+    (&& (>= n 0) (<< n (size b))));
+   (ccode 0 E "S(#)[I(#)] = I(#);" b n c))
+
+inline
+def copy
+  (src=s:Bytes srcIdx=i:Int len=l:Int dst=d:Bytes dstIdx=j:Int) : []
+ =
+  ((error.check "bytes.copy: argument out of range"
+    (&& > (>= i 0) (>= j 0) (>= l 0)
+     (<= (+ i l) (size s)) (<= (+ j l) (size d))));
+   (ccode 0 E "COPY(S(#)+I(#),S(#)+I(#),I(#));" d j s i l))
+
+inline
+def copyFromString
+  (src=s:String srcIdx=i:Int len=l:Int dst=d:Bytes dstIdx=j:Int) : []
+ =
+  (copy src=s srcIdx=i len=l dst=d dstIdx=j)
+
+inline def toString (b:Bytes idx=i:Int len=l:Int) : String =
+  ((error.check "bytes.toString: argument out of range"
+    (&& > (>= i 0) (>= l 0) (<= (+ i l) (size b))));
+   val sub = (prim.alloc (inc l))
+   (ccode 0 E "COPY(S(#),S(#)+I(#),I(#));" sub b i l);
+   (ccode 0 E "S(#)[I(#)] = I(#);" sub l '\000');
+   sub)
+
+inline def unsafeCast (b:Bytes) : String = b
+
+[[empty=empty make=make extend=extend fromString=fromString size=size
+  nth=nth unsafeNth=unsafeNth update=update unsafeUpdate=unsafeUpdate
+  copy=copy copyFromString=copyFromString toString=toString
+  unsafeCast=unsafeCast]]
+
+)

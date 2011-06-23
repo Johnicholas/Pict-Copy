@@ -1,0 +1,18 @@
+creating dir.tmp
+locking: dir.tmp/a
+locking: dir.tmp/b
+locking: dir.tmp/c
+applyDir:
+a
+b
+c
+foldDir:
+c
+b
+a
+unlocking: dir.tmp/c
+unlocking: dir.tmp/b
+unlocking: dir.tmp/a
+applyDir:
+foldDir:
+removing dir.tmp

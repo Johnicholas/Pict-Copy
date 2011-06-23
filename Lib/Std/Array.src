@@ -1,0 +1,255 @@
+\section{@Std/Array@: Array Utilities}
+
+##import "Std/Bool"
+##import "Std/Misc"
+##import "Std/List"
+
+##val [
+
+\subsection{Types}
+
+#*#Array : (Type -> Type)
+\begin{doc}
+@(Array X)@ is the type of arrays which contain elements of type @X@.
+\end{doc}
+
+##array:[
+
+\subsection{Creation}
+
+#*empty = /[#X /(Array X)]
+\begin{doc}
+Returns an array of length zero. This function is useful since, unlike
+@make@, it does not require an initializing element.
+\end{doc}
+
+#*make = /[#X X Int /(Array X)]
+\begin{doc}
+@(make x n)@ returns a new array containing @n@ elements, each initialized
+to @x@.  The array size @n@ must be greater than or equal to zero.
+\end{doc}
+
+#*tabulate = /[#X Int /[Int /X] /(Array X)]
+\begin{doc}
+@(tabulate n f)@ creates an array of size @n@ where each array element @i@
+is initialised to @(f i)@.  The function @f@ is called sequentially and in
+order.  @n@ must be greater than or equal to zero.
+\end{doc}
+
+#*fromList = /[#X (List X) /(Array X)]
+\begin{doc}
+@(fromList l)@ creates an array from the list @l@.
+\end{doc}
+
+\subsection{Interrogation}
+
+#*size = /[#X (Array X) /Int]
+\begin{doc}
+@(size a)@ returns the size of the array @a@.
+\end{doc}
+
+#*nth = /[#X (Array X) Int /X]
+#*unsafeNth = /[#X (Array X) Int /X]
+\begin{doc}
+@(nth a n)@ Looks up the @n@'th element of the array @a@, if $@0@ \leq @n@
+< @(size a)@$.  If @n@ is not a valid index for @a@ then we generate a
+runtime error.  @unsafeNth@ behaves similarly, except that it does not do
+any range checking.
+\end{doc}
+
+\subsection{Modification}
+
+#*update = /[#X (Array X) Int X Sig]
+#*unsafeUpdate = /[#X (Array X) Int X Sig]
+\begin{doc}
+@(update a n x)@ updates the @n@'th element of @a@ to be @x@. If @n@ is not
+a valid index for @a@ then we generate a runtime error.  @unsafeUpdate@
+behaves similarly, except that it does not do any range checking.
+\end{doc}
+
+#*reset = /[#X (Array X) X Sig]
+\begin{doc}
+@(reset a x)@ sets the value of each element in @a@ to @x@.
+\end{doc}
+
+#*rotate = /[#X (Array X) Int Sig]
+\begin{doc}
+@(rotate a o)@ rotates @a@ so that the @i@'th element of @a@ contains the
+value which used to be at index @i+o@.  For example, the expression
+@(rotate a -1)@ rotates the contents of @a@ to the right by one.
+\end{doc}
+
+\subsection{Iteration}
+
+#*fold = /[#X #Y (Array X) /[Int X Y /Y] Y /Y]
+#*revFold = /[#X #Y (Array X) /[Int X Y /Y] Y /Y]
+\begin{doc}
+@(fold a f init)@ applies @f@ to each element of @a@ (plus its index),
+accumulating a result of type @Y@. @f@ is called sequentially and in order,
+with the initial accumulated argument being @init@.  @revFold@ behaves
+similarly, except that it traverses the array in reverse order.
+\end{doc}
+
+#*apply = /[#X (Array X) /[Int X Sig] Sig]
+#*revApply = /[#X (Array X) /[Int X Sig] Sig]
+\begin{doc}
+@(apply a f)@ applies @f@ to each element of @a@, along with its index. @f@
+is called sequentially and in order. @revApply@ behaves similarly, except
+that it traverses the array in reverse order.
+\end{doc}
+
+#*map = /[#X (Array X) /[Int X /X] Sig]
+#*revMap = /[#X (Array X) /[Int X /X] Sig]
+\begin{doc}
+@(map a f)@ applies @f@ to each element of @a@, along with its index,
+updating each element in @a@ with the result of applying @f@. @f@ is called
+sequentially and in order. @revMap@ behaves similarly, except that it
+traverses the array in reverse order.
+\end{doc}
+
+#{#}
+]]
+= (
+
+val [#Array:(Type->Type)] = [#\X = Top]
+
+inline def mkArray (#X x:X n:Int) : (Array X) =
+  ((error.check "Array.make: no support for large objects yet" (<< n 8191));
+   (ccode 8192 P "({
+      Val array = TAG(Free); int sz = I(#);
+      STATUS(array) = TUPLE(sz+1); Free += sz+1;
+      while (sz) OFFSET(array, sz--) = #;
+      array;
+    })" n x))
+
+inline def getNth (#X a:(Array X) n:Int) : X =
+  (ccode 0 R "OFFSET(#,I(#)+1)" a n)
+
+inline def setNth (#X a:(Array X) n:Int x:X) : [] =
+  (ccode 0 E "OFFSET(#,I(#)+1) = #;" a n x)
+
+{-
+ - We have to implement zero-length arrays as pointers to an object
+ - outside the heap, since we cannot put zero-length objects in the heap.
+ -}
+
+(ccode 0 I "extern const Val emptyArray[1];");
+(ccode 0 S "const Val emptyArray[1] = {TUPLE(1)};");
+
+inline def empty (#X) : (Array X) =
+  (ccode 0 C "TAG(emptyArray)")
+
+inline def make (#X x:X n:Int) : (Array X) =
+  ((error.check "array.make: negative size" (>= n 0));
+   if (== n 0) then (empty #X) else (mkArray x n)){-HACK-}
+
+def tabulate (#X size:Int create:/[Int /X]) : (Array X) =
+  ((error.check "array.tabulate: negative size" (>= size 0));
+   if (== size 0) then
+     (empty #X){-HACK-}
+   else
+     (val array:(Array X) = (mkArray (create 0) size)
+      def loop (x:Int):[] =
+        if (<< x size) then ((setNth array x (create x)); (loop (inc x)))
+        else []
+      (loop 1);
+      array))
+
+def fromList (#X l:(List X)) : (Array X) =
+ (val size = (list.size l)
+  if (== size 0) then
+    (empty #X){-HACK-}
+  else
+    (val array = (mkArray (car l) size)
+     def set (x:Int v:X):[] = (setNth array x v)
+     (list.itApply l set); array))
+
+inline def size (#X a:(Array X)) : Int =
+  (ccode 0 P "intInt(SIZE(STATUS(#))-1)" a)
+
+inline def nth (#X a:(Array X) n:Int) : X =
+  ((error.check "array.nth: index out of range" (&& (>= n 0) (<< n (size a))));
+   (getNth a n))
+
+inline def unsafeNth (#X a:(Array X) n:Int) : X =
+  ((error.assert "array.unsafeNth: index out of range"
+    (&& (>= n 0) (<< n (size a))));
+   (getNth a n))
+
+inline def update (#X a:(Array X) n:Int x:X) : [] =
+  ((error.check "array.update: index out of range"
+    (&& (>= n 0) (<< n (size a))));
+   (setNth a n x))
+
+inline def unsafeUpdate (#X a:(Array X) n:Int x:X) : [] =
+  ((error.assert "array.unsafeUpdate: index out of range"
+   (&& (>= n 0) (<< n (size a))));
+   (setNth a n x))
+
+def reset (#X a:(Array X) x:X) : [] =
+  (def loop (i:Int):[] =
+     if (>= i 0) then ((unsafeUpdate a i x); (loop (dec i))) else []
+   (loop (dec (size a))))
+
+def map (#X a:(Array X) f:/[Int X /X]) : [] =
+  (val limit = (dec (size a))
+   def loop (x:Int):[] =
+     if (<= x limit) then
+       ((unsafeUpdate a x (f x (unsafeNth a x))); (loop (inc x)))
+     else
+       []
+   (loop 0))
+
+def rotate (#X a:(Array X) o:Int) : [] =
+  (val sz = (size a)
+   {- Ensures that -sz <= o <= sz -}
+   val o = (- o (* (div o sz) sz))
+   {- Ensures that 0 <= o <= sz -}
+   val o = (mod (+ o sz) sz)
+   if (>> o 0) then
+     (val b = (tabulate sz \(x:Int):X = (unsafeNth a (mod (+ x o) sz)))
+      (map a \(x:Int _:X):X = (unsafeNth b x)))
+   else if (<< o 0) then
+     (val b = (tabulate sz \(x:Int):X = (unsafeNth a (mod (+ x o) sz)))
+      (map a \(x:Int _:X):X = (unsafeNth b x)))
+   else [])
+
+def fold (#X #Y a:(Array X) f:/[Int X Y /Y] init:Y) : Y =
+  (val limit = (dec (size a))
+   def loop (v:Y x:Int):Y =
+     if (<= x limit) then (loop (f x (unsafeNth a x) v) (inc x))
+     else v
+   (loop init 0))
+
+def revFold (#X #Y a:(Array X) f:/[Int X Y /Y] init:Y) : Y =
+  (def loop (v:Y x:Int):Y =
+     if (>= x 0) then (loop (f x (unsafeNth a x) v) (dec x))
+     else v
+   (loop init (dec (size a))))
+
+def apply (#X a:(Array X) f:/[Int X Sig]) : [] =
+  (val limit = (dec (size a))
+   def loop (x:Int):[] =
+     if (<= x limit) then ((f x (unsafeNth a x)); (loop (inc x))) else []
+   (loop 0))
+
+def revApply (#X a:(Array X) f:/[Int X Sig]) : [] =
+  (def loop (x:Int):[] =
+     if (>= x 0) then ((f x (unsafeNth a x)); (loop (dec x))) else []
+   (loop (dec (size a))))
+
+def revMap (#X a:(Array X) f:/[Int X /X]) : [] =
+  (def loop (x:Int):[] =
+     if (>= x 0) then
+       ((unsafeUpdate a x (f x (unsafeNth a x))); (loop (dec x)))
+     else
+       []
+   (loop (dec (size a))))
+
+[#Array
+ [empty=empty make=make tabulate=tabulate fromList=fromList size=size
+  nth=nth unsafeNth=unsafeNth update=update unsafeUpdate=unsafeUpdate
+  reset=reset rotate=rotate fold=fold revFold=revFold apply=apply
+  revApply=revApply map=map revMap=revMap]]
+
+)

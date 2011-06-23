@@ -1,0 +1,21 @@
+Testing read (openRd)...
+  "Some "
+  "good "
+  "fun!
+"
+
+Testing read (stringRd)...
+  "Some "
+  "good "
+  "fun!
+"
+
+Testing readByteArray (openRd)...
+  Read 5 bytes:  110 117 108 108 0
+  Read 5 bytes:  115 32 97 114 101
+  Read 4 bytes:  0 1 111 107
+
+Testing readByteArray (stringRd)...
+  Read 5 bytes:  110 117 108 108 115
+  Read 5 bytes:  32 97 114 101 32
+  Read 3 bytes:  98 97 100

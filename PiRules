@@ -1,0 +1,89 @@
+#########################################################################
+###                           Common setup                            ###
+#########################################################################
+
+# Imports site-specific settings (if any are available)
+-include $(SRCDIR)/Config/Config
+
+# The environment variables which must be set before calling the Pict compiler
+EXPORTS = VERSION=$(VERSION); export VERSION; \
+          PICTLIB=$(SRCDIR)/Lib; export PICTLIB; \
+          PICTRTS=$(SRCDIR)/Runtime; export PICTRTS; \
+          PICTASYNC=$(PICTASYNC); export PICTASYNC; \
+          X11INCLUDE=$(X11INCLUDE); export X11INCLUDE; \
+          X11EXTRA="$(X11EXTRA)"; export X11EXTRA; \
+          X11LIB=$(X11LIB); export X11LIB; \
+          GCC=$(GCC); export GCC; 
+
+#########################################################################
+###                      Commands for src files                       ###
+#########################################################################
+
+define src2tex
+	@echo Building $@ from $<
+	@rm -f $@ 
+	@$(SRCDIR)/Tools/src2tex <$< >$@
+	@chmod -w $@
+endef
+
+define src2pi
+	@echo Building $@ from $<
+	@rm -f $@ 
+	@$(SRCDIR)/Tools/src2pi $(CWD)/$< <$< >$@
+	@chmod -w $@
+endef
+
+define pi2out
+	@@echo Building $@ from $<
+	@rm -f $@ 
+	@$(EXPORTS) $(SRCDIR)/Pict/pict $< -o a.out 1>$@ 
+	@./a.out >>$@
+	@tail -4 $@
+	@echo
+	@chmod -w $@ 
+endef
+
+define err2out
+	@echo Building $@ from $<
+	@rm -f $@ $@.pi
+	@$(SRCDIR)/Tools/src2pi $(CWD)/$< <$< >$@.pi
+	@chmod -w $@.pi
+	@-$(EXPORTS) $(SRCDIR)/Pict/pict $@.pi -o a.out \
+                         -do printErrorsAsIfInFile 1>$@ 2>&1
+	@tail -4 $@
+	@echo
+	@chmod -w $@ 
+endef
+
+#########################################################################
+###                    Commands for Pict files                        ###
+#########################################################################
+
+ifndef NOPICTDEP
+depend:: $(LOCALLIBS)
+	PICTLIB=$(SRCDIR)/Lib; export PICTLIB; \
+	  $(SRCDIR)/Pict/pict -set dep -o .depend $(wildcard *.pi)
+endif
+
+ifndef NOPICTTAGS
+tags::
+	etags $(wildcard *.src *.pi)
+endif
+
+%.pi : %.src $(SRCDIR)/Tools/src2pi
+	@echo Building $@ from $<
+	@rm -f $@
+	@$(SRCDIR)/Tools/src2pi $(CWD)/$< <$< >$@
+	@chmod -w $@
+
+%.px : %.pi $(SRCDIR)/Pict/pict
+	@echo Building $@ from $<
+	@$(EXPORTS) $(SRCDIR)/Pict/pict -set sep $(PIFLAGS) -o $@ $<
+
+% : %.pi $(SRCDIR)/Pict/pict
+	@echo Building $@ from $<
+	@$(EXPORTS) $(SRCDIR)/Pict/pict $(PIFLAGS) -o $@ $<
+
+%.tst : % %.ok
+	-./$< >$<.tmp
+	-diff $<.ok $<.tmp

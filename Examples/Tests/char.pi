@@ -1,0 +1,25 @@
+{-
+ - Characters.
+ -}
+
+import "Std/Char"
+
+def tst (b:Bool):[] = if b then (pr " t") else (pr " f")
+
+(int.for 0 127 \(x) =
+   (val c = (char.fromInt x)
+    (int.format "%3d " x);
+    if (char.isPrint c) then (char.pr c) else (pr " ");
+    (tst (char.isAlnum c));
+    (tst (char.isAlpha c));
+    (tst (char.isCntrl c));
+    (tst (char.isDigit c));
+    (tst (char.isGraph c));
+    (tst (char.isLower c));
+    (tst (char.isPrint c));
+    (tst (char.isPunct c));
+    (tst (char.isSpace c));
+    (tst (char.isUpper c));
+    (tst (char.isXDigit c));
+    (nl))
+);

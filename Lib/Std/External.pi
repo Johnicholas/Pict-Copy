@@ -1,0 +1,74 @@
+# line 1 "/home/pierce/pict/Lib/Std/External.src"
+
+
+  import "Std/Misc"
+
+  val [
+
+
+
+  #External : (Type -> Type)
+
+
+
+
+  external : [
+
+
+
+  make = /[#X X /(External X)]
+
+
+
+
+
+
+
+
+
+  get = /[#X (External X) /X]
+
+
+
+
+  delete = /[#X (External X) Sig]
+
+
+
+
+
+
+
+
+    
+]]
+= (
+
+val [#External:(Type->Type)] = [#\X = Top]
+
+inline def make (#X x:X) : (External X) =
+  (ccode 0 P "({
+    External *ext;
+    if (freeExternals) {
+      ext = freeExternals; freeExternals = freeExternals->next;
+    } else {
+      ext = (External*)malloc(sizeof(External));
+    };
+    ext->value = #; ext->previous = &liveExternals;
+    ext->next = liveExternals.next; liveExternals.next->previous = ext;
+    liveExternals.next = ext; (Val)ext;
+  })" x)
+
+inline def get (#X ext:(External X)) : X =
+  (ccode 0 R "((External*)#)->value" ext)
+
+inline def delete (#X ext:(External X)) : [] =
+  (ccode 0 E "{
+    External *ext = (External *)(#);
+    ext->previous->next = ext->next; ext->next->previous = ext->previous;
+    ext->next = freeExternals; freeExternals = ext;
+  }" ext)
+
+[#External [make=make get=get delete=delete]]
+
+)

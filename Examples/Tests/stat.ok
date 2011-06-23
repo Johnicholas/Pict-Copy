@@ -1,0 +1,7 @@
+xxx.tmp
+type = directory
+yyy.tmp
+type = regular
+perm = -rw-------
+size = 6
+testing if zzz.tmp exists: false

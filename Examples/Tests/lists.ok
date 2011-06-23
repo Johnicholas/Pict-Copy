@@ -1,0 +1,9 @@
+List 1 (in  order): 7777777777
+List 1 (rev order): 7777777777
+Max list 2 (in  order): 999
+Max list 2 (rev order): 999
+Sum list 2 (in  order): 499500
+Sum list 2 (rev order): 499500
+Unsorted: b c a b d 5 aa
+Sorted:   5 a b b c d aa
+Unique:   5 a b c d aa

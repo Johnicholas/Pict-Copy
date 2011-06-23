@@ -1,0 +1,18 @@
+{-
+ - Test whether we can rotate pictures correctly.
+ -}
+
+import "Picture/Picture"
+
+def spiral (p:Picture):Picture =
+  (int.fold #Picture 0 30 360 \(x q) = (picture.add q (picture.rotate p x)) p)
+
+val s = (picture.server "" "Spiral")
+
+(s.open "Spiral"
+ (picture.quitOnHit
+  (picture.northwest
+   (picture.beside >
+    (spiral (picture.point 50 0))
+    (spiral (picture.rect 0 0 50 50))
+    (spiral (picture.line 0 0 50 0))))));

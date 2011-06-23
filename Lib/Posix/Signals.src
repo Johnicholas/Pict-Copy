@@ -1,0 +1,325 @@
+\section{@Posix/Signals@: Posix Signals}
+
+This library implements a low-level interface to Unix signals.
+
+##import "Std/Bool"
+##import "Std/Error"
+##import "Std/Misc"
+##import "Std/List"
+##import "Std/Opt"
+
+##val [
+
+\subsection{Types}
+
+#*#Signal
+\begin{doc} The type of Posix signals. \end{doc}
+
+#*#SignalResult = [wokeUp=Bool stayInstalled=Bool persistent=Bool]
+#*#SignalHandler = /[last=Bool gotSignal=Bool /SignalResult]
+\begin{doc}
+A @SignalHandler@ is a process which is woken up when a signal arrives, or
+when there are no other processes left to be executed by the runtime
+system.
+
+A signal handler takes two boolean arguments: the first indicates whether
+any other processes are currently executing, the second indicates whether
+we have actually received a signal.  If there are no other processes
+running and we have not received any signals, then it is likely that the
+runtime system is just about to suspend itself.  A useful thing that a
+signal handler can do at such a time is to flush its output buffers.  For
+example, in our widgets library the signal handler which controls the
+connection to the X server flushes all pending drawing operations before
+allowing the runtime system to suspend itself (otherwise updates to windows
+controlled by Pict processes might be delayed indefinately).
+
+Each signal handler returns a record of type @SignalResult@.  The @wokeUp@
+field indicates whether the signal handler woke up any processes (this
+tells the runtime system that it should not suspend itself, since some new
+processes have been created, presumably as the result of receiving some
+signal).  The @stayInstalled@ field indicates whether the handler wishes to
+remain installed for the next signal.  The runtime system uses @persistent@
+field to calculate whether (in the case where there are no runnable
+processes) it should terminate the whole runtime system.  If any signal
+handlers indicate that they are persistent, then we take that as an
+indication that some Pict processes have some real work to do (once some
+signal arrives).  Note that each signal handler is queried just before we
+suspend/terminate the runtime system.  This enables each handler to examine
+its own internal data structures to decide whether they currently contain
+any user-level Pict processes which are waiting for a signal.
+\end{doc}
+
+##signals:[
+
+\subsection{Signals}
+
+#*SIGINT = Signal
+#*SIGQUIT = Signal
+#*SIGALRM = Signal 
+#*SIGCONT = Signal
+#*SIGCHLD = Signal
+#*SIGHUP = Signal
+#*SIGIO = Signal 
+#*SIGTERM = Signal
+#*SIGVTALRM = Signal 
+\begin{doc}
+There are a number of different signals which can be handled from Pict.
+See your Posix documentation for the meaning of individual signals.
+\end{doc}
+
+\subsection{Registering Handlers}
+
+#*register = /[Signal SignalHandler Sig] 
+\begin{doc}
+@(register s h)@ registers the handler @h@ so that it is invoked
+when the next signal @s@ arrives.  There is no limit on the number of
+handlers which can be registered for a given signal (all relevant handlers
+are invoked when the signal arrives).
+\end{doc}
+
+#*retry = /[#X Signal /[/(Opt X)] /X] 
+\begin{doc}
+A simplified interface to @register@.  @retry@ is given a signal and a
+body, which it executes.  The body returns either @opt.no@, indicating
+that it did not succeed in performing its job and needs to block until the
+signal @s@ is received and then try again, or else @(opt.yes x)@ indicating
+that the the body completed successfully and @x@ should be returned as the
+result of the whole @retry@.  If @s@ is received while the body is
+still executing and the body then returns @opt.no@, the body will be
+started again immediately.
+\end{doc}
+
+#{#}
+]] = (
+
+val debugSignals = (ccall 0 P "%debug")
+def debug (s:String):[] = if debugSignals then (prErr s) else []
+
+type SignalResult = [wokeUp=Bool stayInstalled=Bool persistent=Bool]
+type SignalHandler = /[last=Bool gotSignal=Bool /SignalResult]
+type SignalChecker = /[Bool /SignalResult]
+
+(ccode 0 I "##include <signal.h>");
+ 
+{-
+ - Our C interrupt handlers set these flags to indicate which
+ - signals have occurred.
+ -}
+
+(ccode 0 I "extern sigset_t signalFlags;");
+(ccode 0 S "sigset_t signalFlags;");
+
+{-
+ - This is the generic Pict signal handler, which simply sets the
+ - appropriate member of signalFlag.  It also sets wakeupHandler to the
+ - value of signalHandler to let the runtime system know that it should
+ - wakeup a handler process (if one is installed).  If signalHandler is
+ - zero (no handler is installed) setting wakeupHandler has no effect.
+ -}
+
+(ccode 0 I "extern void genericHandler (int s);");
+
+(ccode 0 S "
+   void genericHandler (int s) {
+     wakeupHandler = signalHandler; sigaddset(&signalFlags,s);
+   }
+ ");
+
+{-
+ - This channel contains all the signal handlers.
+ -}
+
+new lock : ^(List SignalChecker)
+run lock!nil
+
+{-
+ - This definition awakens a handler.  The handler replies, indicating
+ - whether it received a signal, and whether it wishes to remain installed
+ - (for the next signal).
+ -}
+
+def awakenHandler (last:Bool) :
+  /[SignalChecker [Bool Bool (List SignalChecker)]
+    /[Bool Bool (List SignalChecker)]]
+=
+  \(handler [wokeupSomething persistent l]) = (
+    val r = (handler last)
+    (debug "signal handler return status: ");
+    if (&& debugSignals r.wokeUp) then (prErr "<woke up a process> ") else [];
+    if (&& debugSignals r.stayInstalled) then (prErr "<wants retry> ") else [];
+    if (&& debugSignals r.persistent) then (debug "<is persistent> ") else [];
+    (debug "\n");
+    [(|| r.wokeUp wokeupSomething) (|| r.persistent persistent) 
+     if r.stayInstalled then (cons handler l) else l]
+  )
+
+{-
+ - The process definition awakenHandlers is registered with the runtime
+ - system so that it is woken up whenever an interrupt occurs, or when
+ - there are no processes left to be executed ('last' is set to true
+ - when there are no processes left to be executed).
+ -}
+
+def checkHandlers last:Bool = lock?l = (
+  {-
+   - We block any further Unix signals while we check our signal handlers.
+   -}
+  (debug "Blocking signals\n");
+  (ccode 0 E "{
+    sigset_t mask;
+    sigfillset(&mask);
+    sigprocmask(SIG_BLOCK,&mask,NULL);
+  }");
+  {-
+   - We then go through all the handlers to check if any of them got a signal.
+   -}
+  val [wokeupSomething persistent l] =
+    (list.fold l (awakenHandler last) [false false nil])
+  {-
+   - Resets the value of signalHandler, so that checkHandlers will be
+   - invoked next time we get a signal.
+   -}
+  (ccode 0 E "signalHandler = #;" checkHandlers);
+  {-
+   - If any of the handlers did receive a signal then we clear signalFlags,
+   - unblock all signals and release the lock.  We do the same thing if we
+   - aren't the only running process.
+   -}
+  if (|| wokeupSomething (not last)) then (
+    (debug "Unblocking signals\n");
+    (ccode 0 E "{
+      sigset_t mask;
+      sigfillset(&mask);
+      sigemptyset(&signalFlags);
+      sigprocmask(SIG_UNBLOCK,&mask,NULL);
+    }");
+    lock!l
+  {-
+   - If we are the only process which is executing and there are no handlers
+   - left, we exit the whole program.
+   -}
+  ) else if (not persistent) then (
+    (debug "Exiting\n");
+    (error.exit 0); ()
+  {-
+   - Otherwise, we suspend the whole program until we get any signal.
+   - Once we have received a signal we unblock all signals again.  The
+   - runtime system will automatically call checkHandlers to deal with
+   - the interrupt we just got.
+   -}
+  ) else (
+    (debug "Suspending\n");
+    (ccode 0 E "{
+      sigset_t mask;
+      sigemptyset(&mask); sigsuspend(&mask);
+      sigfillset(&mask); sigprocmask(SIG_UNBLOCK,&mask,NULL);
+    }");
+    lock!l
+  )
+)
+
+type Signal = Int
+val SIGALRM : Signal = (ccode 0 C "intInt(SIGALRM)")
+val SIGCONT : Signal = (ccode 0 C "intInt(SIGCONT)")
+val SIGCHLD : Signal = (ccode 0 C "intInt(SIGCHLD)")
+val SIGHUP : Signal = (ccode 0 C "intInt(SIGHUP)")
+val SIGINT : Signal = (ccode 0 C "intInt(SIGINT)")
+val SIGIO : Signal = (ccode 0 C "intInt(SIGIO)")
+val SIGQUIT : Signal = (ccode 0 C "intInt(SIGQUIT)")
+val SIGTERM : Signal = (ccode 0 C "intInt(SIGTERM)")
+val SIGVTALRM : Signal = (ccode 0 C "intInt(SIGVTALRM)")
+
+def register (s:Signal handler:SignalHandler) : []
+= (
+  {-
+   - This definition converts a user-level signal handler into a
+   - system-level one (it is necessary to check signalFlags explicitly
+   - to see if the particular signal we are interested in has arrived).
+   -}
+  val h:SignalChecker = \(last) = {-HACK-}
+    (val got:Bool = (ccode 0 R "sigismember(&signalFlags,I(#))" s)
+     (handler last=last gotSignal=got))
+  {-
+   - We install the generic signal handler (doesn't matter if we
+   - install it more than once).
+   -}
+  (ccode 0 E "{
+    struct sigaction a;
+    a.sa_handler = genericHandler;
+    sigfillset(&a.sa_mask);
+####ifdef SA_RESTART
+    a.sa_flags = SA_RESTART;
+####else
+    a.sa_flags = 0;
+####endif
+    sigaction(I(#),&a,NULL);
+  }" s);
+  {-
+   - We then add h to the list of active signal handlers.  If we are
+   - the only active signal handler, we register checkHandlers with
+   - the runtime system (in case it has not already been registered).
+   -}
+  val l = (read lock)
+  (write lock (cons h l))
+)
+
+{-
+ - This is necessary to ensure that any stray SIGIO signals are caught
+ - and ignored (the default action is to terminate the process).
+ -}
+(register SIGIO
+ \(last=_ gotSignal=_) = [wokeUp=false stayInstalled=true persistent=false]);
+{-
+ - Resets the value of signalHandler, so that checkHandlers will be
+ - invoked next time we get a signal.
+ -}
+(ccode 0 E "signalHandler = #;" checkHandlers);
+
+def retry [#X s:Signal body:/[/(Opt X)] c:/X] =
+  (new outcome:^(Opt X)
+   def handler (last=_:Bool gotSignal=g:Bool):SignalResult =
+     ((debug "retryOnSignal: handler invoked\n");
+      val o = (read outcome)
+      (opt.case o
+       \():SignalResult =
+         if g then
+           ((debug "retryOnSignal: restarting\n");
+            (write outcome (body));
+            [wokeUp=true stayInstalled=true persistent=true])
+         else
+           ((debug "retryOnSignal: reinstalling\n");
+            (write outcome opt.no);
+            [wokeUp=false stayInstalled=true persistent=true])
+       \(x:X):SignalResult =
+         ((debug "retryOnSignal: succeeded\n"); (write c x);
+          [wokeUp=true stayInstalled=false persistent=false])))
+   (register s handler);
+   (debug "retryOnSignal: starting body\n");
+   outcome!(body))
+
+{-
+ - The following code is a work-around for the case where we can't
+ - get the OS to deliver SIGIO properly.  We simply fake SIGIO signals
+ - using a timer interrupt.
+ -}
+
+val SIGIO =
+ if (ccall 0 C "%async") then SIGIO else
+ ((register SIGALRM
+   \(last=_ gotSignal=_) = [wokeUp=false stayInstalled=true persistent=false]);
+  (ccode 0 E "{
+    struct itimerval it;
+####ifdef __USE_FIXED_PROTOTYPES__
+    extern int setitimer (int,struct itimerval*,struct itimerval*);
+####endif
+    it.it_interval.tv_usec = 100000; it.it_interval.tv_sec = 0;
+    it.it_value.tv_usec = 100000; it.it_value.tv_sec = 0;
+    setitimer(ITIMER_REAL,&it,NULL);
+  }");
+  SIGALRM)
+
+[[SIGINT=SIGINT SIGQUIT=SIGQUIT SIGALRM=SIGALRM SIGCONT=SIGCONT
+  SIGCHLD=SIGCHLD SIGHUP=SIGHUP SIGIO=SIGIO SIGTERM=SIGTERM
+  SIGVTALRM=SIGVTALRM register=register retry=retry]]
+
+)

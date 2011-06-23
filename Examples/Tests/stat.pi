@@ -1,0 +1,29 @@
+{-
+ - File status queries.
+ -}
+
+import "Posix/File"
+import "Posix/Stat"
+
+val p =
+  [setuid=false setgid=false sticky=false
+   user=perm.rw_ group=perm.___ other=perm.___]
+
+(pr "xxx.tmp\n");
+(file.mkdir "xxx.tmp" p exn.exit);
+val sx = (stat.stat "xxx.tmp" exn.exit)
+(pr "type = "); (stat.prFileType sx.dev); (nl);
+(file.rmdir "xxx.tmp" exn.exit);
+
+(pr "yyy.tmp\n");
+val f = (fd.open "yyy.tmp" fd.writeOnly true false true p exn.exit)
+(fd.write f "Hello\n"); (fd.close f);
+val sy = (stat.stat "yyy.tmp" exn.exit)
+(pr "type = "); (stat.prFileType sy.dev); (nl);
+(pr "perm = "); (perm.pr sy.perm); (nl);
+(pr "size = "); (int.pr sy.size); (nl);
+(file.unlink "yyy.tmp" exn.exit);
+
+(pr "testing if zzz.tmp exists: ");
+(bool.pr (stat.fileExists "zzz.tmp"));
+(nl);

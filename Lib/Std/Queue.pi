@@ -1,0 +1,310 @@
+# line 1 "/home/pierce/pict/Lib/Std/Queue.src"
+
+
+
+
+
+
+  import "Std/Bool"
+  import "Std/Error"
+  import "Std/List"
+  import "Std/Misc"
+  import "Std/Stream"
+
+  val [
+
+
+
+  #Queue : (Pos Type -> Type)
+
+
+  queue:[
+
+
+
+  empty = (Queue Bot)
+
+
+
+
+  make = /[#X Int X /(Queue X)]
+
+
+
+
+
+  tabulate = /[#X Int /[Int /X] /(Queue X)]
+
+
+
+
+
+
+
+  isEmpty = /[#X (Queue X) /Bool]
+
+
+
+
+  size = /[#X (Queue X) /Int]
+
+
+
+
+
+
+  insertHd = /[#X X (Queue X) /(Queue X)]
+  insertTl = /[#X X (Queue X) /(Queue X)]
+
+
+
+
+  removeHd = /[#X (Queue X) /[X (Queue X)]]
+  removeTl = /[#X (Queue X) /[X (Queue X)]]
+
+
+
+
+
+
+
+
+  apply = /[#X (Queue X) /[X Sig] Sig]
+  revApply = /[#X (Queue X) /[X Sig] Sig]
+
+
+
+
+
+
+  itApply = /[#X (Queue X) /[Int X Sig] Sig]
+  revItApply = /[#X (Queue X) /[Int X Sig] Sig]
+
+
+
+
+
+
+  fold = /[#X #R (Queue X) /[X R /R] R /R]
+  revFold = /[#X #R (Queue X) /[X R /R] R /R]
+
+
+
+
+
+
+
+  itFold = /[#X #R (Queue X) /[Int X R /R] R /R]
+  revItFold = /[#X #R (Queue X) /[Int X R /R] R /R]
+
+
+
+
+
+
+
+  map = /[#X #R (Queue X) /[X /R] /(Queue R)]
+  revMap = /[#X #R (Queue X) /[X /R] /(Queue R)]
+
+
+
+
+
+
+
+
+  toStream = /[#X (Queue X) /(Stream X)]
+
+
+
+
+  hash = /[#X (Queue X) /[X /Int] /Int]
+
+
+
+
+
+
+
+  rev = /[#X (Queue X) /(Queue X)]
+
+
+
+
+  append = /[#X (Queue X) (Queue X) /(Queue X) ]
+
+
+
+
+
+
+  cmp = /[#X (Queue X) (Queue X) /[X X /Cmp] /Cmp]
+
+
+
+
+
+
+
+
+  pr = /[#X (Queue X) String String String /[X Sig] Sig]
+
+
+
+
+
+
+    
+]] = (
+
+type (Queue X:Pos Type) = [hd=(List X) tl=(List X)]
+
+val empty : (Queue Bot) = [hd=nil tl=nil]
+
+inline def make (#X n:Int x:X) : (Queue X) =
+  [hd=(list.make n x) tl=nil]
+
+inline def tabulate (#X n:Int f:/[Int /X]) : (Queue X) =
+  [hd=(list.tabulate n f) tl=nil]
+
+inline def isEmpty (#X q:(Queue X)) : Bool =
+  (&& (null q.hd) (null q.tl))
+
+def size (#X q:(Queue X)) : Int =
+  (+ (list.size q.hd) (list.size q.tl))
+
+inline def insertHd (#X x:X q:(Queue X)) : (Queue X) =
+  (q where hd=(cons x q.hd))
+
+inline def insertTl (#X x:X q:(Queue X)) : (Queue X) =
+  (q where tl=(cons x q.tl))
+
+inline def removeHd (#X q:(Queue X)) : [X (Queue X)] =
+  if (null q.hd) then
+    if (null q.tl) then
+       (error.fatal "removeHd: empty queue")
+     else
+       (val l = (list.rev q.tl)
+        [(list.unsafeCar l) [hd=(list.unsafeCdr l) tl=nil]])
+  else
+    [(list.unsafeCar q.hd) (q where hd=(list.unsafeCdr q.hd))]
+
+inline def removeTl (#X q:(Queue X)) : [X (Queue X)] =
+  if (null q.tl) then
+    if (null q.hd) then
+      (error.fatal "removeTl: empty queue")
+    else
+      (val l = (list.rev q.hd)
+       [(list.unsafeCar l) [hd=nil tl=(list.unsafeCdr l)]])
+  else
+    [(list.unsafeCar q.tl) (q where tl=(list.unsafeCdr q.tl))]
+
+def apply (#X q:(Queue X) f:/[X Sig]) : [] =
+  ((list.apply q.hd f); (list.revApply q.tl f))
+
+def revApply (#X q:(Queue X) f:/[X Sig]) : [] =
+  ((list.apply q.tl f); (list.revApply q.hd f))
+
+def itApply (#X q:(Queue X) f:/[Int X Sig]) : [] =
+  (def backward (x:Int l:(List X)):Int =
+     if (not(null l)) then
+       (val y = (backward x (list.unsafeCdr l))
+        (f y (list.unsafeCar l)); (inc y))
+     else
+       x
+   def forward (x:Int l:(List X)):[] =
+     if (not(null l)) then
+       ((f x (list.unsafeCar l)); (forward (inc x) (list.unsafeCdr l)))
+     else
+       (await (backward x q.tl))
+   (forward 0 q.hd))
+
+def revItApply (#X q:(Queue X) f:/[Int X Sig]) : [] =
+  (def backward (x:Int l:(List X)):Int =
+     if (not(null l)) then
+       (val y = (backward x (list.unsafeCdr l))
+        (f y (list.unsafeCar l)); (inc y))
+     else
+       x
+   def forward (x:Int l:(List X)):[] =
+     if (not(null l)) then
+       ((forward (inc x) (list.unsafeCdr l)); (f x (list.unsafeCar l)))
+     else
+       (await (backward x q.hd))
+   (forward 0 q.tl))
+
+def fold (#X #R q:(Queue X) f:/[X R /R] init:R) : R =
+  (list.revFold q.tl f (list.fold q.hd f init))
+
+def revFold (#X #R q:(Queue X) f:/[X R /R] init:R) : R =
+  (list.revFold q.hd f (list.fold q.tl f init))
+
+def itFold (#X #R q:(Queue X) f:/[Int X R /R] init:R) : R =
+  (def backward (x:Int v:R l:(List X)):[Int R] =
+     if (not(null l)) then
+       (val [y v] = (backward x v (list.unsafeCdr l))
+        [(inc y) (f y (list.unsafeCar l) v)])
+     else
+       [x v]
+   def forward (x:Int v:R l:(List X)):R =
+     if (not(null l)) then
+       (forward (inc x) (f x (list.unsafeCar l) v) (list.unsafeCdr l))
+     else
+       (snd (backward x v q.tl))
+   (forward 0 init q.hd))
+
+def revItFold (#X #R q:(Queue X) f:/[Int X R /R] init:R) : R =
+  (def backward (x:Int v:R l:(List X)):[Int R] =
+     if (not(null l)) then
+       (val [y v] = (backward x v (list.unsafeCdr l))
+        [(inc y) (f y (list.unsafeCar l) v)])
+     else
+       [x v]
+   def forward (x:Int v:R l:(List X)):R =
+     if (not(null l)) then
+       (forward (inc x) (f x (list.unsafeCar l) v) (list.unsafeCdr l))
+     else
+       (snd (backward x v q.hd))
+   (forward 0 init q.tl))
+
+def map (#X #R q:(Queue X) f:/[X /R]) : (Queue R) =
+  [hd=(list.map q.hd f) tl=(list.revMap q.tl f)]
+
+def revMap (#X #R q:(Queue X) f:/[X /R]) : (Queue R) =
+  (val x = (list.map q.tl f) [hd=(list.revMap q.hd f) tl=x])
+
+def toStream (#X q:(Queue X)) : (Stream X) =
+  (stream.append (list.toStream q.hd) (list.toStream (list.rev q.tl)))
+
+def hash (#X q:(Queue X) hash:/[X /Int]) : Int =
+  (def hashElem (x:X h:Int):Int = (+ (* (hash x) 19) h)
+   (list.revFold q.tl hashElem (list.fold q.hd hashElem 0)))
+
+def rev (#X q:(Queue X)) : (Queue X) =
+  [hd=(list.rev q.tl) tl=(list.rev q.hd)]
+
+def append (#X q1:(Queue X) q2:(Queue X)) : (Queue X) =
+  [hd=(list.append q1.hd (list.rev q1.tl))
+   tl=(list.append (list.rev q2.hd) q2.tl)]
+
+def cmp (#X q1:(Queue X) q2:(Queue X) f:/[X X /Cmp]) : Cmp =
+  (stream.cmp (toStream q1) (toStream q2) f)
+
+def pr
+  (#X q:(Queue X) beg:String sep:String end:String prx:/[X Sig]) : []
+=
+  (def printSep (x:X needsSep:Bool):Bool =
+     if needsSep then ((misc.pr sep); (prx x); true)
+     else ((prx x); true)
+   (misc.pr beg);
+   (await (list.revFold q.tl printSep (list.fold q.hd printSep false)));
+   (misc.pr end))
+
+[#Queue
+ [empty = empty make = make tabulate = tabulate isEmpty = isEmpty
+  size = size insertHd = insertHd insertTl = insertTl removeHd = removeHd
+  removeTl = removeTl apply = apply revApply = revApply itApply = itApply
+  revItApply = revItApply fold = fold revFold = revFold itFold = itFold
+  revItFold = revItFold map = map revMap = revMap toStream = toStream
+  hash = hash rev = rev append = append cmp = cmp pr = pr]]
+)

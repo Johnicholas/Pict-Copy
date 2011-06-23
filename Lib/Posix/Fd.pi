@@ -1,0 +1,268 @@
+# line 1 "/home/pierce/pict/Lib/Posix/Fd.src"
+
+
+
+
+
+
+
+
+  import "Std/Bool"
+  import "Std/Char"
+  import "Std/Error"
+  import "Std/Int"
+  import "Std/String"
+  import "Std/Exn"
+  import "Std/Bytes"
+  import "Std/Opt"
+  import "Posix/Perm"
+  import "Posix/Signals"
+
+  val [
+
+
+
+  #Fd
+
+
+
+
+  #AccessMode
+
+
+
+
+
+  fd:[
+
+
+
+  stdIn = Fd
+  stdOut = Fd
+  stdErr = Fd 
+
+
+
+
+
+
+
+
+
+
+
+
+  read = /[Fd Bytes Int Int /Int] 
+
+
+
+
+
+  write = /[Fd String Sig] 
+
+
+
+
+  writeChar = /[Fd Char Sig] 
+
+
+
+
+  writeSubstring = /[Fd String Int Int Sig] 
+
+
+
+
+
+
+  writeBytes = /[Fd Bytes Int Int Sig] 
+
+
+
+
+
+
+
+
+  readOnly = AccessMode
+  writeOnly = AccessMode
+  readWrite = AccessMode
+
+
+
+
+
+
+
+
+  open = /[String AccessMode Bool Bool Bool Perm Exn /Fd] 
+
+
+
+
+
+
+
+
+
+
+  openRd = /[String Exn /Fd] 
+
+
+
+
+
+  openWr = /[String Exn /Fd] 
+
+
+
+
+
+
+  close = /[Fd Sig]
+
+
+
+
+
+
+
+  mkASync = /[Fd Exn Sig] 
+
+
+
+
+
+
+
+
+    
+]] = (
+
+(ccode 0 I "##include <fcntl.h>");
+(ccode 0 I "##include <errno.h>");
+
+inline def wouldBlock ():Bool =
+  (ccode 0 R "(errno == EAGAIN || errno == EWOULDBLOCK)")
+
+type Fd = Int
+
+val stdIn = 0
+val stdOut = 1
+val stdErr = 2
+
+def read (fd:Fd b:Bytes start:Int len:Int):Int =
+  (val sz = (bytes.size b)
+   (error.check "fd.read"
+    (&& > (>= start 0) (>> len 0) (<= (+ start len) sz)));
+   val n =
+     (signals.retry signals.SIGIO \():(Opt Int) =
+       (val n:Int =
+          (ccode 0 W "intInt(read(I(#),S(#)+I(#),I(#)))" fd b start len)
+        if (<< n 0) then
+          if (wouldBlock) then opt.no else (opt.yes n)
+       else
+         (opt.yes n)))
+   if (<< n 0) then (error.fatal (+$ "fd.read failed on fd " ($$ fd)))
+   else n)
+
+def writeSubstring (fd:Fd s:String i:Int n:Int) : [] =
+  (val byteswritten = 
+     (signals.retry signals.SIGIO \():(Opt Int) =
+        (val e:Int =
+           (ccode 0 W "intInt(write(I(#),&S(#)[I(#)],I(#)))" fd s i n)
+         if (<< e 0) then
+           if (wouldBlock) then opt.no else (opt.yes e)
+         else (opt.yes e)))
+   if (<< byteswritten 0) then
+     (error.fatal (+$ "write on fd failed: " ($$ fd)))
+   else if (<< byteswritten n) then
+     (writeSubstring fd s (+ i byteswritten) (- n byteswritten))
+   else
+     [])
+
+def write (fd:Fd s:String):[] = (writeSubstring fd s 0 (string.size s))
+def writeChar (fd:Fd c:Char):[] = (writeSubstring fd (char.toString c) 0 1)
+
+def writeBytes (fd:Fd buff:Bytes i:Int n:Int):[] =
+  (val sz = (bytes.size buff)
+   (error.check "fd.writeBytes: index out of range"
+    (&& (>= i 0) (<= (+ i n) sz)));
+   (writeSubstring fd (bytes.unsafeCast buff) i n))
+
+type AccessMode = Int
+val readOnly:AccessMode = (ccode 0 C "intInt(O_RDONLY)")
+val writeOnly:AccessMode = (ccode 0 C "intInt(O_WRONLY)")
+val readWrite:AccessMode = (ccode 0 C "intInt(O_RDWR)")
+
+def open
+  (n:String a:AccessMode create:Bool excl:Bool truncate:Bool 
+   p:Perm fail:Exn) : Fd
+ =
+  (val create:Int = if create then (ccode 0 C "intInt(O_CREAT)") else 0
+   val excl:Int = if excl then (ccode 0 C "intInt(O_EXCL)") else 0
+   val truncate:Int = if truncate then (ccode 0 C "intInt(O_TRUNC)") else 0
+   val mode = (int.lor > a create excl truncate)
+   val fd:Int =
+     (ccode 0 W "intInt(open(S(#),I(#),I(#)))" n mode (perm.toInt p))
+   if (== fd -1) then
+     (exn.raise fail (+$ > "open failed for: " n 
+                      " with errno=" ($$ (ccode 0 R "intInt(errno)"))))
+   else
+     fd)
+
+inline def openRd (n:String fail:Exn):Fd =
+  (open n readOnly false false false perm.null fail)
+
+def openWr (n:String fail:Exn):Fd =
+  (open n writeOnly true false true 
+   [setuid=false setgid=false sticky=false
+    user=[read=true write=true execute=false]
+    group=[read=true write=true execute=false]
+    other=[read=true write=true execute=false]]
+   fail)
+
+def close (fd:Fd):[] =
+  if (<> (ccode 0 W "intInt(close(I(#)))" fd) 0) then
+    (error.fatal "close: Couldn't close file\n")
+  else
+    []
+
+inline def mkASync (fd:Fd fail:Exn):[] =
+  if (ccall 0 C "%async") then
+    (val fl:Int = (ccode 0 W "intInt(fcntl(I(#),F_GETFL))" fd)
+     if
+       (ccode 0 W "
+##ifdef USE_NDELAY
+         (fcntl(I(#),F_SETFL,I(#) | O_NDELAY | FASYNC) == -1)
+##else
+         (fcntl(I(#),F_SETFL,I(#) | O_NONBLOCK | FASYNC) == -1)
+##endif
+        " fd fl fd fl)
+     then
+       (exn.raise fail "mkASync: F_SETFL failed")
+     else if (ccode 0 W "fcntl(I(#),F_SETOWN,getpid()) == -1" fd) then
+       (prErr "Warning: mkASync: F_SETOWN failed\n")
+     else [])
+  else
+    (val fl:Int = (ccode 0 W "intInt(fcntl(I(#),F_GETFL))" fd)
+     if
+       (ccode 0 W "
+##ifdef USE_NDELAY
+         (fcntl(I(#),F_SETFL,I(#) | O_NDELAY) == -1)
+##else
+         (fcntl(I(#),F_SETFL,I(#) | O_NONBLOCK) == -1)
+##endif
+        " fd fl fd fl)
+     then
+       (exn.raise fail "mkASync: F_SETFL failed")
+     else
+       [])
+
+[[stdIn=stdIn stdOut=stdOut stdErr=stdErr read=read
+  write=write writeChar=writeChar writeSubstring=writeSubstring
+  writeBytes=writeBytes readOnly=readOnly writeOnly=writeOnly
+  readWrite=readWrite open=open openRd=openRd openWr=openWr
+  close=close mkASync=mkASync]]
+
+)

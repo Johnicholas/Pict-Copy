@@ -1,0 +1,32 @@
+{-
+ - Simple implementation of broadcast channels.
+ -}
+
+type (Chan X) = [
+  send = /X 
+  receive = /[/X]
+]
+
+def sendOnList [#X l:(List /X) x:X] =
+  if (not(null l)) then (sendOnList![(cdr l) x] | (car l)!x) else ()
+
+def newEventChan (#X) : (Chan X) = (
+  new state:^(List /X)
+  run state!nil
+  [send = \x = state?waiting = (state!nil | sendOnList![waiting x]) 
+   receive = \[res] = state?waiting = state!(cons res waiting)]
+)
+
+{-
+ - A test example.
+ -}
+
+val c = (newEventChan #[])
+
+run ((c.receive); (prNL "Receiver 1"); ())
+run ((c.receive); (prNL "Receiver 2"); ())
+run ((c.receive); (prNL "Receiver 3"); ())
+run ((c.receive); (prNL "Receiver 4"); ())
+
+def wait x:Int = if (== x 0) then c.send![] else wait!(dec x)
+run wait!30

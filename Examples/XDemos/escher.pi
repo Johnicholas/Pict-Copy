@@ -1,0 +1,104 @@
+{-
+ - A simple implementation of the "Square Limit" in Hendersons 1982 LFP paper.
+ -}
+
+import "Picture/Picture"
+import "Posix/Args"
+
+now (setHeapSize 512)
+
+def quartet (p1:Picture p2:Picture p3:Picture p4:Picture):Picture =
+  (picture.scaledAbove 1 1 (picture.scaledBeside 1 1 p1 p2)
+   (picture.scaledBeside 1 1 p3 p4))
+
+def tileCycle (p:Picture):Picture =
+  (picture.above
+   (picture.beside p (picture.rotate p 90))
+   (picture.beside (picture.rotate p 270) (picture.rotate p 180)))
+
+val empty = (picture.spacer 0 0 50 50)
+
+inline def addLine ([x0:Int y0:Int x1:Int y1:Int] p:Picture):Picture =
+  (picture.add (picture.line x0 y0 x1 y1) p)
+
+val p = (picture.southwest (addLine >
+  [18 6 26 0] [0 0 12 12] [12 12 26 24] [14 18 22 30] [22 30 14 34]
+  [14 34 14 18] [0 24 11 36] [11 36 0 40] [0 24 0 40] [14 36 18 50]
+  [26 0 36 14] [36 14 50 12] [32 0 36 7] [36 7 50 10] [38 0 41 4]
+  [41 4 50 6] [44 0 50 3] [26 14 50 18] [26 24 38 20] [38 20 50 24]
+  [26 24 32 36] [32 36 34 50] [34 50 44 44] [44 44 50 44] [32 36 40 34]
+  [40 34 50 38] [30 32 38 28] [38 28 50 32] (picture.line 0 0 18 6)
+))
+
+val q = (picture.southwest (addLine >
+  [0 24 0 50] [0 12 10 9] [10 9 20 4] [20 4 24 0] [6 0 10 9] [12 0 15 6]
+  [18 0 21 3] [0 18 21 16] [0 24 12 28] [12 28 18 28] [18 28 38 18]
+  [38 18 50 0] [12 28 12 34] [12 34 6 50] [12 50 18 34] [18 34 18 28]
+  [24 25 24 34] [24 34 18 50] [30 22 30 32] [30 32 26 50] [43 16 32 50]
+  [38 50 40 38] [40 38 50 25] [50 25 46 18] [46 18 50 0] [40 50 50 32]
+  [43 50 50 38] [46 50 50 44] [30 18 36 12] [36 12 28 12] [28 12 30 18]
+  [24 3 34 3] [34 3 28 8] [28 8 24 3] (picture.line 0 0 0 12)
+))
+
+val r = (picture.southwest (addLine >
+  [3 6 6 12] [0 12 3 6] [0 24 6 12] [6 12 24 26] [0 36 14 18] [24 26 45 31]
+  [45 31 50 38][0 50 24 26] [18 0 28 16] [28 16 50 30] [34 0 39 11]
+  [39 11 50 24] [39 11 50 0] [41 9 50 18] [44 6 50 12] [47 3 50 6]
+  [3 47 12 50] [7 43 24 50] [10 40 26 44] [26 44 36 50] [16 34 38 40]
+  [38 40 50 50] (picture.line 0 0 3 6)
+))
+
+val s = (picture.southwest (addLine >
+  [16 8 18 0] [16 8 16 23] [0 12 16 17] [0 18 16 23] [16 23 21 30]
+  [0 24 21 30] [21 30 26 34] [26 34 50 50] [0 38 7 47] [0 50 16 43]
+  [16 43 22 43] [22 43 50 50] [26 0 30 18] [31 25 38 27] [38 27 38 38]
+  [38 38 31 25] [41 29 46 26] [46 26 46 34] [46 34 41 29] [36 0 41 9]
+  [41 9 50 6] [41 9 46 20] [46 20 50 24] [46 20 50 18] [43 15 50 12]
+  [0 0 18 0] [36 0 50 0] (picture.line 0 6 16 8)
+))
+
+val t = (quartet p q r s)
+
+val q_270 = (picture.rotate q 270)
+val t_270 = (picture.rotate t 270)
+
+val side1 = (quartet empty empty t_270 t)
+val side2 = (quartet side1 side1 t_270 t)
+val side2_270 = (picture.rotate side2 270)
+
+val u = (tileCycle q_270)
+val corner1 = (quartet empty empty empty u)
+val corner2 = (quartet corner1 side1 (picture.rotate side1 270) u)
+
+def nonet
+  (p1:Picture p2:Picture p3:Picture p4:Picture p5:Picture
+   p6:Picture p7:Picture p8:Picture p9:Picture):Picture =
+  (picture.scaledAbove 1 2
+   (picture.scaledBeside 1 2 p1 (picture.scaledBeside 1 1 p2 p3))
+   (picture.scaledAbove 1 1
+    (picture.scaledBeside 1 2 p4 (picture.scaledBeside 1 1 p5 p6))
+    (picture.scaledBeside 1 2 p7 (picture.scaledBeside 1 1 p8 p9))))
+
+def badUsage ():Picture =
+  (error.fatal (+$ > "usage: " (args.argv 0) " [-small | -medium | -large]"))
+
+val escher =
+  if (== args.argc 2) then
+    if (string.==$ (args.argv 1) "-large") then
+      (tileCycle
+       (nonet corner2 side2 side2 side2_270 u t_270 side2_270 t_270 q_270))
+    else if (string.==$ (args.argv 1) "-medium") then
+      (tileCycle (quartet corner2 side2 side2_270 t_270))
+    else if (string.==$ (args.argv 1) "-small") then
+      (quartet corner2 side2 side2_270 t_270)
+    else
+      (badUsage)
+  else if (== args.argc 1) then
+    (tileCycle (quartet corner2 side2 side2_270 t_270))
+  else
+    (badUsage)
+
+val sv = (picture.server "" "Escher")
+
+(sv.open "Escher"
+ (picture.quitOnHit (picture.northwest (picture.scaleTo escher 400 400))));

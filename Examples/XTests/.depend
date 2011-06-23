@@ -1,0 +1,6 @@
+origin origin.px : origin.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px 
+pixmap pixmap.px : pixmap.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px 
+ref ref.px : ref.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px 
+slider slider.px : slider.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px 
+spiral spiral.px : spiral.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px 
+text text.px : text.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px 

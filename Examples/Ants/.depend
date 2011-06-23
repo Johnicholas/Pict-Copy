@@ -1,0 +1,3 @@
+Ant Ant.px : Ant.pi ../../Lib/lib.px ../../Lib/Contrib/Clock.px ../../Lib/Std/Random.px ../../Lib/Picture/Picture.px ./Directions.px 
+Directions Directions.px : Directions.pi ../../Lib/lib.px ../../Lib/Std/Array.px 
+ants ants.px : ants.pi ../../Lib/lib.px ../../Lib/Std/Io.px ../../Lib/Posix/Args.px ../../Lib/Contrib/Parse.px ../../Lib/Picture/Picture.px ./Ant.px 

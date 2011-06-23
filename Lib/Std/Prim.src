@@ -1,0 +1,164 @@
+\section{@Std/Prim@: Primitive Operations}
+
+This module defines various primitives which are required to build the
+standard libraries (basic arithmetic and string operations, for instance).
+There is no need for ordinary programs to use the operations defined here,
+since they are re-exported from other user-level modules.  These primitives
+must be defined here to avoid creating cyclic dependencies between modules
+such as @Std/Int@ and @Std/String@.
+
+##import "Std/Error"
+
+##val [
+
+\subsection{Types}
+
+#*#CString
+\begin{doc}
+The type of C strings (Pict strings have an explicit length files, unlike C
+strings which are null-terminated).
+\end{doc}
+
+#*#Word
+\begin{doc}
+Pict currently used tagging to help with garbage collection.  One problem
+with this is that the type @Int@ is not the same size as a machine word.  A
+value of type @Word@ represents a full-width machine word (and is currently
+heap-allocated).
+\end{doc}
+
+##prim:[
+
+\subsection{Operations}
+
+#*+ = /[Int Int /Int] 
+\begin{doc} Integer addition. \end{doc}
+
+#*== = /[Int Int /Bool] 
+#*<> = /[Int Int /Bool] 
+#*>> = /[Int Int /Bool] 
+#*<< = /[Int Int /Bool] 
+#*>= = /[Int Int /Bool] 
+#*<= = /[Int Int /Bool] 
+\begin{doc} Ordering functions on integers. \end{doc}
+
+#*size = /[String /Int]
+\begin{doc} @(size s)@ returns the size of the string @s@. \end{doc}
+
+#*+$ = /[String String /String]
+\begin{doc} @(+$ s t)@ concatenates @s@ and @t@ \end{doc}
+
+#*==$ = /[String String /Bool]
+\begin{doc} @(==$ s t)@ returns @true@ if @s@ and @t@ are equal. \end{doc}
+
+#*fromCString = /[CString /String]
+\begin{doc} Converts a C string into a Pict string. \end{doc}
+
+#*shortenTo = /[String Int /[]]
+\begin{doc}
+@(shorten s x)@ sets the length of @s@ to @x@.  Thus, whenever @s@ is
+garbage collected it will be shortened.
+\end{doc}
+
+#*shorten = /[String /[]]
+\begin{doc}
+@(shorten s)@ counts the number of characters in @s@ before the first null
+character, and then sets the length of @s@ to match.  Thus, whenever @s@ is
+garbage collected it will be shortened.
+\end{doc}
+
+\subsection{Manipulating Bytes}
+
+#*alloc = /[Int /String]
+\begin{doc}
+@(alloc n)@ allocates @n@ bytes of memory.
+\end{doc}
+
+\subsection{Manipulating Words}
+
+#*allocWord = /[/Word]
+\begin{doc}
+@(word)@ allocates enough memory to store a single machine word.  This
+function is only intended for use with inline C code.
+\end{doc}
+
+#*readWord = /[Word /Int]
+#*writeWord = /[Word Int /[]]
+\begin{doc} Read and write integer values into a word. \end{doc}
+
+\subsection{Testing Pointers}
+
+#*nullPtr = /[#X X /Bool]
+\begin{doc}
+@(nullPtr x)@ checks if @x@ is a null pointer.
+\end{doc}
+
+#{#}
+]] = (
+
+{- Generate fresh types -}
+val [#CString #Word] = [#Top #Top]
+
+inline def + (x:Int y:Int) : Int = (ccode 0 C "(# + #)" x y)
+inline def == (x:Int y:Int) : Bool = (ccode 0 C "(# == #)" x y)
+inline def <> (x:Int y:Int) : Bool = (ccode 0 C "(# != #)" x y)
+inline def >> (x:Int y:Int) : Bool = (ccode 0 C "(# > #)" x y)
+inline def << (x:Int y:Int) : Bool = (ccode 0 C "(# < #)" x y)
+inline def >= (x:Int y:Int) : Bool = (ccode 0 C "(# >= #)" x y)
+inline def <= (x:Int y:Int) : Bool = (ccode 0 C "(# <= #)" x y)
+
+inline def size (s:String) : Int =
+  (ccode 0 P "intInt(SIZE(STATUS(#))-1)" s)
+
+inline def allocWord () : Word =
+  (ccode 2 P "({Val w = TAG(Free); STATUS(w) = STRING(4); Free += 2; w;})")
+inline def readWord (w:Word) : Int =
+  (ccode 0 R "intInt(OFFSET(#,1))" w)
+inline def writeWord (w:Word x:Int) : [] =
+  (ccode 0 E "OFFSET(#,1) = I(#);" w x)
+
+inline def alloc (n:Int) : String =
+  ((error.check "Prim.alloc: no support for large objects yet" (<< n 32000));
+   (ccode 8192 P "({
+      Val string = TAG(Free); int bytes = I(#);
+      long sz = (bytes + sizeof(Val) + sizeof(Val) - 1) / sizeof(Val);
+      STATUS(string) = STRING(bytes); Free += sz;
+      string;
+    })" n))
+
+inline def nullPtr (#X x:X) : Bool =
+  (ccode 0 C "(((void *)#) == NULL)" x)
+
+inline def fromCString (c:CString) : String =
+  (val sz = (+ (ccode 0 P "intInt(strlen((char*)#))" c) 1)
+   val s = (alloc sz)
+   (ccode 0 E "COPY(S(#),((char*)#),I(#));" s c sz);
+   s)
+   
+inline def shortenTo (s:String x:Int) : [] =
+  (ccode 0 E "STATUS(#) = STRING(I(#));" s x)
+   
+inline def shorten (s:String) : [] =
+  (val sz = (+ (ccode 0 P "intInt(strlen((char*)S(#)))" s) 1)
+   (ccode 0 E "STATUS(#) = STRING(I(#));" s sz))
+   
+{- Must be here to avoid circular dependency between List and String -}
+
+def +$ (s1:String s2:String) : String =
+  (val sz1 = (size s1) val sz2 = (size s2)
+   val r = (alloc (+ > sz1 sz2 1))
+   (ccode 0 E "COPY(S(#),S(#),I(#));" r s1 sz1);
+   (ccode 0 E "COPY(S(#)+I(#),S(#),I(#));" r sz1 s2 sz2);
+   (ccode 0 E "(S(#))[I(#)] = 0;" r (+ sz1 sz2));
+   r)
+
+inline def ==$ (s1:String s2:String) : Bool =
+  (val sz1 = (size s1) val sz2 = (size s2)
+   if (<> sz1 sz2) then false
+   else (ccode 0 P "(memcmp(S(#),S(#),I(#)) == 0)" s1 s2 sz1))
+
+[[+ = + == = == <> = <> >> = >> << = << >= = >= <= = <=  size=size +$ = +$
+  ==$ = ==$ fromCString=fromCString shortenTo=shortenTo shorten=shorten
+  alloc=alloc allocWord=allocWord readWord=readWord writeWord=writeWord
+  nullPtr=nullPtr]]
+)

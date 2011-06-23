@@ -1,0 +1,184 @@
+\section{@Std/Char@: Characters}
+
+##import "Std/Misc"
+##import "Std/Bool"
+##import "Std/Int"
+
+\subsection{Types}
+
+The type @Char@ is builtin and is a subtype of @Int@.  This means that
+integer arithmetic operations and comparisons will also accept characters
+as arguments.  The integer value of each character is its ASCII code.
+
+##val char: [
+
+\subsection{Character Classification}
+
+These functions check whether a character falls into a certain character
+class (according to the current locale).
+
+#*isAlnum = /[Char /Bool]
+\begin{doc}
+Checks for an alphanumeric character; it is equivalent to
+@(|| (isAlpha c) (isDigit c))@.
+\end{doc}
+
+#*isAlpha = /[Char /Bool]
+\begin{doc}
+Checks for an alphabetic character; it is equivalent to
+@(|| (isUpper c) (isLower c))@.
+\end{doc}
+
+#*isCntrl = /[Char /Bool]
+\begin{doc}
+Checks for a control character.
+\end{doc}
+
+#*isDigit = /[Char /Bool]
+\begin{doc}
+Checks for a digit.
+\end{doc}
+
+#*isGraph = /[Char /Bool]
+\begin{doc}
+Checks for any printable character except space.
+\end{doc}
+
+#*isLower = /[Char /Bool]
+\begin{doc}
+Checks for a lower-case character.
+\end{doc}
+
+#*isPrint = /[Char /Bool]
+\begin{doc}
+Checks for any printable character including space.
+\end{doc}
+
+#*isPunct = /[Char /Bool]
+\begin{doc}
+Checks for any printable character which is not a
+space or an alphanumeric character.
+\end{doc}
+
+#*isSpace = /[Char /Bool]
+\begin{doc}
+Checks for white-space characters.  In the @"C"@ and @"POSIX"@ locales,
+these are: space, form-feed, newline, carriage return, horizontal tab, and
+vertical tab.
+\end{doc}
+
+#*isUpper = /[Char /Bool]
+\begin{doc}
+Checks for an uppercase letter.
+\end{doc}
+
+#*isXDigit = /[Char /Bool]
+\begin{doc}
+Checks for a hexadecimal digits, i.e.\ one of @0@, @1@, @2@, @3@, @4@, @5@,
+@6@, @7@, @8@, @9@, @0@, @a@, @b@, @c@, @d@, @e@, @f@, @A@, @B@, @C@, @D@,
+@E@, @F@.
+\end{doc}
+
+\subsection{Conversion}
+
+#*toUpper = /[Char /Char]
+#*toLower = /[Char /Char]
+\begin{doc}
+@toUpper@ converts @c@ to upper case, if possible.  @toLower@ converts @c@
+to lower case, if possible.  The character @c@ is returned unchanged if the
+conversion was not possible.
+\end{doc}
+
+#*fromInt = /[Int /Char]
+#*unsafeFromInt = /[Int /Char]
+\begin{doc}
+Convert an {\sc ascii} code to a character. If @x@ is not a valid
+{\sc ascii} code, then we generate a runtime error.  @unsafeFromInt@
+behaves similarly, but it does not do any range checking.
+\end{doc}
+
+#*toString = /[Char /String]
+\begin{doc}
+@(toString c)@ creates a string of size one, containing the character @c@.
+\end{doc}
+
+#*hash = /[Char /Int]
+\begin{doc} @(hash c)@ returns a hash value for @c@. \end{doc}
+
+\subsection{Printing}
+
+#*pr = /[Char Sig]
+\begin{doc} @(pr c)@ prints the character @c@ on stdout. \end{doc}
+
+#{#}
+] = (
+
+(ccode 0 I "##include <ctype.h>");
+
+inline def isAlnum (c:Char) : Bool =
+  (ccode 0 P "(isalnum(I(#)) != 0)" c)
+
+inline def isAlpha (c:Char) : Bool =
+  (ccode 0 P "(isalpha(I(#)) != 0)" c)
+
+inline def isCntrl (c:Char) : Bool =
+  (ccode 0 P "(iscntrl(I(#)) != 0)" c)
+
+inline def isDigit (c:Char) : Bool =
+  (ccode 0 P "(isdigit(I(#)) != 0)" c)
+
+inline def isGraph (c:Char) : Bool =
+  (ccode 0 P "(isgraph(I(#)) != 0)" c)
+
+inline def isLower (c:Char) : Bool =
+  (ccode 0 P "(islower(I(#)) != 0)" c)
+
+inline def isPrint (c:Char) : Bool =
+  (ccode 0 P "(isprint(I(#)) != 0)" c)
+
+inline def isPunct (c:Char) : Bool =
+  (ccode 0 P "(ispunct(I(#)) != 0)" c)
+
+inline def isSpace (c:Char) : Bool =
+  (ccode 0 P "(isspace(I(#)) != 0)" c)
+
+inline def isUpper (c:Char) : Bool =
+  (ccode 0 P "(isupper(I(#)) != 0)" c)
+
+inline def isXDigit (c:Char) : Bool =
+  (ccode 0 P "(isxdigit(I(#)) != 0)" c)
+
+inline def toUpper (c:Char) : Char =
+  (ccode 0 P "intInt(toupper(I(#)))" c)
+
+inline def toLower (c:Char) : Char =
+  (ccode 0 P "intInt(tolower(I(#)))" c)
+
+inline def getChar (x:Int) : Char = (ccode 0 C "#" x)
+
+inline def fromInt (x:Int) : Char =
+  ((error.check "char.fromInt: Integer out of range"
+    (&& (>= x 0) (<< x 256)));
+   (getChar x))
+
+inline def unsafeFromInt (x:Int) : Char =
+  ((error.assert "char.unsafeFromInt: Integer out of range"
+    (&& (>= x 0) (<< x 256)));
+   (getChar x))
+
+inline def toString (c:Char) : String =
+  (val s = (prim.alloc 2)
+   (ccode 0 E "S(#)[0] = I(#); S(#)[1] = 0;" s c s);
+   s)
+
+inline def hash (c:Char) : Int = c
+
+inline def pr (c:Char) : [] = (ccode 0 E "fputc(I(#),stdout);" c)
+
+[isAlnum=isAlnum isAlpha=isAlpha isCntrl=isCntrl isDigit=isDigit
+ isGraph=isGraph isLower=isLower isPrint=isPrint isPunct=isPunct
+ isSpace=isSpace isUpper=isUpper isXDigit=isXDigit toUpper=toUpper
+ toLower=toLower fromInt=fromInt unsafeFromInt=unsafeFromInt
+ toString=toString hash=hash pr=pr]
+
+)

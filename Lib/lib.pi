@@ -1,0 +1,16 @@
+# line 1 "/home/pierce/pict/Lib/lib.src"
+
+
+
+
+
+
+    
+import "Std/Bool"
+import "Std/Cmp"
+import "Std/Exn"
+import "Std/Int"
+import "Std/List"
+import "Std/Misc"
+import "Std/Opt"
+import "Std/String"

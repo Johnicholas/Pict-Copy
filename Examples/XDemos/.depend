@@ -1,0 +1,5 @@
+bouncy bouncy.px : bouncy.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px 
+escher escher.px : escher.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px ../../Lib/Posix/Args.px 
+life life.px : life.pi ../../Lib/lib.px ../../Lib/Posix/Args.px ../../Lib/Std/Array2.px ../../Lib/Contrib/Parse.px ../../Lib/Picture/Picture.px 
+mines mines.px : mines.pi ../../Lib/lib.px ../../Lib/Std/Array.px ../../Lib/Std/Array2.px ../../Lib/Std/Random.px ../../Lib/Posix/Time.px ../../Lib/Picture/Picture.px 
+xtree xtree.px : xtree.pi ../../Lib/lib.px ../../Lib/Picture/Picture.px 

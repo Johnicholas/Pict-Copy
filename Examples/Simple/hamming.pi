@@ -1,0 +1,85 @@
+{-
+ - Martin Meuller's Eager Hamming Number Generator
+ - (modified by dnt)
+ -}
+
+def eagerHamming (max:Int):[] =
+  (def doMerge [fl:Int fr:Int l:^Int r:^Int o:^Int] =
+     if (<< fl fr) then
+       (o!fl | l?nl = doMerge![nl fr l r o])
+     else if (== fl fr) then
+       r?nr = doMerge![fl nr l r o]
+     else
+       (o!fr | r?nr = doMerge![fl nr l r o])
+
+   and merge [l:^Int r:^Int o:^Int] =
+     l?fl = r?fr = doMerge![fl fr l r o]
+
+   new two:^Int
+   new three:^Int
+   new five:^Int
+   new front:^Int
+   new twothree:^Int
+
+   run merge![two three twothree]
+   run merge![twothree five front]
+   run front!1
+
+   def loop [n:Int cont:Sig] =
+     if (<< n max) then
+       front?x =
+       ((int.pr x);
+	(pr if (== (mod n 10) 9) then "\n" else " ");
+	(loop![(inc n) cont] | two!(* x 2) | three!(* x 3) | five!(* x 5)))
+     else
+       pr!["\n" cont]
+
+   (loop 0)
+)
+
+(eagerHamming 100);
+
+{-
+ - Martin Meuller's Lazy Hamming Number Generator (modified by dnt)
+ -}
+
+def lazyHamming (max:Int):[] =
+  (type Lazy = ^[/Int]
+     
+   def doMerge [fl:Int fr:Int l:Lazy r:Lazy o:Lazy] =
+     o?[res] =
+     if (<< fl fr) then
+       (res!fl | doMerge![(l) fr l r o])
+     else if (== fl fr) then
+       (res!fl | doMerge![(l) (r) l r o])
+     else
+       (res!fr | doMerge![fl (r) l r o])
+
+   and merge [l:Lazy r:Lazy o:Lazy] =
+     doMerge![(l) (r) l r o]
+
+   new two:Lazy
+   new three:Lazy
+   new five:Lazy
+   new front:Lazy
+   new twothree:Lazy
+
+   run merge![two three twothree]
+   run merge![twothree five front]
+   run front?() = 1
+
+   def loop (n:Int):[] =
+     if (<< n max) then
+       (val x = (front)
+	run two?() = (* x 2)
+	run three?() = (* x 3)
+	run five?() = (* x 5)
+	(int.pr x);
+	(pr if (== (mod n 10) 9) then "\n" else " ");
+	(loop (inc n)))
+     else
+       (pr "\n")
+
+   (loop 0))
+
+(lazyHamming 100);

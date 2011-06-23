@@ -1,0 +1,9 @@
+ackermann ackermann.px : ackermann.pi ../../Lib/lib.px 
+hamming hamming.px : hamming.pi ../../Lib/lib.px 
+hanoi hanoi.px : hanoi.pi ../../Lib/lib.px 
+hello hello.px : hello.pi ../../Lib/lib.px 
+hybrid hybrid.px : hybrid.pi ../../Lib/lib.px 
+queens queens.px : queens.pi ../../Lib/lib.px 
+seq seq.px : seq.pi ../../Lib/lib.px 
+sieve sieve.px : sieve.pi ../../Lib/lib.px 
+tak tak.px : tak.pi ../../Lib/lib.px 

@@ -1,0 +1,16 @@
+1: waiting for semaphore
+2: waiting for semaphore
+3: waiting for semaphore
+4: waiting for semaphore
+1: doing work
+2: doing work
+1: releasing semaphore
+3: doing work
+1: finished
+2: releasing semaphore
+4: doing work
+2: finished
+3: releasing semaphore
+3: finished
+4: releasing semaphore
+4: finished

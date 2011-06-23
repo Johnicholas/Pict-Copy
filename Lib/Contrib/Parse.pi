@@ -1,0 +1,141 @@
+# line 1 "/home/pierce/pict/Lib/Contrib/Parse.src"
+
+
+  import "Std/Int"
+  import "Std/String"
+  import "Std/Bytes"
+  import "Std/Char"
+  import "Std/Io"
+
+  val parse : [
+
+  int = /[Rd Exn /Int]
+
+
+
+
+
+
+  while = /[Rd /[Char /Bool] /String]
+
+
+
+
+
+  line = /[Rd /String]
+
+
+
+
+
+  whitespace = /[Rd Sig]
+
+
+
+
+
+  match = /[Rd String Exn Sig]
+
+
+
+
+
+
+  char = /[Rd Char Exn Sig]
+
+
+
+
+
+
+    
+] = (
+
+inline def debug (s:String) : [] = if false then (prErrNL s) else []
+
+def parseInt (s:Rd fail:Exn) : Int =
+  (val impossible = (exn.tag exn.exit "parseInt")
+   def f (i:Int):Int = (
+     (debug "parseInt: checking for eof");
+     if (s.eof) then
+       ((debug "parseInt: eof"); i)
+     else (
+       (debug "parseInt: not eof");
+       val ch = (s.peekChar impossible)
+       (debug (+$ "parseInt: got ascii " ($$ ch)));
+	 if (char.isDigit ch) 
+	 then ((debug "parseInt: continuing");
+	     (await (s.readChar impossible)); (f (+ (* i 10) (- ch '0'))))
+       else ((debug "parseInt: finished"); i)
+     )
+   )
+
+   (debug "parseInt: checking first character");
+   val first = (s.peekChar fail)
+   if (== first '-') then (
+     (debug "parseInt: parsing negative number");
+     (await (s.readChar impossible));
+     (neg (f 0))
+   ) else if (char.isDigit first) then (
+     (debug "parseInt: parsing positive number");
+     (f 0)
+   ) else (
+     (debug "parseInt: failed");
+     (exn.raise fail
+      (+$ > "parseInt: encountered '" (char.toString first)
+       "' when expecting an integer"))
+   ))
+
+def parseWhile (s:Rd pred:/[Char /Bool]) : String =
+  (val impossible = (exn.tag exn.exit "parseWhile")
+   def loop (x:Int buffer:Bytes):String =
+     ((debug "parseWhile: checking for eof");
+      if (s.eof) then
+	((debug "parseWhile: eof");
+	 (bytes.toString buffer idx=0 len=x))
+      else
+        ((debug "parseWhile: peeking at char");
+         val c = (s.peekChar impossible)
+         if (pred c) then
+	   if (== x (bytes.size buffer)) then
+	     ((debug "parseWhile: doubling buffer size");
+              val b2 = (bytes.extend buffer 'A' x)
+	      (bytes.update b2 x (s.readChar impossible));
+	      (loop (inc x) b2))
+	   else
+	     ((debug "parseWhile: putting char in buffer");
+	      (bytes.update buffer x (s.readChar impossible));
+	      (loop (inc x) buffer))
+	 else
+	   ((debug "parseWhile: finished");
+	    (bytes.toString buffer idx=0 len=x))))
+   (loop 0 (bytes.make 'A' 100)))
+
+def parseLine (s:Rd) : String = (parseWhile s \(c) = (<> c '\n'))
+
+def parseWhitespace (s:Rd) : [] = (await (parseWhile s char.isSpace))
+
+def matchString  (s:Rd str:String fail:Exn) : [] =
+  if (string.<>$ str (s.read (string.size str) fail)) then
+    (exn.raise fail (+$ "matchString: failed to match " str))
+  else
+    []
+
+def parseLiteralChar (s:Rd ch:Char fail:Exn) : [] =
+  if (s.eof) then
+    (exn.raise fail
+     (+$ > "reached EOF when expecting '" (char.toString ch) "'"))
+  else
+    (val ch' = (s.readChar (exn.tag exn.exit "parseLiteralChar"))
+     if (<> ch ch') then
+       (exn.raise fail
+        (+$ > "reached '" (char.toString ch') "' (ascii "
+	 ($$ ch') ") when expecting '"
+	 (char.toString ch) "'"))
+     else
+       [])
+
+[int=parseInt while=parseWhile line=parseLine whitespace=parseWhitespace
+ match=matchString char=parseLiteralChar]
+
+)

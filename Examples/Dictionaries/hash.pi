@@ -1,0 +1,23 @@
+{-
+ - Test the implementation of bags.
+ -}
+
+import "Std/Hash"
+import "Std/Random"
+
+val bag = (hash.make #Int #Int int.hash ==)
+
+def add ([x:Int v:Int]):[] = ((pr "#"); (hash.insert bag x v))
+
+def lookup ([x:Int v:Int]):[] =
+  if (== (hash.lookup bag x) v) then ((pr "?"); (hash.remove bag x))
+  else (error.fatal "lookup failed")
+
+val l =
+  (list.tabulate #[Int Int] 75
+   \(_) = [(random.randomInt 30) (random.randomInt 1000)])
+
+(list.apply l add); (nl);
+(list.revApply l lookup); (nl);
+(list.revApply l add); (nl);
+(list.apply l lookup); (nl);

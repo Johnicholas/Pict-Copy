@@ -1,0 +1,249 @@
+\section{@Std/PP@: Pretty Printing}
+
+A simple pretty-printing abstraction.
+
+##import "Std/Io"
+##import "Std/List"
+
+##val [
+
+\subsection{Types}
+
+#*#PP =
+#*  [format = /[Wr Int Int /Int]
+#*   sizes  = (List Int)
+#*   breaks = Int]
+\begin{doc}
+A pretty printer is an object with the following fields: @format@ takes as
+arguments an output stream, upon which it writes the formatted output, and
+two integers which record the required number of breaks and the current
+column number respectively. It returns the number of characters that it
+consumed.  The @sizes@ field is a (non-empty) list of integers which
+indicate the number of columns which the pretty printer needs to print
+itself. The @i@'th element of the list gives the size if @i@ boxes are
+broken.  The @breaks@ field indicates how many times the pretty printer
+can break its output so that it consumes fewer columns.
+\end{doc}
+
+##pp:[
+
+\subsection{Construction}
+
+#*null = PP
+\begin{doc}
+The @null@ value is a pretty printer which does nothing.  It has size of
+zero, and cannot be broken into smaller components.
+\end{doc}
+
+#*string = /[String /PP]
+\begin{doc}
+@(string s)@ returns a pretty printer which prints out @s@ on a single
+line. The size of the pretty printer is equal to the size of the string
+@s@.  @(string s)@ cannot be broken into smaller components. The string @s@
+must not contain any control characters, such as newline, tab or linefeed.
+\end{doc}
+
+#*int = /[Int /PP]
+\begin{doc}
+@(int i)@ returns a pretty printer which prints out @i@.  The size of
+@(int i)@ is equal to the length of the string representation of @i@.
+@(int i)@ cannot be broken into smaller components.
+\end{doc}
+
+#*bool = /[Bool /PP]
+\begin{doc}
+@(bool b)@ returns a pretty printer which prints out @b@.  The size of
+@(bool b)@ is equal to the length of the string representation of @b@.
+@(bool b)@ cannot be broken into smaller components.
+\end{doc}
+
+\subsection{Operations}
+
+#*extend = /[Int Char Int Char PP /PP]
+\begin{doc}
+@(extend left lc right rc pp)@ extends the pretty printer @pp@ by inserting
+@left@ copies of the character @lc@ to the left of @pp@ and @right@ copies
+of the character @rc@ to the right of @pp@.
+\end{doc}
+
+#*break = /[Int PP /PP]
+\begin{doc}
+@(break n pp)@ forces @pp@ to break at least @n@ times.
+\end{doc}
+
+#*leftJustify = /[Int PP /PP]
+\begin{doc}
+@(leftJustify width pp)@ finds the widest possible size of @pp@ which is
+less than or equal to @width@, and returns a pretty printer which formats
+@pp@ at that size, appending as many spaces after @pp@ as are required. If
+@pp@ cannot fit into @width@ we generate a runtime error.
+\end{doc}
+
+#*rightJustify = /[Int PP /PP]
+\begin{doc}
+@(rightJustify width pp)@ finds the widest possible size of @pp@ which is
+less than or equal to @width@, and returns a pretty printer which formats
+@pp@ at that size, appending as many spaces before @pp@ as are required. If
+@pp@ cannot fit into @width@ we generate a runtime error.
+\end{doc}
+
+#*center = /[Int PP /PP]
+\begin{doc}
+@(center pp)@ fixes the size of @pp@ to be @width@. If @pp@ cannot fit into
+@width@ we generate a runtime error.
+\end{doc}
+
+#*hbox = /[(List PP) /PP]
+#*vbox = /[(List PP) /PP]
+\begin{doc}
+@(hbox l)@ combines the pretty printers in @l@ horizontally.  The resulting
+pretty printer will always print @l@ out horizontally.  @(vbox l)@ behaves
+similarly, except that it combines the pretty printers in @l@ vertically.
+\end{doc}
+
+#*hvbox = /[(List PP) /PP]
+\begin{doc}
+@(hvbox l)@ combines the pretty printers in @l@ either vertically or
+horizontally, depending on whether it is asked to break or not.
+\end{doc}
+
+#*list = /[(List PP) start=PP before=PP after=PP finish=PP /(List PP)]
+\begin{doc}
+@(list start=s before=b after=a finish=f l)@ returns a new list of pretty
+printers which starts with @s@, finishes with @f@ and where @b@ is inserted
+before each element of @l@ and @a@ is inserted after each element of @l@.
+\end{doc}
+
+#{#}
+]] = (
+
+type PP =
+  [format = /[Wr Int Int /Int]
+   sizes  = (List Int)
+   breaks = Int]
+
+def findSize (size:Int breaks:Int l:(List Int) fail:Exn):[Int Int] =
+  if (null l) then
+    (exn.raise fail "findSize")
+  else if (<= (car l) size) then
+    [breaks (car l)]
+  else
+    (findSize size (inc breaks) (cdr l) fail)
+
+def sizeAfterBreak (br:Int pp:PP):Int =
+  if (<= br pp.breaks) then (list.nth pp.sizes br)
+  else (list.nth pp.sizes pp.breaks)
+
+def combineSizesH (l:(List PP) format:/[Wr Int Int /Int]):PP =
+  (def getUnbrokenSize (pp:PP acc:Int):Int = (+ (car pp.sizes) acc)
+   [format = format
+    sizes = (cons (list.fold l getUnbrokenSize 0) nil)
+    breaks = 0])
+
+def combineSizesV (l:(List PP) format:/[Wr Int Int /Int]):PP =
+  (def mostBreaks (pp:PP most:Int):Int = (max most pp.breaks)
+   val breaks = (list.fold l mostBreaks 0)
+   def sizeWithBreak (br:Int sizes:(List Int)):(List Int) =
+     (def sizePP (pp:PP acc:Int):Int = (+ (sizeAfterBreak br pp) acc)
+      (cons (list.fold l sizePP 0) sizes))
+   [format = format
+    sizes = (int.fold breaks -1 0 sizeWithBreak nil)
+    breaks = breaks])
+
+val nullPP:PP =
+  [format = \(_ _ column) = column
+   sizes = (cons 0 nil)
+   breaks = 0]
+
+def stringPP (s:String):PP =
+  (val sz = (string.size s)
+   [format = \(file _ column) = ((file.write s); (+ column sz))
+    sizes = (cons sz nil)
+    breaks = 0])
+
+def intPP (i:Int):PP = (stringPP (int.toString i))
+def boolPP (b:Bool):PP = (stringPP (bool.toString b))
+
+def extendPP (left:Int lc:Char right:Int rc:Char pp:PP):PP =
+  [format = \(file breaks column) =
+     ((file.write (string.make lc left));
+      val column = (pp.format file breaks (+ column left))
+      (file.write (string.make rc right));
+      (+ column right))
+   sizes = (list.map pp.sizes \(sz:Int):Int = (+ < sz left right))
+   breaks = pp.breaks]
+
+def breakPP (breaks:Int pp:PP):PP =
+  [format = \(file br column) = (pp.format file (+ breaks br) column)
+   sizes = (cons (list.nth pp.sizes breaks) nil)
+   breaks = (+ pp.breaks breaks)]
+
+def leftJustifyPP (width:Int pp:PP):PP =
+  (val handler = (exn.fail "leftJustifyPP: width too small")
+   val [breaks sz] = (findSize width 0 pp.sizes handler)
+   (extendPP 0 ' ' (- width sz) ' ' (breakPP breaks pp)))
+
+def rightJustifyPP (width:Int pp:PP):PP =
+  (val handler = (exn.fail "rightJustifyPP: width too small")
+   val [breaks sz] = (findSize width 0 pp.sizes handler)
+   (extendPP (- width sz) ' ' 0 ' ' (breakPP breaks pp)))
+
+def centerPP (width:Int pp:PP):PP =
+  (val handler = (exn.fail "centerPP: width too small")
+   val [breaks sz] = (findSize width 0 pp.sizes handler)
+   val left = (div (- width sz) 2)
+   (extendPP left ' ' (- < width sz left) ' ' (breakPP breaks pp)))
+
+def hboxPP (l:(List PP)):PP = 
+  (def format (file:Wr _:Int column:Int):Int =
+     (def formatPP (pp:PP column:Int):Int = (pp.format file 0 column)
+      (list.fold l formatPP column))
+   (combineSizesH l format))
+
+def vboxPP (l:(List PP)):PP =
+  (def format (file:Wr breaks:Int column:Int):Int =
+     (val indent = (+$ "\n" (string.make ' ' column))
+      def formatV (l:(List PP) doSep:Bool col:Int):Int =
+        if (null l) then
+          col
+        else
+          (val hd = (car l) val tl = (cdr l)
+           if doSep then
+             ((file.write indent);
+              (formatV tl true (hd.format file breaks column)))
+           else
+             (formatV tl true (hd.format file breaks column)))
+      (formatV l false column))
+   (combineSizesV l format))
+
+def hvboxPP (l:(List PP)):PP =
+  (val horiz = (hboxPP l)
+   val vert  = (vboxPP l)
+   [format = \(file breaks column) =
+      if (== breaks 0) then (horiz.format file breaks column)
+      else (vert.format file (- breaks 1) column)
+    sizes = (cons (car horiz.sizes) vert.sizes)
+    breaks = (+ vert.breaks 1)])
+
+def listPP
+  (l:(List PP) start=start:PP before=before:PP after=after:PP finish=finish:PP)
+  : (List PP)
+=
+  (def formatList (l:(List PP) didBreak:Bool):(List PP) =
+     if (null l) then
+       (cons finish nil)
+     else if (&& didBreak (null (cdr l))) then
+       (cons > (hboxPP (cons > after (car l) nil)) finish nil)
+     else if didBreak then
+       (cons > (hboxPP (cons > after (car l) before nil))
+        (formatList (cdr l) true))
+     else
+       (cons > (hboxPP (cons > (car l) before nil))
+        (formatList (cdr l) true))
+   (cons start (formatList l false)))
+
+[[null=nullPP string=stringPP int=intPP bool=boolPP extend=extendPP
+  break=breakPP leftJustify=leftJustifyPP rightJustify=rightJustifyPP
+  center=centerPP hbox=hboxPP vbox=vboxPP hvbox=hvboxPP list=listPP]]
+
+)

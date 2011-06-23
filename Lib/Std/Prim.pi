@@ -1,0 +1,165 @@
+# line 1 "/home/pierce/pict/Lib/Std/Prim.src"
+
+
+
+
+
+
+
+
+
+  import "Std/Error"
+
+  val [
+
+
+
+  #CString
+
+
+
+
+
+  #Word
+
+
+
+
+
+
+
+  prim:[
+
+
+
+  + = /[Int Int /Int] 
+
+
+  == = /[Int Int /Bool] 
+  <> = /[Int Int /Bool] 
+  >> = /[Int Int /Bool] 
+  << = /[Int Int /Bool] 
+  >= = /[Int Int /Bool] 
+  <= = /[Int Int /Bool] 
+
+
+  size = /[String /Int]
+
+
+  +$ = /[String String /String]
+
+
+  ==$ = /[String String /Bool]
+
+
+  fromCString = /[CString /String]
+
+
+  shortenTo = /[String Int /[]]
+
+
+
+
+
+  shorten = /[String /[]]
+
+
+
+
+
+
+
+
+  alloc = /[Int /String]
+
+
+
+
+
+
+  allocWord = /[/Word]
+
+
+
+
+
+  readWord = /[Word /Int]
+  writeWord = /[Word Int /[]]
+
+
+
+
+  nullPtr = /[#X X /Bool]
+
+
+
+
+    
+]] = (
+
+{- Generate fresh types -}
+val [#CString #Word] = [#Top #Top]
+
+inline def + (x:Int y:Int) : Int = (ccode 0 C "(# + #)" x y)
+inline def == (x:Int y:Int) : Bool = (ccode 0 C "(# == #)" x y)
+inline def <> (x:Int y:Int) : Bool = (ccode 0 C "(# != #)" x y)
+inline def >> (x:Int y:Int) : Bool = (ccode 0 C "(# > #)" x y)
+inline def << (x:Int y:Int) : Bool = (ccode 0 C "(# < #)" x y)
+inline def >= (x:Int y:Int) : Bool = (ccode 0 C "(# >= #)" x y)
+inline def <= (x:Int y:Int) : Bool = (ccode 0 C "(# <= #)" x y)
+
+inline def size (s:String) : Int =
+  (ccode 0 P "intInt(SIZE(STATUS(#))-1)" s)
+
+inline def allocWord () : Word =
+  (ccode 2 P "({Val w = TAG(Free); STATUS(w) = STRING(4); Free += 2; w;})")
+inline def readWord (w:Word) : Int =
+  (ccode 0 R "intInt(OFFSET(#,1))" w)
+inline def writeWord (w:Word x:Int) : [] =
+  (ccode 0 E "OFFSET(#,1) = I(#);" w x)
+
+inline def alloc (n:Int) : String =
+  ((error.check "Prim.alloc: no support for large objects yet" (<< n 32000));
+   (ccode 8192 P "({
+      Val string = TAG(Free); int bytes = I(#);
+      long sz = (bytes + sizeof(Val) + sizeof(Val) - 1) / sizeof(Val);
+      STATUS(string) = STRING(bytes); Free += sz;
+      string;
+    })" n))
+
+inline def nullPtr (#X x:X) : Bool =
+  (ccode 0 C "(((void *)#) == NULL)" x)
+
+inline def fromCString (c:CString) : String =
+  (val sz = (+ (ccode 0 P "intInt(strlen((char*)#))" c) 1)
+   val s = (alloc sz)
+   (ccode 0 E "COPY(S(#),((char*)#),I(#));" s c sz);
+   s)
+   
+inline def shortenTo (s:String x:Int) : [] =
+  (ccode 0 E "STATUS(#) = STRING(I(#));" s x)
+   
+inline def shorten (s:String) : [] =
+  (val sz = (+ (ccode 0 P "intInt(strlen((char*)S(#)))" s) 1)
+   (ccode 0 E "STATUS(#) = STRING(I(#));" s sz))
+   
+{- Must be here to avoid circular dependency between List and String -}
+
+def +$ (s1:String s2:String) : String =
+  (val sz1 = (size s1) val sz2 = (size s2)
+   val r = (alloc (+ > sz1 sz2 1))
+   (ccode 0 E "COPY(S(#),S(#),I(#));" r s1 sz1);
+   (ccode 0 E "COPY(S(#)+I(#),S(#),I(#));" r sz1 s2 sz2);
+   (ccode 0 E "(S(#))[I(#)] = 0;" r (+ sz1 sz2));
+   r)
+
+inline def ==$ (s1:String s2:String) : Bool =
+  (val sz1 = (size s1) val sz2 = (size s2)
+   if (<> sz1 sz2) then false
+   else (ccode 0 P "(memcmp(S(#),S(#),I(#)) == 0)" s1 s2 sz1))
+
+[[+ = + == = == <> = <> >> = >> << = << >= = >= <= = <=  size=size +$ = +$
+  ==$ = ==$ fromCString=fromCString shortenTo=shortenTo shorten=shorten
+  alloc=alloc allocWord=allocWord readWord=readWord writeWord=writeWord
+  nullPtr=nullPtr]]
+)

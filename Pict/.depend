@@ -1,0 +1,88 @@
+ccode.cmi: var.cmi 
+check.cmi: inter.cmi simplify.cmi syntax.cmi 
+codegen.cmi: ccode.cmi inter.cmi 
+copt.cmi: ccode.cmi 
+flags.cmi: error.cmi 
+fv.cmi: inter.cmi 
+inter.cmi: ccode.cmi types.cmi var.cmi 
+kinding.cmi: error.cmi kind.cmi syntax.cmi types.cmi 
+leq.cmi: error.cmi kind.cmi types.cmi 
+lexer.cmi: error.cmi parser.cmi 
+lint.cmi: inter.cmi 
+match.cmi: error.cmi simplify.cmi types.cmi 
+occur.cmi: inter.cmi var.cmi 
+optimise.cmi: inter.cmi 
+parser.cmi: error.cmi syntax.cmi 
+simplify.cmi: ccode.cmi inter.cmi types.cmi var.cmi 
+status.cmi: inter.cmi 
+syntax.cmi: ccode.cmi error.cmi kind.cmi 
+types.cmi: error.cmi kind.cmi misc.cmi 
+var.cmi: misc.cmi 
+ccode.cmo: flags.cmi misc.cmi var.cmi ccode.cmi 
+ccode.cmx: flags.cmx misc.cmx var.cmx ccode.cmi 
+check.cmo: ccode.cmi debug.cmi error.cmi flags.cmi inter.cmi kinding.cmi \
+    leq.cmi match.cmi misc.cmi simplify.cmi syntax.cmi types.cmi var.cmi \
+    check.cmi 
+check.cmx: ccode.cmx debug.cmx error.cmx flags.cmx inter.cmx kinding.cmx \
+    leq.cmx match.cmx misc.cmx simplify.cmx syntax.cmx types.cmx var.cmx \
+    check.cmi 
+codegen.cmo: ccode.cmi copt.cmi error.cmi flags.cmi inter.cmi misc.cmi \
+    var.cmi codegen.cmi 
+codegen.cmx: ccode.cmx copt.cmx error.cmx flags.cmx inter.cmx misc.cmx \
+    var.cmx codegen.cmi 
+compile.cmo: ccode.cmi check.cmi codegen.cmi error.cmi flags.cmi inter.cmi \
+    lexer.cmi misc.cmi optimise.cmi parser.cmi simplify.cmi stats.cmi \
+    syntax.cmi var.cmi 
+compile.cmx: ccode.cmx check.cmx codegen.cmx error.cmx flags.cmx inter.cmx \
+    lexer.cmx misc.cmx optimise.cmx parser.cmx simplify.cmx stats.cmx \
+    syntax.cmx var.cmx 
+copt.cmo: ccode.cmi flags.cmi stats.cmi var.cmi copt.cmi 
+copt.cmx: ccode.cmx flags.cmx stats.cmx var.cmx copt.cmi 
+debug.cmo: debug.cmi 
+debug.cmx: debug.cmi 
+error.cmo: error.cmi 
+error.cmx: error.cmi 
+flags.cmo: error.cmi misc.cmi flags.cmi 
+flags.cmx: error.cmx misc.cmx flags.cmi 
+fv.cmo: ccode.cmi error.cmi inter.cmi misc.cmi types.cmi var.cmi fv.cmi 
+fv.cmx: ccode.cmx error.cmx inter.cmx misc.cmx types.cmx var.cmx fv.cmi 
+inter.cmo: ccode.cmi error.cmi flags.cmi misc.cmi types.cmi var.cmi inter.cmi 
+inter.cmx: ccode.cmx error.cmx flags.cmx misc.cmx types.cmx var.cmx inter.cmi 
+kind.cmo: error.cmi misc.cmi kind.cmi 
+kind.cmx: error.cmx misc.cmx kind.cmi 
+kinding.cmo: error.cmi kind.cmi misc.cmi syntax.cmi types.cmi kinding.cmi 
+kinding.cmx: error.cmx kind.cmx misc.cmx syntax.cmx types.cmx kinding.cmi 
+leq.cmo: debug.cmi error.cmi flags.cmi kind.cmi types.cmi leq.cmi 
+leq.cmx: debug.cmx error.cmx flags.cmx kind.cmx types.cmx leq.cmi 
+lexer.cmo: error.cmi parser.cmi lexer.cmi 
+lexer.cmx: error.cmx parser.cmx lexer.cmi 
+lint.cmo: ccode.cmi error.cmi inter.cmi types.cmi var.cmi lint.cmi 
+lint.cmx: ccode.cmx error.cmx inter.cmx types.cmx var.cmx lint.cmi 
+match.cmo: debug.cmi error.cmi flags.cmi kind.cmi leq.cmi simplify.cmi \
+    types.cmi match.cmi 
+match.cmx: debug.cmx error.cmx flags.cmx kind.cmx leq.cmx simplify.cmx \
+    types.cmx match.cmi 
+misc.cmo: error.cmi misc.cmi 
+misc.cmx: error.cmx misc.cmi 
+occur.cmo: ccode.cmi error.cmi flags.cmi inter.cmi types.cmi var.cmi \
+    occur.cmi 
+occur.cmx: ccode.cmx error.cmx flags.cmx inter.cmx types.cmx var.cmx \
+    occur.cmi 
+optimise.cmo: ccode.cmi error.cmi flags.cmi fv.cmi inter.cmi lint.cmi \
+    occur.cmi stats.cmi status.cmi types.cmi var.cmi optimise.cmi 
+optimise.cmx: ccode.cmx error.cmx flags.cmx fv.cmx inter.cmx lint.cmx \
+    occur.cmx stats.cmx status.cmx types.cmx var.cmx optimise.cmi 
+parser.cmo: ccode.cmi error.cmi flags.cmi kind.cmi syntax.cmi parser.cmi 
+parser.cmx: ccode.cmx error.cmx flags.cmx kind.cmx syntax.cmx parser.cmi 
+simplify.cmo: ccode.cmi inter.cmi types.cmi var.cmi simplify.cmi 
+simplify.cmx: ccode.cmx inter.cmx types.cmx var.cmx simplify.cmi 
+stats.cmo: flags.cmi stats.cmi 
+stats.cmx: flags.cmx stats.cmi 
+status.cmo: error.cmi flags.cmi inter.cmi var.cmi status.cmi 
+status.cmx: error.cmx flags.cmx inter.cmx var.cmx status.cmi 
+syntax.cmo: ccode.cmi error.cmi kind.cmi syntax.cmi 
+syntax.cmx: ccode.cmx error.cmx kind.cmx syntax.cmi 
+types.cmo: debug.cmi error.cmi flags.cmi kind.cmi misc.cmi var.cmi types.cmi 
+types.cmx: debug.cmx error.cmx flags.cmx kind.cmx misc.cmx var.cmx types.cmi 
+var.cmo: misc.cmi var.cmi 
+var.cmx: misc.cmx var.cmi 

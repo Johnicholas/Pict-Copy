@@ -1,0 +1,252 @@
+\section{@Std/Int@: Integers}
+
+##import "Std/Bool"
+##import "Std/Cmp"
+##import "Std/Misc"
+##import "Std/Exn"
+
+\subsection{Types}
+
+The type @Int@ is built in, and cannot be redefined.
+
+##val int : [
+
+\subsection{Arithmetic Operations}
+
+#*+ = /[Int Int /Int] 
+#*- = /[Int Int /Int] 
+\begin{doc} Addition and subtraction. \end{doc}
+
+#** = /[Int Int /Int] 
+#*div = /[Int Int /Int] 
+#*mod = /[Int Int /Int] 
+\begin{doc}
+Product, quotient and modulus.  @div@ and @mod@ generate a runtime error if
+the divisor is zero.  Note that, unlike the standard mathematical
+operations, @div@ and @mod@ round towards zero, so be careful if you intend
+to pass @div@ and @mod@ negative arguments.
+\end{doc}
+
+#*neg = /[Int /Int] 
+#*dec = /[Int /Int] 
+#*inc = /[Int /Int] 
+\begin{doc} Negation, predecessor and successor. \end{doc}
+
+#*sgn = /[Int /Int] 
+\begin{doc}
+@(sgn x)@ returns @1@ if @x@ is strictly greater than zero, @0@ if @x@
+equals zero, and @-1@ if @x@ is strictly less than zero.
+\end{doc}
+
+#*abs = /[Int /Int] 
+\begin{doc}
+@(abs x)@ returns the absolute value of @x@.
+\end{doc}
+
+\subsection{Bitwise Operations}
+
+#*land = /[Int Int /Int] 
+#*lor = /[Int Int /Int] 
+#*lxor = /[Int Int /Int] 
+#*lnot = /[Int /Int] 
+\begin{doc} Bitwise and, or, exclusive-or and negation. \end{doc}
+
+#*bitIsSet = /[bit=Int Int /Bool]
+\begin{doc}
+@(bitIsSet bit=i x)@ returns @true@ if the @i@'th bit of the
+boolean representation of @x@ is set.
+\end{doc}
+
+\subsection{Comparison}
+
+#*max = /[Int Int /Int] 
+#*min = /[Int Int /Int] 
+\begin{doc} Maximum and minimum. \end{doc}
+
+#*== = /[Int Int /Bool] 
+#*<> = /[Int Int /Bool] 
+\begin{doc} Equality, inequality. \end{doc}
+
+#*>> = /[Int Int /Bool] 
+#*<< = /[Int Int /Bool] 
+\begin{doc} Strictly greater than, and strictly less than. \end{doc}
+
+#*>= = /[Int Int /Bool] 
+#*<= = /[Int Int /Bool] 
+\begin{doc} Greater than or equal to, and less than or equal to. \end{doc}
+
+#*cmp = /[Int Int /Cmp]
+\begin{doc}
+@(cmp x y)@ returns a single value indicating the ordering of @x@ and @y@
+(cf.\ Section~\ref{s:Cmp}).
+\end{doc}
+
+\subsection{Iteration}
+
+#*apply = /[Int Int Int /[Int Sig] Sig]
+\begin{doc}
+@(apply start inc finish f)@ applies @f@ to the sequence of integers
+$@start@, @start+inc@, \ldots$ until it reaches an integer strictly greater
+than @finish@, or strictly less than @finish@ if @inc@ is negative.
+\end{doc}
+
+#*fold = /[#R Int Int Int /[Int R /R] R /R]
+\begin{doc}
+@(fold start inc finish f init)@ applies @f@ to the sequence of integers
+$@start@, @start+inc@, \ldots$ until it reaches an integer strictly greater
+than @finish@, or strictly less than @finish@ if @inc@ is negative.
+Successive applications of @f@ accumulate a result of type @R@, with @init@
+being the initial accumulated result.
+\end{doc}
+
+#*for = /[Int Int /[Int Sig] Sig]
+\begin{doc}
+The @for@ function is specialization of the @apply@ function.  The
+expression @(for min max f)@ applies @f@ to the integers @min@, $\ldots$,
+@max@.
+\end{doc}
+
+\subsection{Conversion}
+
+#*fromString = /[String Exn /Int]
+\begin{doc}
+@(fromString s h)@ converts a string @s@ to an integer. If @s@ is not a
+valid string (a non-empty sequence of digits, possible prefixed by a
+negation symbol @~@) then @fromString@ calls the error handler @h@.
+\end{doc}
+
+#*toString = /[Int /String]
+\begin{doc} @(toString x)@ converts @x@ to a string. \end{doc}
+
+#*hash = /[Int /Int]
+\begin{doc} @(hash x)@ returns a hash value for @x@. \end{doc}
+
+\subsection{Printing}
+
+#*pr = /[Int Sig]
+\begin{doc} @(pr x)@ prints @x@ on stdout. \end{doc}
+
+#*format = /[String Int Sig]
+\begin{doc}
+@(format s x)@ calls the C @printf@ function to format the integer @x@ as
+specified in the string @s@.  No checking of @s@ is attempted by the Pict
+compiler, so be careful with this function.
+\end{doc}
+
+#{#}
+]
+= (
+
+val + = prim.+
+val == = prim.==
+val <> = prim.<>
+val >> = prim.>>
+val << = prim.<<
+val >= = prim.>=
+val <= = prim.<=
+
+inline def - (x:Int y:Int) : Int = (ccode 0 C "(# - #)" x y)
+inline def * (x:Int y:Int) : Int = (ccode 0 C "(# * I(#))" x y)
+inline def div (x:Int y:Int) : Int =
+  ((error.check "Division by zero (div)" (<> y 0));
+   (ccode 0 C "intInt(# / #)" x y))
+inline def mod (x:Int y:Int) : Int =
+  ((error.check "Division by zero (mod)" (<> y 0));
+   (ccode 0 C "(# % #)" x y))
+
+inline def neg (x:Int) : Int = (- 0 x)
+inline def dec (x:Int) : Int = (- x 1)
+inline def inc (x:Int) : Int = (+ x 1)
+
+inline def sgn (x:Int) : Int =
+  (ccode 0 P "((# > 0) ? One : ((# == 0) ? Zero : -One))" x x)
+
+inline def abs (x:Int) : Int = (ccode 0 P "((# >= 0) ? # : -#)" x x x)
+
+inline def land (x:Int y:Int) : Int = (ccode 0 C "(# & #)" x y)
+inline def lor (x:Int y:Int) : Int = (ccode 0 C "(# | #)" x y)
+inline def lxor (x:Int y:Int) : Int = (ccode 0 C "(# ^ #)" x y)
+inline def lnot (x:Int) : Int = (ccode 0 C "((~#) - 1)" x)
+
+inline def bitIsSet (bit=i:Int x:Int):Bool =
+  (ccode 0 C "((# & (1 << I(#))) != 0)" x i)
+
+inline def max (x:Int y:Int) : Int = (ccode 0 P "((# >= #) ? # : #)" x y x y)
+inline def min (x:Int y:Int) : Int = (ccode 0 P "((# <= #) ? # : #)" x y x y)
+
+inline def cmp (x:Int y:Int) : Cmp = (ccode 0 C "(# - #)" x y)
+
+def apply (start:Int inc:Int finish:Int f:/[Int Sig]) : [] =
+  if (>> inc 0) then
+    (def loop (x:Int) : [] =
+       if (<= x finish) then ((f x); (loop (+ x inc))) else []
+     (loop start))
+  else
+    (def loop (x:Int) : [] =
+       if (>= x finish) then ((f x); (loop(+ x inc))) else []
+     (loop start))
+
+def fold (#R start:Int inc:Int finish:Int f:/[Int R /R] init:R) : R =
+  if (>> inc 0) then
+    (def loop (x:Int v:R) : R =
+       if (<= x finish) then (loop (+ x inc) (f x v)) else v
+     (loop start init))
+  else
+    (def loop (x:Int v:R) : R =
+       if (>= x finish) then (loop (+ x inc) (f x v)) else v
+     (loop start init))
+
+inline def for (min:Int max:Int f:/[Int Sig]) : [] = (apply min 1 max f)
+
+def fromString (s:String fail:Exn) : Int =
+  (val w = (prim.allocWord)
+   val ret:Int = (ccode 0 R "intInt(sscanf(S(#),\"%ld\",&OFFSET(#,1)))" s w)
+   if (== 1 ret) then (prim.readWord w)
+   else (exn.raise fail "Int.fromString"))
+
+inline def toString (x:Int) : String =
+  (val s = (prim.alloc 24)
+   (ccode 0 E "{
+####ifdef BAD_SPRINTF
+     char *p = sprintf(S(#),\"%ld\",(Val)I(#));
+     STATUS(#) = STRING(strlen(p)+1);
+####else
+     int n = sprintf(S(#),\"%ld\",(Val)I(#));
+     STATUS(#) = STRING(n+1);
+####endif
+    }" s x s s x s);
+   s)
+
+inline def hash (x:Int) : Int = x
+inline def pr (x:Int) : [] =
+  (ccode 0 E "printf(\"%ld\",(Val)I(#));" x)
+inline def format (s:String x:Int) : [] =
+  (ccode 0 E "printf(S(#),(Val)I(#));" s x)
+
+[+ = +  - = -  * = *  div=div mod=mod neg=neg
+ dec=dec inc=inc sgn=sgn abs=abs land=land lor=lor lxor=lxor
+ lnot=lnot bitIsSet=bitIsSet max=max min=min == = ==  <> = <>
+ >> = >>  << = << >= = >=  <= = <=  cmp=cmp apply=apply fold=fold for=for
+ fromString=fromString toString=toString hash=hash pr=pr
+ format=format]
+)
+
+#@\subsection{Abbreviations}
+
+#*val + = int.+
+#*val - = int.-
+#*val inc = int.inc
+#*val dec = int.dec
+#*val neg = int.neg
+#*val * = int.*
+#*val div = int.div
+#*val mod = int.mod
+#*val == = int.==
+#*val <> = int.<>
+#*val >> = int.>>
+#*val << = int.<<
+#*val >= = int.>=
+#*val <= = int.<=
+#*val max = int.max
+#*val min = int.min
+#*val $$ = int.toString

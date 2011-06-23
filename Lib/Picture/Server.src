@@ -1,0 +1,325 @@
+\section{@Picture/Server@: Server Connection}
+
+All the operations in this module are re-exported from the module
+@Picture/Picture@ (where they are documented).
+
+##import "Std/Hash"
+##import "Posix/Signals"
+##import "Posix/Fd"
+##import "X11/Xlib"
+##import "X11/Xrm"
+##import "Picture/Types"
+##import "Picture/Package"
+
+#*def server (displayName:String appName:String) : Server
+#{#}
+= (val debugServer = (ccall 0 C "%debug")
+   def debug (s:String):[] = if debugServer then (prErr s) else []
+   (debug "Server: initialising\n");
+   val display = (xlib.openDisplay displayName exn.exit)
+   val root = (xlib.defaultRootWindow display) 
+   val screen = (xlib.defaultScreen display)
+   val xcontext = (xlib.uniqueContext #[Picture Active CX Int Int])
+   val gc = (xlib.defaultGC display screen)
+
+   (debug "Server: initialising resource database\n");
+   (xrm.initialize);
+   val db =
+     (xrm.fromString
+      (exn.try #String #String \(h) = (xrm.string display h) \(_) = ""))
+
+   def hashRGB ([r:Int g:Int b:Int]):Int =
+     (+ > (* r 16777216) (* g 65536) b)
+   def eqRGB ([r1:Int g1:Int b1:Int] [r2:Int g2:Int b2:Int]):Bool =
+     (&& > (== r1 r2) (== g1 g2) (== b1 b2))
+
+   val fontCache = (hash.make #String #Font string.hash string.==$)
+   val colorCache = (hash.make #String #Color string.hash string.==$)
+   val rgbCache = (hash.make #[Int Int Int] #Color hashRGB eqRGB)
+
+   new rlock:^[]
+   run rlock![]
+
+   def newFont (name:String fail:Exn):Font =
+     ((read rlock);
+      (debug "Server.newFont: "); (debug name); (debug "\n");
+      (opt.case (hash.tryLookup fontCache name)
+       \():Font =
+         ((debug "Server.newFont: loading font\n");
+          val font =
+            (exn.try #String #Font
+             \(h) = (xlib.loadQueryFont display name h)
+             \(s) = ((write rlock []); (exn.raise fail s)))
+          (hash.insert fontCache name font);
+          (write rlock []); font)
+       \(font:Font):Font =
+         ((debug "Server.newFont: in cache\n");
+          (write rlock []); font)))
+
+   def newColor (name:String fail:Exn):Color =
+     ((read rlock);
+      (debug "Server.newColor: "); (debug name); (debug "\n");
+      (opt.case (hash.tryLookup colorCache name)
+       \():Color =
+         ((debug "Server.newColor: allocating color\n");
+          val color =
+            (exn.try #String #Color
+             \(h) = (xlib.allocNamedColor display screen name h)
+             \(s) = ((write rlock []); (exn.raise fail s)))
+          (hash.insert colorCache name color);
+          (write rlock []); color)
+       \(color:Color):Color =
+         ((debug "Server.newColor: in cache\n");
+          (write rlock []); color)))
+
+   def newColorRGB (r:Int g:Int b:Int fail:(Handler [Int Int Int])):Color =
+     (if debugServer then
+        (prErr (+$ > "Server.newColorRGB: " ($$ r) " " ($$ g) " " ($$ b) "\n"))
+      else
+        [];
+      (read rlock);
+      val rgb = [r g b]
+      (opt.case (hash.tryLookup rgbCache rgb)
+       \():Color =
+         ((debug "Server.newColorRGB: allocating color\n");
+          val color =
+            (exn.try #[Int Int Int] #Color
+             \(h) = (xlib.allocColor display screen r g b h)
+             \(rgb) = ((write rlock []); (exn.raise fail rgb)))
+          (hash.insert rgbCache rgb color);
+          (debug "Server.newColorRGB: got color\n");
+          (write rlock []); color)
+       \(color:Color):Color =
+         ((debug "Server.newColorRGB: in cache\n");
+          (write rlock []); color)))
+
+   def resource (name:String fail:Exn):String =
+     (val fullName = (+$ > appName "." name)
+      (debug "Server.resource: "); (debug fullName); (debug "\n");
+      (opt.case (xrm.getResource db fullName fullName)
+       \():String =
+         ((debug "Server.resource: failed\n");
+          (exn.raise fail "Server.resource"))
+       \(s:String):String =
+         ((debug "Server.resource: got "); (debug s); (debug "\n"); s)))
+
+   def colorResource (res:String default:String) : Color =
+     (exn.try #String #Color
+      \(h) = (newColor (resource res h) h)
+      \(_) = (newColor default exn.exit))
+
+   def fontResource (res:String default:String) : Font =
+     (exn.try #String #Font
+      \(h) = (newFont (resource res h) h)
+      \(_) = (newFont default exn.exit))
+
+   def intResource (res:String x:Int) : Int =
+     (exn.try #String #Int
+      \(h) = (int.fromString (resource res h) h)
+      \(_) = x)
+
+   def boolResource (res:String b:Bool) : Bool =
+     (exn.try #String #Bool
+      \(h) = (bool.fromString (resource res h) h)
+      \(_) = b)
+
+   val resourcemanager =
+     [newFont=newFont newColor=newColor newColorRGB=newColorRGB
+      resource=resource colorResource=colorResource
+      fontResource=fontResource intResource=intResource
+      boolResource=boolResource]
+
+   (debug "Server: loading default resources\n");
+   val fg = (colorResource "fg" "black")
+   val bg = (colorResource "bg" "white")
+   val font = (fontResource "font" "8x13")
+   val tolerance = (intResource "tolerance" 3)
+
+   new lock:^Int
+   run lock!0
+
+   new elock:^Int
+   run elock!0
+
+   val event = (xlib.allocEvent)
+
+   def getNextEvent [] =
+     ((debug "Server.getNextEvent: getting event lock\n");
+      val x = (read elock)
+      if (== x 0) then
+        ((debug "Server.getNextEvent: checking for pending events\n");
+         val x = (xlib.pending display)
+         if (>> x 0) then (getNextEvent![] | elock!x) else elock!0)
+      else
+        ((debug "Server.getNextEvent: getting lock\n");
+         val n = (read lock)
+         val y = (xlib.pending display)
+         if (<> x y) then
+           (debug "Server.getNextEvent: xPending changed\n")
+         else
+           [];
+         (debug "Server.getNextEvent: xNextEvent\n");
+         (xlib.nextEvent display event);
+         val h:Exn = \_:String =
+           ((debug "Server.getNextEvent: unregistered window\n");
+            (elock!(dec x) | lock!n | getNextEvent![]))
+         if (xlib.isExpose event) then
+           ((debug "Server.getNextEvent: redraw\n");
+            val [p a cx _ _] =
+              (xlib.findContext #[Picture Active CX Int Int] display
+               (xlib.exposeEventWindow event) xcontext h)
+            (debug "Server.getNextEvent: releasing lock\n");
+            (write lock n);
+            (debug "Server.getNextEvent: rendering\n");
+            (xlib.setForeground cx.display cx.gc cx.fg);
+            (xlib.setBackground cx.display cx.gc cx.bg);
+            (xlib.setFont cx.display cx.gc cx.font);
+            (package.render a cx);
+            (debug "Server.getNextEvent: redraw completed\n");
+            (elock!(dec x) | getNextEvent![]))
+         else if
+           (|| (xlib.isButtonPress event) (xlib.isButtonRelease event))
+         then
+           ((debug "Server.getNextEvent: button\n");
+            val [_ a cx _ _] =
+              (xlib.findContext #[Picture Active CX Int Int] display (xlib.buttonEventWindow event)
+               xcontext h)
+            (debug "Server.getNextEvent: releasing lock\n");
+            (write lock n);
+            (debug "Server.getNextEvent: hit detection\n");
+            val _ =
+              (package.button a cx (xlib.buttonEventX event)
+               (xlib.buttonEventY event) (xlib.buttonEventButton event)
+               (xlib.isButtonPress event) tolerance)
+            (debug "Server.getNextEvent: button completed\n");
+            (elock!(dec x) | getNextEvent![]))
+         else if (xlib.isConfigureNotify event) then
+           ((debug "Server.getNextEvent: resize\n");
+            val window = (xlib.configureEventWindow event)
+            val [p _ cx w h] = (xlib.findContext display window xcontext h)
+            if
+              (&& (== w (xlib.configureEventW event))
+               (== h (xlib.configureEventH event)))
+            then
+              ((debug "Server.getNextEvent: no need to reconfigure\n");
+               (debug "Server.getNextEvent: resize completed\n");
+               (lock!n | elock!(dec x) | getNextEvent![]))
+            else
+              (val active = (package.init p cx)
+               (debug "Server.getNextEvent: storing new picture\n");
+               (xlib.saveContext #[Picture Active CX Int Int] display window xcontext [p active cx w h]);
+               (debug "Server.getNextEvent: releasing lock\n");
+               (write lock n);
+               (debug "Server.getNextEvent: redisplaying\n");
+               (xlib.clearArea cx.display cx.window 0 0 0 0 false);
+               (xlib.setForeground cx.display cx.gc cx.fg);
+               (xlib.setBackground cx.display cx.gc cx.bg);
+               (xlib.setFont cx.display cx.gc cx.font);
+               (package.render active cx);
+               (debug "Server.getNextEvent: resize completed\n");
+               (elock!(dec x) | getNextEvent![])))
+          else
+            ((debug "Server.getNextEvent: unrecognised event type\n");
+             (elock!(dec x) | lock!n | getNextEvent![]))))
+
+   def getEvents [last=last:Bool gotSignal=gotSignal:Bool r:/SignalResult] =
+     ((debug "Server.getEvents: getting event lock\n");
+      val x = (read elock)
+      (debug "Server.getEvents: getting lock\n");
+      val n = (read lock)
+      if (>> n 0) then
+        if (|| last gotSignal) then
+          ((debug "Server.getEvents: checking status\n");
+           if (>> x 0) then
+             ((debug "Server.getEvents: getNextEvent already running\n");
+              (lock!n | elock!x |
+               r![wokeUp=false stayInstalled=true persistent=true]))
+           else
+             ((debug "Server.getEvents: checking for pending events\n");
+              val x = (xlib.pending display)
+              if (>> x 0) then
+                ((debug "Server.getEvents: starting getNextEvent\n");
+                 (getNextEvent![] | lock!n | elock!x |
+                  r![wokeUp=true stayInstalled=true persistent=true]))
+              else
+                ((debug "Server.getEvents: no pending events\n");
+                 (lock!n | elock!0 |
+                  r![wokeUp=false stayInstalled=true persistent=true]))))
+        else
+          ((debug "Server.getEvents: no signal, other processes running\n");
+           (elock!x | lock!n |
+            r![wokeUp=false stayInstalled=true persistent=true]))
+      else
+        ((debug "Server.getEvents: no interested processes\n");
+         (elock!x | lock!0 |
+          r![wokeUp=false stayInstalled=true persistent=false])))
+
+   (debug "Server: registering event handler\n");
+   (signals.register signals.SIGIO getEvents);
+   (fd.mkASync (xlib.displayFd display) exn.exit);
+
+   def useGc (f:/[GC Sig]):[] =
+     ((debug "Server.useGc: getting lock\n"); val x = (read elock)
+      (debug "Server.useGc: running operation\n"); (f gc); 
+      (debug "Server.useGc: releasing lock\n");
+      (write elock x))
+
+   def openControlled (name:String p:Picture):Controller =
+     ((debug "Server.open: creating new window\n");
+      val window = (xlib.createWindow display root 0 0 1 1 0 fg bg)
+      (xlib.storeName display window name);
+      (xlib.selectInput display window
+       (xlib.mergeMasks > xlib.buttonPressMask xlib.exposureMask
+        xlib.structureNotifyMask));
+      def quit ():[] =
+        ((debug "Server.close: deleting picture\n");
+         val n = (read lock)
+         (xlib.deleteContext display window xcontext exn.exit);
+         (write lock (dec n));
+         (xlib.destroyWindow display window); (xlib.flush display);
+         (debug "deleteWindow: finished\n"))
+      def changed [] =
+        ((debug "Server.changed: getting event lock\n");
+         val x = (read elock)
+         val [p _ cx w h] =
+           (xlib.findContext #[Picture Active CX Int Int] display window xcontext exn.exit)
+         (debug "Server.changed: reconfiguring picture\n");
+         val active = (package.init p cx)
+         (xlib.saveContext #[Picture Active CX Int Int] display window xcontext [p active cx w h]);
+         (debug "Server.changed: redisplaying\n");
+         (xlib.clearArea cx.display cx.window 0 0 0 0 false);
+         (xlib.setForeground cx.display cx.gc cx.fg);
+         (xlib.setBackground cx.display cx.gc cx.bg);
+         (xlib.setFont cx.display cx.gc cx.font);
+         (package.render active cx);
+         (debug "Server.changed: resize completed\n");
+         elock!x)
+      val cx =
+        (resourcemanager with
+         display = display screen = screen root = root window = window
+         font = font fg = fg bg = bg gc = gc useGc = useGc
+         quit = \[] = quit![(discard #[])] changed = changed)
+      (debug "Server.open: realizing picture\n");
+      val active = (package.init p cx)
+      (debug "Server.open: checking bounds\n");
+      val [l r a b] = (package.boundary active)
+      val w = (max (- r l) 1)  val h = (max (- a b) 1)
+      (xlib.resizeWindow display window w h);
+      (debug "Server.open: registering picture\n");
+      val n = (read lock)
+      (xlib.saveContext display window xcontext [p active cx w h]);
+      (write lock (inc n));
+      (debug "Server.open: mapping window\n");
+      (xlib.mapWindow display window); (xlib.flush display);
+      (debug "Server.open: finished\n");
+      [map = \() =
+         ((xlib.mapWindow display window); (xlib.flush display))
+       unmap = \() =
+         ((xlib.unmapWindow display window); (xlib.flush display))
+       quit = quit])
+
+   def open (name:String p:Picture):[] = (await (openControlled name p))
+
+   (debug "Server: initialisation complete\n");
+   (resourcemanager with open=open openControlled=openControlled)
+)

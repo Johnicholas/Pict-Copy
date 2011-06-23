@@ -1,0 +1,148 @@
+# line 1 "/home/pierce/pict/Lib/Contrib/Clock.src"
+
+
+
+
+
+
+
+  import "Std/Misc"
+  import "Std/Bool"
+  import "Std/List"
+  import "Posix/Signals"
+
+  val clock : [
+
+
+
+  awaitTick = /[Sig]
+
+
+
+
+
+  everyTick = /Sig
+
+
+
+
+
+
+
+  stop = /[Sig] 
+  go = /[Sig] 
+
+
+
+
+
+
+  onStop = /Sig
+  onGo = /Sig
+
+
+
+
+
+
+
+  toggle = /[Sig] 
+
+
+
+
+
+  tick = /[Sig] 
+
+
+
+
+
+  getDelay = /[/Int] 
+  setDelay = /[Int Sig]
+
+
+
+
+
+
+
+    
+] = (
+  (ccode 0 I "##include <sys/time.h>");
+
+  def awakenProcess [p:Sig c:Sig] = ( p![] | c![] )
+ 
+  new status : ^Bool
+  new lock : ^[x=Int period=Int every=(List Sig) ongo=(List Sig)
+               onstop=(List Sig) waiting=(List Sig)]
+
+  run status!false
+  run lock![x=100 period=100 every=nil ongo=nil
+            onstop=nil waiting=nil]
+ 
+  inline def isPersistent (every:(List Sig) waiting:(List Sig)):Bool =
+    (not (&& (null every) (null waiting)))
+
+  def handler [last=last:Bool gotSignal=gotSignal:Bool r:!SignalResult] =
+    status?isRunning =
+    if isRunning then
+      lock?s =
+      if gotSignal then
+        if (== s.x 0) then
+          ((list.apply s.every awakenProcess);
+           (list.apply s.waiting awakenProcess);
+           (lock!(s where x=s.period waiting=nil) |
+            r![wokeUp=true stayInstalled=true
+               persistent=(isPersistent s.every nil)] |
+            status!isRunning))
+        else
+          (lock!(s where x=(dec s.x)) |
+           r![wokeUp=true stayInstalled=true
+              persistent=(isPersistent s.every s.waiting)] |
+           status!isRunning)
+      else
+        (lock!s |
+         r![wokeUp=false stayInstalled=true
+            persistent=(isPersistent s.every s.waiting)] |
+         status!isRunning)
+    else
+      (status!isRunning |
+       r![wokeUp=false stayInstalled=true persistent=false])
+
+  (signals.register signals.SIGALRM handler);
+  (ccode 0 E "{
+    struct itimerval it;
+##ifdef __USE_FIXED_PROTOTYPES__
+    extern int setitimer (int,struct itimerval*,struct itimerval*);
+##endif
+    it.it_interval.tv_usec = 10000; it.it_interval.tv_sec = 0;
+    it.it_value.tv_usec = 10000; it.it_value.tv_sec = 0;
+    setitimer(ITIMER_REAL,&it,NULL);
+  }");
+  [awaitTick = \[c] = lock?s = lock!(s where waiting = (cons c s.waiting))
+   everyTick = \c = lock?s = lock!(s where every = (cons c s.every))
+   stop = \[c] = status?isRunning = lock?s =
+     (if isRunning then (list.apply s.onstop awakenProcess) else [];
+      (lock!s | status!false | c![]))
+   go = \[c] = status?isRunning = lock?s =
+     (if (not isRunning) then (list.apply s.ongo awakenProcess) else [];
+      (lock!s | status!true | c![]))
+   onStop = \c = lock?s = lock!(s where onstop = (cons c s.onstop))
+   onGo = \c = lock?s = lock!(s where ongo = (cons c s.ongo))
+   toggle = \[c] = status?isRunning = lock?s =
+     if isRunning then
+       ((list.apply s.onstop awakenProcess);
+        (lock!s | status!false | c![]))
+     else
+       ((list.apply s.ongo awakenProcess);
+        (lock!s | status!true | c![]))
+   tick = \[c] = lock?s =
+     ((list.apply s.every awakenProcess);
+      (list.apply s.waiting awakenProcess);
+      (lock!(s where waiting = nil) | c![]))
+   getDelay = \[r] = lock?s = (lock!s | r!s.period) 
+   setDelay = \[p c] = lock?s =
+     ((error.check "Clock.setDelay: negative delay" (>= p 0));
+      (lock!(s where period = p) | c![]))]
+)

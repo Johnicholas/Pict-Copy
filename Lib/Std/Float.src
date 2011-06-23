@@ -1,0 +1,243 @@
+\section{@Std/Float@: Floating Point Numbers}
+
+This module provides a simple implementation of single-precision floating
+point numbers.  All floating point numbers are currently heap-allocated, so
+don't expect the performance of floating pointer operations to be that
+great (we hope to fix this sometime in the future, but don't hold you
+breath).
+
+##import "Std/Bool"
+##import "Std/Cmp"
+##import "Std/Misc"
+##import "Std/Exn"
+##import "Std/String"
+
+##val [
+
+\subsection{Types}
+
+#*#Float
+
+##float:[
+
+\subsection{Arithmetic Operations}
+
+#*+ = /[Float Float /Float] 
+#*- = /[Float Float /Float] 
+\begin{doc} Addition and subtraction. \end{doc}
+
+#** = /[Float Float /Float] 
+#*div = /[Float Float /Float] 
+\begin{doc} Product and quotient. \end{doc}
+
+#*neg = /[Float /Float] 
+#*dec = /[Float /Float] 
+#*inc = /[Float /Float] 
+\begin{doc} Negation, predecessor and successor. \end{doc}
+
+\subsection{Trigonometric Operations}
+
+#*sin = /[Float /Float] 
+#*cos = /[Float /Float] 
+#*tan = /[Float /Float] 
+#*asin = /[Float /Float] 
+#*acos = /[Float /Float] 
+#*atan = /[Float /Float] 
+\begin{doc} Sine, cosine, tangent, arc sine, arc cosine, arc tangent. \end{doc}
+
+\subsection{Comparison}
+
+#*max = /[Float Float /Float] 
+#*min = /[Float Float /Float] 
+\begin{doc} Maximum and minimum. \end{doc}
+
+#*== = /[Float Float /Bool] 
+#*<> = /[Float Float /Bool] 
+\begin{doc} Equality, inequality. \end{doc}
+
+#*>> = /[Float Float /Bool] 
+#*<< = /[Float Float /Bool] 
+\begin{doc} Strictly greater than, and strictly less than. \end{doc}
+
+#*>= = /[Float Float /Bool] 
+#*<= = /[Float Float /Bool] 
+\begin{doc} Greater than or equal to, and less than or equal to. \end{doc}
+
+#*cmp = /[Float Float /Cmp]
+\begin{doc}
+@(cmps x y)@ returns a single value indicating the ordering of @x@ and @y@
+(cf.\ Section~\ref{s:Cmp}).
+\end{doc}
+
+\subsection{Conversion}
+
+#*fromInt = /[Int /Float]
+\begin{doc}
+@(fromInt x)@ converts the integer @x@ to a float.
+\end{doc}
+
+#*fromString = /[String Exn /Float]
+\begin{doc}
+@(fromString s h)@ converts a string @s@ to a float. If @s@ is not a
+valid string (a non-empty sequence of digits, possible prefixed by a
+negation symbol @~@) then @fromString@ calls the error handler @h@.
+\end{doc}
+
+#*toString = /[Float /String]
+\begin{doc} @(toString x)@ converts @x@ to a string. \end{doc}
+
+#*hash = /[Float /Int]
+\begin{doc} @(hash x)@ returns a hash value for @x@. \end{doc}
+
+\subsection{Printing}
+
+#*pr = /[Float Sig]
+\begin{doc} @(pr x)@ prints @x@ on stdout. \end{doc}
+
+#*format = /[String Float Sig]
+\begin{doc}
+@(format s x)@ calls the C @printf@ function to format the integer @x@ as
+specified in the string @s@.  No checking of @s@ is attempted by the Pict
+compiler, so be careful with this function.
+\end{doc}
+
+#{#}
+]]
+= (
+
+(ccode 0 I "##include <math.h>");
+
+type Float = Word
+
+inline def + (x:Float y:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) + F(#)); f;
+   })" x y)
+
+inline def - (x:Float y:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) - F(#)); f;
+   })" x y)
+
+inline def * (x:Float y:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) * F(#)); f;
+   })" x y)
+
+inline def div (x:Float y:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) / F(#)); f;
+   })" x y)
+
+inline def neg (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (0.0 - F(#)); f;
+   })" x)
+
+inline def dec (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) - 1.0); f;
+   })" x)
+
+inline def inc (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) + 1.0); f;
+   })" x)
+
+inline def sin (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = sin(F(#)); f;
+   })" x)
+
+inline def cos (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = cos(F(#)); f;
+   })" x)
+
+inline def tan (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = tan(F(#)); f;
+   })" x)
+
+inline def asin (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = asin(F(#)); f;
+   })" x)
+
+inline def acos (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = acos(F(#)); f;
+   })" x)
+
+inline def atan (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = atan(F(#)); f;
+   })" x)
+
+inline def == (x:Float y:Float) : Bool = (ccode 0 P "(F(#) == F(#))" x y)
+inline def <> (x:Float y:Float) : Bool = (ccode 0 P "(F(#) != F(#))" x y)
+inline def >> (x:Float y:Float) : Bool = (ccode 0 P "(F(#) > F(#))" x y)
+inline def << (x:Float y:Float) : Bool = (ccode 0 P "(F(#) < F(#))" x y)
+inline def >= (x:Float y:Float) : Bool = (ccode 0 P "(F(#) >= F(#))" x y)
+inline def <= (x:Float y:Float) : Bool = (ccode 0 P "(F(#) <= F(#))" x y)
+
+inline def max (x:Float y:Float) : Float =
+  (ccode 0 P "((F(#) >= F(#)) ? # : #)" x y x y)
+inline def min (x:Float y:Float) : Float =
+  (ccode 0 P "((F(#) <= F(#)) ? # : #)" x y x y)
+
+inline def cmp (x:Float y:Float) : Cmp =
+  if (<< x y) then cmp.LT else
+  if (>> x y) then cmp.GT else
+  cmp.EQ
+
+inline def fromInt (x:Int) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (float)I(#); f;
+   })" x)
+
+def fromString (s:String fail:Exn) : Float =
+  (val f = (prim.allocWord)
+   val ret:Int = (ccode 0 R "intInt(sscanf(S(#),\"%f\",&F(#)))" s f)
+   if (int.== 1 ret) then f else (exn.raise fail "Float.fromString"))
+
+inline def toString (x:Float) : String =
+  (val s = (prim.alloc 24)
+   (ccode 0 E "{
+####ifdef BAD_SPRINTF
+     char *p = sprintf(S(#),\"%f\",(double)F(#));
+     STATUS(#) = STRING(strlen(p)+1);
+####else
+     int n = sprintf(S(#),\"%f\",(double)F(#));
+     STATUS(#) = STRING(n+1);
+####endif
+    }" s x s s x s);
+   s)
+
+inline def hash (x:Float) : Int =
+  (ccode 0 P "intInt(OFFSET(#,1))" x)
+inline def pr (x:Float) : [] =
+  (ccode 0 E "printf(\"%f\",F(#));" x)
+inline def format (s:String x:Float) : [] =
+  (ccode 0 E "printf(S(#),F(#));" s x)
+
+[[+ = + - = - * = * div=div neg=neg dec = dec inc = inc
+  sin=sin cos=cos tan=tan asin=asin acos=acos atan=atan
+  max=max min=min == = ==  <> = <>  >> = >>  << = <<
+  >= = >=  <= = <=  cmp=cmp fromInt=fromInt fromString=fromString
+  toString=toString hash=hash pr=pr format=format]]
+)

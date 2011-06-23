@@ -1,0 +1,73 @@
+\section{@Std/External@: External Values}
+
+##import "Std/Misc"
+
+##val [
+
+\subsection{Types}
+
+#*#External : (Type -> Type)
+\begin{doc}
+Values of type @(External X)@ may be safely stored outside the Pict heap.
+\end{doc}
+
+##external : [
+
+\subsection{Creation}
+
+#*make = /[#X X /(External X)]
+\begin{doc}
+@(make x)@ informs the runtime system that the value @x@ is referenced from
+outside the Pict heap. Unlike the value @x@, which may be moved during
+garbage collection, the value returned by @make@ resides at a constant
+address, and can therefore be safely stored in C data structures.
+\end{doc}
+
+\subsection{Operations}
+
+#*get = /[#X (External X) /X]
+\begin{doc}
+@(get e)@ extracts a Pict value from an external value @e@.
+\end{doc}
+
+#*delete = /[#X (External X) Sig]
+\begin{doc}
+Any external values which are no longer required should be removed using
+@delete@ (otherwise such values will {\em never} be reclaimed by the
+garbage collector).  This function must be used with care, since anything
+can happen if one deletes an external value more than once, or attempts to
+show a deleted external value.
+\end{doc}
+
+#{#}
+]]
+= (
+
+val [#External:(Type->Type)] = [#\X = Top]
+
+inline def make (#X x:X) : (External X) =
+  (ccode 0 P "({
+    External *ext;
+    if (freeExternals) {
+      ext = freeExternals; freeExternals = freeExternals->next;
+    } else {
+      ext = (External*)malloc(sizeof(External));
+    };
+    ext->value = #; ext->previous = &liveExternals;
+    ext->next = liveExternals.next; liveExternals.next->previous = ext;
+    liveExternals.next = ext; (Val)ext;
+  })" x)
+
+inline def get (#X ext:(External X)) : X =
+  (ccode 0 R "((External*)#)->value" ext)
+
+inline def delete (#X ext:(External X)) : [] =
+  (ccode 0 E "{
+    External *ext = (External *)(#);
+    ext->previous->next = ext->next; ext->next->previous = ext->previous;
+    ext->next = freeExternals; freeExternals = ext;
+  }" ext)
+
+[#External [make=make get=get delete=delete]]
+
+)

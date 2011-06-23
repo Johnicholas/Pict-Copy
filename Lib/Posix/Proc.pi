@@ -1,0 +1,198 @@
+# line 1 "/home/pierce/pict/Lib/Posix/Proc.src"
+
+
+  import "Std/Int"
+  import "Std/List"
+  import "Std/Opt"
+  import "Posix/Signals"
+
+
+
+  val [
+
+
+
+  #PID
+
+
+
+
+  #Status
+
+
+
+
+  proc:[
+
+
+
+  getpid = /[/PID]
+
+
+
+
+  getppid = /[/PID]
+
+
+
+
+  pidString = /[PID /String]
+
+
+
+
+
+
+  waitpid = /[PID /Status]
+
+
+
+
+
+  exited = /[Status /Bool]
+
+
+
+
+
+  exitStatus = /[Status /Int]
+
+
+
+
+
+  signalled = /[Status /Bool]
+
+
+
+
+
+  termSig = /[Status /Signal]
+
+
+
+
+
+
+
+  exec = /[String (List String) /PID]
+
+
+
+
+
+
+  exece = /[String (List String) (List String) /PID]
+
+
+
+
+
+
+
+  shell = /[String /Status]
+
+
+
+
+
+  shelle = /[String (List String) /Status]
+
+
+
+
+
+    
+]] = (
+
+(ccode 0 I "##include <unistd.h>");
+(ccode 0 I "##include <sys/types.h>");
+(ccode 0 I "##include <sys/wait.h>");
+
+type PID = Int
+
+inline def getpid () : PID =
+  (ccode 0 P "intInt(getpid())")
+
+inline def getppid () : PID =
+  (ccode 0 P "intInt(getppid())")
+
+inline def pidString (p:PID) : String =
+  ($$ p)
+
+val [#Status] = [#Top]
+
+inline def waitpid (pid:PID) : Status =
+  (val status:Status = (ccode 0 R "(Val)malloc(sizeof(int))")
+   (signals.retry signals.SIGCHLD \():(Opt Status) = (
+       val p:Int =
+         (ccode 0 W "intInt(waitpid(I(#),(int*)(#),WNOHANG))" pid status)
+       if (== p 0) then opt.no
+       else if (<< p 0) then (error.fatal "waitpid")
+       else (opt.yes status)
+   )))
+
+def exited (s:Status) : Bool =
+  (ccode 0 C "WIFEXITED(*(int*)(#))" s)
+def exitStatus (s:Status) : Int =
+  (ccode 0 C "intInt(WEXITSTATUS(*(int*)(#)))" s)
+def signalled (s:Status) : Bool =
+  (ccode 0 C "WIFSIGNALED(*(int*)(#))" s)
+def termSig (s:Status) : Signal =
+  (ccode 0 C "intInt(WTERMSIG(*(int*)(#)))" s)
+
+def exec (prog:String args:(List String)) : PID =
+  (val argc = (list.size args)
+   val a = (prim.alloc (* (inc argc) (ccode 0 P "intInt(sizeof(char*))")))
+   def setArg (x:Int arg:String):[] =
+     (ccode 0 E "((char**)S(#))[I(#)] = S(#);" a x arg)
+   (ccode 0 E "((char**)S(#))[I(#)] = NULL;" a argc);
+   (list.itApply args setArg);
+   val pid:Int = (ccode 0 W "intInt(fork())")
+   if (== pid 1) then
+     (error.fatal "exec: fork failed")
+   else if (== pid 0) then
+     if (ccode 0 W "(execv(S(#),(char**)S(#)) == -1)" prog a) then
+       (error.fatal "exec: failed")
+     else
+       (error.fatal "exec: should never reach this code")
+   else
+     pid)
+
+def exece (prog:String args:(List String) env:(List String)) : PID =
+  (val argc = (list.size args)
+   val a = (prim.alloc (* (inc argc) (ccode 0 P "intInt(sizeof(char*))")))
+   def setArg (x:Int arg:String):[] =
+     (ccode 0 E "((char**)S(#))[I(#)] = S(#);" a x arg)
+   (ccode 0 E "((char**)S(#))[I(#)] = NULL;" a argc);
+   (list.itApply args setArg);
+   val envc = (list.size env)
+   val e = (prim.alloc (* (inc envc) (ccode 0 P "intInt(sizeof(char*))")))
+   def setEnv (x:Int env:String):[] =
+     (ccode 0 E "((char**)S(#))[I(#)] = S(#);" e x env)
+   (ccode 0 E "((char**)S(#))[I(#)] = NULL;" e envc);
+   (list.itApply env setEnv);
+   val pid:Int = (ccode 0 W "intInt(fork())")
+   if (== pid 1) then
+     (error.fatal "exece: fork failed")
+   else if (== pid 0) then
+     if
+       (ccode 0 W "(execve(S(#),(char**)S(#),(char**)S(#)) == -1)" prog a e)
+     then
+       (error.fatal "exece: failed")
+     else
+       (error.fatal "exece: should never reach this code")
+   else
+     pid)
+
+def shell (cmd:String) : Status =
+  (waitpid(exec "/bin/sh" (cons > "/bin/sh" "-c" cmd nil)))
+
+def shelle (cmd:String env:(List String)) : Status =
+  (waitpid(exece "/bin/sh" (cons > "/bin/sh" "-c" cmd nil) env))
+
+[[getpid=getpid getppid=getppid pidString=pidString waitpid=waitpid
+  exited=exited exitStatus=exitStatus signalled=signalled termSig=termSig
+  exec=exec exece=exece shell=shell shelle=shelle]]
+
+)

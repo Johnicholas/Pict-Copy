@@ -1,0 +1,213 @@
+\section{@Posix/Args@: Command-line Arguments}
+
+##import "Std/Int"
+##import "Std/Bool"
+##import "Std/Exn"
+##import "Std/List"
+##import "Std/Misc"
+##import "Std/Opt"
+##import "Std/String"
+
+This module provides some simple functions for determining the arguments
+used to invoke the current Unix process, as well as a more sophisticated
+argument parsing interface.
+
+##val [
+
+\subsection{Types}
+
+#*#Spec = [String String]
+\begin{doc}
+A value of type @Spec@ specifies a command-line option.  The first string is
+used to indicate the full name name of the option.  The second string may
+indicate an abbreviation for the full name (or may be the same as the full
+name if no abbreviated version is required).
+\end{doc}
+
+## args : [
+
+\subsection{Simple Argument Interrogation}
+
+#*argc = Int
+\begin{doc}
+The number of arguments used to invoke the current Unix process.
+\end{doc}
+
+#*argv = /[Int /String]
+\begin{doc}
+@(argv n)@ returns the @n@'th argument used to invoke the current Unix
+process.  If $@n@ < @0@$ or $@n@ \geq @argc@$ then we generate a runtime error.
+\end{doc}
+
+\subsection{Argument Parsing Functions}
+
+#*getListOpt =
+#*  /[(List Spec) (List Spec) (List Spec) (List String) Exn
+#*     /[/[String Exn /Int]
+#*       /[String Exn /String]
+#*       /[String /Bool]
+#*       (List String)]]
+\begin{doc}
+@(getListOpt intSpecs strSpecs unitSpecs args h)@ parses the argument list
+@args@ according to the given option specifications, calling the error
+handler @h@ if an illegal option is encountered.  We parse three different
+kinds of options: integer options of the form @-name <integer>@, string
+options of the form @-name <string>@ and nullary options of the form
+@-name@.  We return three functions which can be used to ask which options
+were specified in the argument list @args@.  @getListOpt@ also returns a
+list of those arguments which were not consumed during option parsing (we
+call such arguments {\em anonymous arguments}).
+
+Parsing proceeds as follows:
+\begin{enumerate}
+\item If the current argument is @-@, we add @-@ to the list of anonymous
+arguments (since @-@ is used, by convention, to indicate the standard input
+or standard output streams).
+\item If the current argument is @--@, we stop parsing and add all the
+remaining arguments (except the @--@) to the list of anonymous arguments.
+\item Otherwise, if the current argument has the form @-name@, we
+lookup @name@ in the specified lists of integer, string and unitary
+options.
+  \begin{itemize}
+  \item If @name@ matches either the full name or the abbreviated name
+  of an integer option, we check that at least one more argument exists
+  (and that it denotes a valid integer).  If there are no more arguments,
+  or the next argument does not denote a valid integer, we signal an error
+  on the given error handler.
+  \item If @name@ matches a string option, we just check that at least
+  one more argument exists.  If there are no more arguments, we signal
+  an error on the given error handler.
+  \item If @name@ matches a nullary option, we simply record
+  that the option was present.
+  \item If @name@ does not match any of the specified options, we signal
+  an error on the given error handler.
+  \end{itemize}
+\item If the current argument does not start with a @-@, we add it to
+the list of anonymous arguments.
+\end{enumerate}
+Anonymous arguments are returned in the same order in which they were
+encountered by the parser.  The three functions returned by @getListOpt@
+can be used to find out whether a given option was specified in the
+argument list @args@.  Note that a given option name (or abbreviated option
+name) must not be defined more than once in the lists @intSpecs@,
+@strSpecs@ and @unitSpecs@.
+\end{doc}
+
+#*getOpts =
+#*  /[(List Spec) (List Spec) (List Spec) Exn
+#*     /[/[String Exn /Int]
+#*       /[String Exn /String]
+#*       /[String /Bool]
+#*       (List String)]]
+\begin{doc}
+@(getOpts intSpecs strSpecs unitSpecs h)@ parses the arguments used to
+invoke the current Unix process according to the specification given in
+@intSpecs@, @strSpecs@ and @unitSpecs@.  Calls the error handler @h@ if the
+arguments could not be parsed correctly.  The parsing algorithm is the same
+as that used in @getListOpts@.
+\end{doc}
+
+#{#}
+]] = (
+
+val argc : Int = (ccode 0 P "intInt(ArgC)")
+
+def argv (n:Int) : String =
+  ((error.check "argv: index out of range\n" (&& (>= n 0) (<< n argc)));
+   (prim.fromCString (ccode 0 P "(Val)ArgV[I(#)]" n)))
+
+type Spec = [String String]
+
+def getListOpt
+  (intSpecs:(List Spec) strSpecs:(List Spec) unitSpecs:(List Spec)
+   args:(List String) fail:Exn)
+  : [/[String Exn /Int]
+     /[String Exn /String]
+     /[String /Bool]
+     (List String)]
+= (def findSpec (n:String specs:(List Spec)) : (Opt Spec) =
+     if (null specs) then
+       opt.no
+     else
+       (val info@[name alias] = (car specs)
+        if (|| (==$ name n) (==$ alias n)) then
+          (opt.yes info)
+        else
+          (findSpec n (cdr specs)))
+
+   type R = 
+     [(List [Spec Int]) (List [Spec String])
+      (List [Spec Bool]) (List String)]
+
+   def parse
+     (l:(List String) ints:(List [Spec Int]) str:(List [Spec String])
+      bool:(List [Spec Bool]) rem:(List String)):R
+    =
+     if (null l) then
+       [ints str bool (list.rev rem)]
+     else
+       (val a = (car l)
+        val l = (cdr l)
+        if (==$ a "-") then
+          (parse l ints str bool (cons "-" rem))
+        else if (==$ a "--") then
+          [ints str bool (list.append (list.rev rem) l)]
+        else if (string.prefix "-" a) then
+          (val n = (string.sub a 1 (dec (string.size a)))
+           (opt.case (findSpec n unitSpecs)
+            \():R =
+              (opt.case (findSpec n strSpecs)
+               \():R =
+                 (opt.case (findSpec n intSpecs)
+                  \():R =
+                    (exn.raise fail (+$ > "Unrecognised option -" n))
+                  \(s:Spec):R =
+                    if (null l) then
+                      (exn.raise fail
+                       (+$ > "Option -" n " needs an integer argument"))
+                    else
+                      (val x =
+                         (exn.try #String #Int
+                          \(h) = (int.fromString (car l) h)
+                          \(_) =
+                            (exn.raise fail
+                             (+$ > "Option -" n " needs an integer argument")))
+                       (parse (cdr l) (cons [s x] ints) str bool rem)))
+               \(s:Spec):R =
+                 if (null l) then
+                   (exn.raise fail (+$ > "Option -" n " needs an argument"))
+                 else
+                   (parse (cdr l) ints (cons [s (car l)] str) bool rem))
+            \(s:Spec):R =
+               (parse l ints str (cons [s true] bool) rem)))
+        else
+          (parse l ints str bool (cons a rem)))
+
+   val [ints str bool rem] = (parse args nil nil nil nil)
+
+   def lookupArg (#X n:String args:(List [Spec X]) fail:Exn) : X =
+     if (null args) then
+       (exn.raise fail (+$ > "Option -" n " was not specified"))
+     else
+       (val [[name alias] x] = (car args)
+        if (|| (==$ name n) (==$ alias n)) then x
+        else (lookupArg n (cdr args) fail))
+
+   [\(n fail) = (lookupArg n ints fail)
+    \(n fail) = (lookupArg n str fail)
+    \(n) = (exn.try #String #Bool \(h) = (lookupArg n bool h) \(_) = false)
+    rem])
+
+def getOpts
+  (intSpecs:(List Spec) strSpecs:(List Spec) unitSpecs:(List Spec)
+   fail:Exn)
+  : [/[String Exn /Int]
+     /[String Exn /String]
+     /[String /Bool]
+     (List String)]
+= (getListOpt intSpecs strSpecs unitSpecs
+   (list.tabulate #String (dec argc) \(x) = (argv (inc x))) fail)
+
+[[argc=argc argv=argv getListOpt=getListOpt getOpts=getOpts]]
+
+)

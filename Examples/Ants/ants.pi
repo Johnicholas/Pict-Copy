@@ -1,0 +1,126 @@
+import "Std/Io"
+import "Posix/Args"
+import "Contrib/Parse"
+import "Picture/Picture"
+import "Ant"
+
+{- Get the board name and bitmap size from the command line -}
+
+val [intOpts _ _ rem] =
+  (args.getOpts (cons ["size" "s"] (nil)) (nil) (nil) exitOnExn)
+
+val bitmapSize = (try \(h) = (intOpts "size" h) \(_) = 13)
+val name = if (null rem) then "default" else (car rem)
+
+{- Open connection to X server -}
+
+val root = (server.open "" "Ants" resourcemanager.appDefaults)
+
+def pixmapFile (n) = (+$ > "bitmaps." ($$ bitmapSize) "/" n ".ppm")
+
+def loadNth (n) =
+  \(i) = (loadPixmapFile root (pixmapFile (+$ n ($$ i))) exitOnExn)
+
+{- Open the board file -}
+val g = (io.openRd (+$ "boards/" name) exitOnExn)
+
+{- Parse the title of this board -}
+val title = (parse.line g)
+
+{- Parse the first line (to find the board width) -}
+(parse.whitespace g);
+val firstLine = (parse.line g)
+val width = (string.size firstLine)
+
+{- Parse the board positions into an array -}
+def parseRows (ls:(List String)) = (
+  (parse.whitespace g);
+  val l = (parse.line g)
+  if (string.==$ l "") then
+    (array.fromList (list.rev ls))
+  else
+    if (== (string.size l) width) then
+      (parseRows (cons l ls))
+    else
+      (error.fatal "ants: Non-rectangular board specification")
+)
+
+val lines = (parseRows (cons firstLine (nil)))
+val height = (array.size lines)
+(g.close);
+
+val ant = (array.tabulate directions (loadNth "ant"))
+val antf = (array.tabulate directions (loadNth "antf"))
+val foodP = (loadPixmapFile root (pixmapFile "food") exitOnExn)
+val rockP = (loadPixmapFile root (pixmapFile "rock") exitOnExn)
+val homeP = (loadPixmapFile root (pixmapFile "home") exitOnExn)
+
+new writeCell:^Top
+new modifyCells:^Top
+new getCell:^Top
+
+def initCell (x y) = (
+  val ch = (string.nth (array.nth lines y) x)
+  val occupied = (== ch 'A')
+  val facing = (random.randomInt 7)
+  run
+    if occupied then
+      drunk![(antBody lines modifyCells getCell "drunk" x y facing)]
+    else
+      ()
+  [occupied
+   if (char.isDigit ch) then (- ch '0') else 0
+   false
+   facing]
+)
+
+def displayPixmap (d win gc x y p) =
+  (xlib.copyArea d p win gc 0 0 bitmapSize bitmapSize x y)
+
+def drawCell (d win:Window gc x y cellx celly cellw cellh changed cell) =
+  (val [occupied food carryingFood facing] = cell
+   val ch = (string.nth (array.nth lines celly) cellx)
+   if (== ch '@') then
+     (displayPixmap d win gc x y homeP)
+   else if occupied then
+     if carryingFood then
+       (displayPixmap d win gc x y (array.nth antf facing))
+     else
+       (displayPixmap d win gc x y (array.nth ant facing))
+   else if (>> food 0) then
+     (displayPixmap d win gc x y foodP)
+   else if (== ch '#') then
+     (displayPixmap d win gc x y rockP)
+   else if changed then
+     (xlib.clearArea d win x y cellw cellh false)
+   else [])
+
+{------------------------------------------------------------------------}
+{- Build the user-interface -}
+
+val clockController:Picture =
+  (new setButton:^[String Sig]
+   run clock.onStop!\[] = ((setButton "Start"); ())
+   run clock.onGo!\[] = ((setButton "Stop"); ())
+   {- This is a hack, since tickAndWait should have it's own clock
+    - to delay how often it ticks. -}
+   def tickAndWait (_:Int):[] = ((clock.tick); (int.for 1 5000 \(_) = []))
+
+   (picture.beside >
+    (picture.catchHit (picture.stringRef "Start" setButton)
+     \(_ _ _) = (clock.toggle))
+    (picture.button "Tick" \() = (clock.tick))
+    (picture.button "Tick*10" \() = (int.for 1 10 tickAndWait))
+    (picture.button "Faster" \() =
+     (clock.setDelay (div (clock.getDelay) 2)))
+    (picture.button "Slower" \() =
+     (clock.setDelay (* (max (clock.getDelay) 1) 2)))))
+
+new modifyCell:^Top
+
+val antField =
+  (grid width height bitmapSize bitmapSize initCell writeCell
+   modifyCells getCell drawCell \(_ _ _ _ _ _) = [] \() = (clock.stop))
+
+val ants = (picture.above > clockController (box.center antField))
+(top.buildWindow root title ants);

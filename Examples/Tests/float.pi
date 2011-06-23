@@ -1,0 +1,77 @@
+{-
+ - Float parsing and printing.
+ -}
+
+import "Std/Float"
+import "Std/Random"
+
+{-
+ - Either GCC on the i386 architecture doesn't do the right thing, or
+ - some of the following test operations are yielding out-of-range answers
+ - (in which case the C compiler might be allowed to return different
+ - results).  Anyway, the end result is that some of the tests fail if
+ - GCC is allowed to optimise the code.  Need to look at this again once
+ - I understand a bit more about floating point numbers.
+ -}
+
+now (reset optC)
+
+def test (x:Int):[] =
+  if (>= x 0) then
+    (val f = (float.fromInt x)
+     (pr " "); (float.pr f); (pr " "); (float.pr (float.neg f));
+     (nl); (test (dec x)))
+  else
+    []
+
+def checkConversions (x:Int):[] =
+  (val v =
+     if (random.randomCoin) then (float.fromInt (random.random))
+     else (float.fromInt (neg (random.random)))
+   if (>= x 0) then
+     (val v' = (float.fromString (float.toString v) exn.exit)
+      if (float.<> v v') then
+	(error.fatal
+	 (+$ > "checkConversions: bad toString or fromString conversion: "
+	  (float.toString v) " <> " (float.toString v')))
+      else
+	(checkConversions (dec x)))
+   else
+     [])
+
+(prNL "*** Float parsing and printing ***");
+(test 16); (checkConversions 1000);
+
+{-
+ - Arithmetic functions.
+ -}
+
+def runTest (s:String f:/[Float Float /Bool]):[] =
+  (def loop (x:Int):[] =
+     if (== x 0) then
+       []
+     else
+       (val a = (random.random)
+	val a = if (random.randomCoin) then (neg a) else a
+        val b = (random.random)
+	val b = if (random.randomCoin) then (neg b) else b
+	if (f (float.fromInt a) (float.fromInt b)) then (loop (dec x))
+	else (error.fatal (+$ > "runTest: " ($$ a) " " ($$ b))))
+   (pr s); (loop 1000))
+
+(prNL "\n*** Arithmetic operations ***");
+
+(runTest " x * y == y * x\n"
+ \(x y) = (float.== (float.* x y) (float.* x y)));
+
+(runTest " x + 0 == x\n"
+ \(x y) = (float.== (float.+ x (float.fromInt 0)) x));
+(runTest " x + y == y + x\n"
+ \(x y) = (float.== (float.+ x y) (float.+ y x)));
+    
+(runTest " x * 0 == 0\n"
+ \(x y) = (float.== (float.* x (float.fromInt 0)) (float.fromInt 0)));
+(runTest " x * 1 == x\n"
+ \(x y) = (float.== (float.* x (float.fromInt 1)) x));
+(runTest " x * y == y * x\n"
+ \(x y) = (float.== (float.* x y) (float.* y x)));

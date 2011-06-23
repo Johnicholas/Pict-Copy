@@ -1,0 +1,6 @@
+first line = "A single line"
+first integer = 123
+second integer = -456
+parsed literal 'H'
+matched string "ello"
+parsed final whitespace

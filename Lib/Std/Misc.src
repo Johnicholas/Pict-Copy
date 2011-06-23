@@ -1,0 +1,186 @@
+\section{@Std/Misc@: Miscellaneous Utilities}
+
+##val [
+
+\subsection{Types}
+
+#*#Sig = /[]
+\begin{doc}
+@Sig@ is a convenient abbreviation for output channels which carry the empty
+tuple.  Such channels are used, by convention, to signal various conditions,
+such as the completion of operations.
+\end{doc}
+
+##misc:[
+
+\subsection{Tuple Operations}
+
+#*fst = /[#X [X] /X]
+#*snd = /[#X #Y [X Y] /Y]
+#*thd = /[#X #Y #Z [X Y Z] /Z]
+\begin{doc}
+@fst@, @snd@ and @thd@ are functions for projecting the first, second and
+third components of a tuple.  Note that record subtyping allows these
+functions to be applied to longer tuples.  For example, the expression
+@(snd [3 4 5])@ is well-typed and evaluates to @4@.
+\end{doc}
+
+\subsection{Channel Input/Output}
+
+#*chan = /[#X /^X]
+\begin{doc}
+The expression @(chan)@ returns a fresh channel.
+\end{doc}
+
+#*read = /[#X ?X /X]
+\begin{doc}
+The expression @(read c)@ returns a value which has been read from @c@.
+\end{doc}
+
+#*write = /[#X !X X Sig]
+\begin{doc}
+The expression @(write c v)@ asynchronously writes the value @v@ on @c@.
+\end{doc}
+
+#*forward = /[#X ?X /X]
+\begin{doc}
+The expression @(forward c r)@ repeatedly reads values from @c@,
+and forwards them to the responsive channel @r@.
+\end{doc}
+
+#*rchan = /[#X !X //X]
+\begin{doc}
+The expression @(rchan r)@ creates and returns a responsive channel and 
+forwards values from it to the ordinary channel @r@.
+\end{doc}
+
+\subsection{Discarding Results}
+
+#*discard = /[#X //X]
+\begin{doc}
+@(discard)@ returns a process abstraction that accepts a value of type
+@X@ and throws it away.  Useful for calling functions that expect result
+channels when the result is actually not needed: for example, writing
+@int.pr![5 (discard)]@ creates a process that prints @5@ on the
+standard output, but does not do anything special when it finishes.
+\end{doc}
+
+#*await = /[#X X /[]]
+\begin{doc}
+The expression @(await v)@ evaluates @v@ and then returns @[]@.
+\end{doc}
+
+\subsection{Function Composition}
+
+#*compose = /[#X #Y #Z /[Y /Z] /[X /Y] //[X /Z]]
+\begin{doc}
+@(compose g f)@ composes the functions @g@ and @f@.
+\end{doc}
+
+\subsection{Printing}
+
+The following printing functions just use the standard buffered
+input/output operations provided by ANSI C.  They do not provide
+asynchronous I/O.  If you want proper non-blocking I/O then use the
+facilities provided in the @Io@ module (Section~\ref{s:Io}).
+
+#*pr = /[String Sig]
+\begin{doc}
+@(pr s)@ prints the string @s@ on stdout.
+\end{doc}
+
+#*prNL = /[String Sig]
+\begin{doc}
+@(prNL s)@ prints the string @s@, followed by a newline, on stdout.
+\end{doc}
+
+#*nl = /[Sig]
+\begin{doc} @(nl)@ prints a newline on stdout. \end{doc}
+
+#*prErr = /[String Sig]
+\begin{doc}
+@(prErr s)@ prints the string @s@ on stderr.
+\end{doc}
+
+#*prErrNL = /[String Sig]
+\begin{doc}
+@(prErrNL s)@ prints the string @s@, followed by a newline, on stderr.
+\end{doc}
+
+#*nlErr = /[Sig]
+\begin{doc} @(nlErr)@ prints a newline on stderr. \end{doc}
+
+#*flush = /[Sig]
+\begin{doc} @(flush)@ flushes all buffered output. \end{doc}
+
+#*print = /String
+#*printi = /Int
+\begin{doc}
+@print!s@ prints the string @s@ on stdout asynchronously.  
+@printi!i@ prints the integer @i@ on stdout asynchronously.  
+(These primitives are used mainly for simple examples in the tutorial.  In
+real programs, @pr@ is better.)
+\end{doc}
+
+#{#}
+]] = (
+
+type Sig = /[]
+
+inline def fst (#X [x:X]) : X = x
+inline def snd (#X #Y [_:X y:Y]) : Y = y
+inline def thd (#X #Y #Z [_:X _:Y z:Z]) : Z = z
+inline def chan (#X) : ^X = (new x:^X x)
+inline def read [#X c:?X res:/X] = c?v = res!v
+def forward [#X c:?X to:/X] = c?v = (to!v | forward![c to])
+inline def write [#X c:!X v:X res:/[]] = ( c!v | res![] )
+def rchan (#X r:!X) : /X = \v:X = r!v
+inline def discard (#X) : /X = \_ = ()
+inline def await (#X _:X) : [] = []
+inline def compose (#X #Y #Z g:/[Y /Z] f:/[X /Y]) : /[X /Z] = \(x) = (g (f x))
+
+inline def pr (s:String) : [] = (ccode 0 E "fputs(S(#),stdout);" s)
+inline def prNL (s:String) : [] =
+  (ccode 0 E "fputs(S(#),stdout); fputs(\"\\n\",stdout);" s)
+inline def nl () : [] = (pr "\n")
+inline def prErr (s:String) : [] = (ccode 0 E "fputs(S(#),stderr);" s)
+inline def prErrNL (s:String) : [] =
+  (ccode 0 E "fputs(S(#),stderr); fputs(\"\\n\",stderr);" s)
+inline def nlErr () : [] = (prErr "\n")
+inline def flush () : [] = (ccode 0 E "fflush(stdout);")
+inline def print s:String = ((pr s); (pr "\n"); (flush); ())
+inline def printi i:Int = ((ccode 0 E "printf(\"%ld\\n\",(Val)I(#));" i); ())
+{-
+ - We should be able to just do fflush(NULL) to flush all open streams,
+ - but SunOS doesn't implement that functionality.  We therefore just
+ - flush stdout (there is no need to flush stderr since it is unbuffered).
+ -}
+
+[#Sig
+ [fst=fst snd=snd thd=thd chan=chan read=read write=write forward=forward 
+  rchan=rchan discard=discard await=await compose=compose pr=pr prNL=prNL 
+  nl=nl prErr=prErr prErrNL=prErrNL nlErr=nlErr flush=flush print=print 
+  printi=printi]]
+)
+
+#@\subsection{Abbreviations}
+
+#*val fst = misc.fst
+#*val snd = misc.snd
+#*val thd = misc.thd
+#*val chan = misc.chan
+#*val read = misc.read
+#*val write = misc.write
+#*val forward = misc.forward
+#*val rchan = misc.rchan
+#*val discard = misc.discard
+#*val await = misc.await
+#*val compose = misc.compose
+#*val pr = misc.pr
+#*val prNL = misc.prNL
+#*val nl = misc.nl
+#*val prErr = misc.prErr
+#*val prErrNL = misc.prErrNL
+#*val nlErr = misc.nlErr
+#*val print = misc.print
+#*val printi = misc.printi

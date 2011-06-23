@@ -1,0 +1,185 @@
+# line 1 "/home/pierce/pict/Lib/Std/Char.src"
+
+
+  import "Std/Misc"
+  import "Std/Bool"
+  import "Std/Int"
+
+
+
+
+
+
+
+  val char: [
+
+
+
+
+
+
+  isAlnum = /[Char /Bool]
+
+
+
+
+
+  isAlpha = /[Char /Bool]
+
+
+
+
+
+  isCntrl = /[Char /Bool]
+
+
+
+
+  isDigit = /[Char /Bool]
+
+
+
+
+  isGraph = /[Char /Bool]
+
+
+
+
+  isLower = /[Char /Bool]
+
+
+
+
+  isPrint = /[Char /Bool]
+
+
+
+
+  isPunct = /[Char /Bool]
+
+
+
+
+
+  isSpace = /[Char /Bool]
+
+
+
+
+
+
+  isUpper = /[Char /Bool]
+
+
+
+
+  isXDigit = /[Char /Bool]
+
+
+
+
+
+
+
+
+  toUpper = /[Char /Char]
+  toLower = /[Char /Char]
+
+
+
+
+
+
+  fromInt = /[Int /Char]
+  unsafeFromInt = /[Int /Char]
+
+
+
+
+
+
+  toString = /[Char /String]
+
+
+
+
+  hash = /[Char /Int]
+
+
+
+
+  pr = /[Char Sig]
+
+
+    
+] = (
+
+(ccode 0 I "##include <ctype.h>");
+
+inline def isAlnum (c:Char) : Bool =
+  (ccode 0 P "(isalnum(I(#)) != 0)" c)
+
+inline def isAlpha (c:Char) : Bool =
+  (ccode 0 P "(isalpha(I(#)) != 0)" c)
+
+inline def isCntrl (c:Char) : Bool =
+  (ccode 0 P "(iscntrl(I(#)) != 0)" c)
+
+inline def isDigit (c:Char) : Bool =
+  (ccode 0 P "(isdigit(I(#)) != 0)" c)
+
+inline def isGraph (c:Char) : Bool =
+  (ccode 0 P "(isgraph(I(#)) != 0)" c)
+
+inline def isLower (c:Char) : Bool =
+  (ccode 0 P "(islower(I(#)) != 0)" c)
+
+inline def isPrint (c:Char) : Bool =
+  (ccode 0 P "(isprint(I(#)) != 0)" c)
+
+inline def isPunct (c:Char) : Bool =
+  (ccode 0 P "(ispunct(I(#)) != 0)" c)
+
+inline def isSpace (c:Char) : Bool =
+  (ccode 0 P "(isspace(I(#)) != 0)" c)
+
+inline def isUpper (c:Char) : Bool =
+  (ccode 0 P "(isupper(I(#)) != 0)" c)
+
+inline def isXDigit (c:Char) : Bool =
+  (ccode 0 P "(isxdigit(I(#)) != 0)" c)
+
+inline def toUpper (c:Char) : Char =
+  (ccode 0 P "intInt(toupper(I(#)))" c)
+
+inline def toLower (c:Char) : Char =
+  (ccode 0 P "intInt(tolower(I(#)))" c)
+
+inline def getChar (x:Int) : Char = (ccode 0 C "#" x)
+
+inline def fromInt (x:Int) : Char =
+  ((error.check "char.fromInt: Integer out of range"
+    (&& (>= x 0) (<< x 256)));
+   (getChar x))
+
+inline def unsafeFromInt (x:Int) : Char =
+  ((error.assert "char.unsafeFromInt: Integer out of range"
+    (&& (>= x 0) (<< x 256)));
+   (getChar x))
+
+inline def toString (c:Char) : String =
+  (val s = (prim.alloc 2)
+   (ccode 0 E "S(#)[0] = I(#); S(#)[1] = 0;" s c s);
+   s)
+
+inline def hash (c:Char) : Int = c
+
+inline def pr (c:Char) : [] = (ccode 0 E "fputc(I(#),stdout);" c)
+
+[isAlnum=isAlnum isAlpha=isAlpha isCntrl=isCntrl isDigit=isDigit
+ isGraph=isGraph isLower=isLower isPrint=isPrint isPunct=isPunct
+ isSpace=isSpace isUpper=isUpper isXDigit=isXDigit toUpper=toUpper
+ toLower=toLower fromInt=fromInt unsafeFromInt=unsafeFromInt
+ toString=toString hash=hash pr=pr]
+
+)

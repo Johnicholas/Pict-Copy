@@ -1,0 +1,188 @@
+# line 1 "/home/pierce/pict/Lib/Std/Bytes.src"
+
+
+  import "Std/Bool"
+  import "Std/Error"
+  import "Std/Misc"
+  import "Std/String"
+
+  val [
+
+
+
+  #Bytes
+
+
+
+
+
+  bytes:[
+
+
+
+  empty = /[/Bytes] 
+
+
+
+
+  make = /[Char Int /Bytes] 
+
+
+
+
+
+  extend = /[Bytes Char Int /Bytes] 
+
+
+
+
+
+  fromString = /[String /Bytes] 
+
+
+
+
+
+
+  size = /[Bytes /Int] 
+
+
+  nth = /[Bytes Int /Char] 
+  unsafeNth = /[Bytes Int /Char] 
+
+
+
+
+
+
+
+
+
+  update = /[Bytes Int Char Sig] 
+  unsafeUpdate = /[Bytes Int Char Sig] 
+
+
+
+
+
+
+  copy = /[src=Bytes srcIdx=Int len=Int dst=Bytes dstIdx=Int Sig] 
+
+
+
+
+
+
+
+
+  copyFromString =
+    /[src=String srcIdx=Int len=Int dst=Bytes dstIdx=Int Sig] 
+
+
+
+
+
+
+
+
+
+
+
+  toString = /[Bytes idx=Int len=Int /String]
+
+
+
+
+
+
+  unsafeCast = /[Bytes /String]
+
+
+
+
+
+
+
+    
+]]
+= (
+
+type Bytes = String
+
+inline def empty () : Bytes = ""
+
+inline def make (c:Char n:Int) : Bytes =
+  ((error.check "bytes.make: negative size" (>= n 0));
+   (string.make c n))
+
+inline def size (b:Bytes) : Int =
+  (ccode 0 P "intInt(SIZE(STATUS(#))-1)" b)
+
+def extend (b:Bytes c:Char n:Int) : Bytes =
+  ((error.check "bytes.extend: negative size" (>= n 0));
+   val sz = (size b)
+   val dst = (prim.alloc (+ sz n))
+   (ccode 0 E "COPY(S(#),S(#),I(#));" dst b sz);
+   (ccode 0 E "{
+      int ch = I(#); int size = I(#);
+      unsigned char *ptr = S(#)+I(#);
+      while (size--) *ptr++ = ch;
+    }" c n dst sz);
+    dst)
+
+inline def fromString (s:String) : Bytes =
+  (val sz = (inc (string.size s))
+   val b = (prim.alloc sz)
+   (ccode 0 E "COPY(S(#),S(#),I(#));" b s sz);
+   b)
+
+inline def nth (b:Bytes n:Int) : Char =
+  ((error.check "bytes.nth: index out of range" (&& (>= n 0) (<< n (size b))));
+   (string.nth b n))
+
+inline def unsafeNth (b:Bytes n:Int) : Char =
+  ((error.assert "bytes.unsafeNth: index out of range"
+    (&& (>= n 0) (<< n (size b))));
+   (string.nth b n))
+
+inline def update (b:Bytes n:Int c:Char) : [] =
+  ((error.check "bytes.update: index out of range"
+    (&& (>= n 0) (<< n (size b))));
+   (ccode 0 E "S(#)[I(#)] = I(#);" b n c))
+
+inline def unsafeUpdate (b:Bytes n:Int c:Char) : [] =
+  ((error.assert "bytes.unsafeUpdate: index out of range"
+    (&& (>= n 0) (<< n (size b))));
+   (ccode 0 E "S(#)[I(#)] = I(#);" b n c))
+
+inline
+def copy
+  (src=s:Bytes srcIdx=i:Int len=l:Int dst=d:Bytes dstIdx=j:Int) : []
+ =
+  ((error.check "bytes.copy: argument out of range"
+    (&& > (>= i 0) (>= j 0) (>= l 0)
+     (<= (+ i l) (size s)) (<= (+ j l) (size d))));
+   (ccode 0 E "COPY(S(#)+I(#),S(#)+I(#),I(#));" d j s i l))
+
+inline
+def copyFromString
+  (src=s:String srcIdx=i:Int len=l:Int dst=d:Bytes dstIdx=j:Int) : []
+ =
+  (copy src=s srcIdx=i len=l dst=d dstIdx=j)
+
+inline def toString (b:Bytes idx=i:Int len=l:Int) : String =
+  ((error.check "bytes.toString: argument out of range"
+    (&& > (>= i 0) (>= l 0) (<= (+ i l) (size b))));
+   val sub = (prim.alloc (inc l))
+   (ccode 0 E "COPY(S(#),S(#)+I(#),I(#));" sub b i l);
+   (ccode 0 E "S(#)[I(#)] = I(#);" sub l '\000');
+   sub)
+
+inline def unsafeCast (b:Bytes) : String = b
+
+[[empty=empty make=make extend=extend fromString=fromString size=size
+  nth=nth unsafeNth=unsafeNth update=update unsafeUpdate=unsafeUpdate
+  copy=copy copyFromString=copyFromString toString=toString
+  unsafeCast=unsafeCast]]
+
+)

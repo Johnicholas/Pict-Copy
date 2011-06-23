@@ -1,0 +1,172 @@
+\section{@Picture/Other@: Other Pictures}
+
+All the operations in this module are re-exported from the module
+@Picture/Picture@ (where they are documented).
+
+##import "Std/Array"
+##import "Std/Array2"
+##import "Std/Misc"
+##import "Std/Bool"
+##import "Std/Ref"
+##import "Picture/Utils"
+##import "Picture/Types"
+##import "Picture/Basic"
+##import "Picture/Package"
+##import "Picture/Transform"
+##import "Picture/Combine"
+
+##val [
+
+#*#Slider =
+#*  [w=Int h=Int min=Int max=Int range=Int pos=Int posChanged=/[Int Sig]]
+
+##other : [
+#*ref = /[Picture ?[Picture Sig] /Picture]
+#*stringRef = /[String ?[String Sig] /Picture]
+#*intRef = /[Int ?[Int Sig] /Picture]
+#*array = /[Int Int (Array Picture) ?[Int Int (Array Picture) Sig] /Picture]
+#*array2 = /[Int Int (Array2 Picture) ?[Int Int (Array2 Picture) Sig] /Picture]
+#*button = /[String /[Sig] /Picture]
+#*quitButton = Picture
+#*slider = /[Slider /[Picture (Ref Slider)]]
+
+#{#}
+]] = (
+
+type Slider =
+  [w=Int h=Int min=Int max=Int range=Int pos=Int posChanged=/[Int Sig]]
+
+val refMethods:(M ^[Picture (Opt CX)] Active) =
+  [constant = false
+   reconfigure = \(r _ cx) =
+     (val [p o] = (read r) ((write r [p (opt.yes cx)]); (package.init p cx)))
+   delete = \(_) = []
+   boundary = \(p) = (package.boundary p)
+   move = \(p dx dy) = (package.move p dx dy)
+   scale = \(p sx dx sy dy) = (package.scale p sx dx sy dy)
+   rotate = \(p a) = (package.rotate p a)
+   rot90 = \(p) = (package.rot90 p)
+   rot180 = \(p) = (package.rot180 p)
+   rot270 = \(p) = (package.rot270 p)
+   button = \(p cx bx by b ud t) = (package.button p cx bx by b ud t)
+   render = \(p cx) = (package.render p cx)
+   init = \(r cx) =
+     (val [p o] = (read r) ((write r [p (opt.yes cx)]); (package.init p cx)))]
+
+def ref (p:Picture update:?[Picture Sig]):Picture =
+  (new r:^[Picture (Opt CX)]
+   run r![p opt.no]
+   {- Might be able to allow cloning by keeping a list of CX -}
+   run forward![update \(p:Picture):[] =
+     (opt.case (snd (read r))
+      \():[] = (write r [p opt.no])
+      \(cx:CX):[] = ((write cx.changed []); (write r [p (opt.yes cx)])))]
+   [refMethods r])
+
+def stringRef (s:String update:?[String Sig]):Picture =
+  (new u:^[Picture Sig]
+   run forward![update \(s:String):[] = (u (basic.text s))]
+   (ref (basic.text s) u))
+
+def intRef (x:Int update:?[Int Sig]):Picture =
+  (new u:^[Picture Sig]
+   run forward![update \(x:Int):[] = (u (basic.text ($$ x)))]
+   (ref (basic.text ($$ x)) u))
+
+def grid (x:Int y:Int cellSize:Int gap:Int):Picture =
+  (val width = (+ gap (* x cellSize))
+   val height = (+ gap (* y cellSize))
+   (int.fold 0 1 x \(i:Int p:Picture):Picture =
+    (combine.add p (basic.fillRect (* i cellSize) 0 gap height))
+    (int.fold 0 1 y \(j:Int p:Picture):Picture =
+     (combine.add p (basic.fillRect 0 (* j cellSize) width gap))
+     basic.null)))
+
+def arrayRef
+  (sz:Int gap:Int a:(Array Picture)
+   update:?[Int Int (Array Picture) Sig]):Picture
+ =
+  (new u:^[Picture Sig]
+   def build (sz:Int gap:Int a:(Array Picture)):Picture =
+     (val cellSize = (+ sz gap)
+      (array.fold a \(x:Int p:Picture r:Picture):Picture =
+       (combine.add r (transform.move p (+ gap (* x cellSize)) gap))
+       if (>> gap 0) then (grid (array.size a) 1 cellSize gap)
+       else basic.null))
+   def process (sz:Int gap:Int a:(Array Picture)):[] =
+     (u (build sz gap a))
+   run forward![update process]
+   (ref (build sz gap a) u))
+
+def array2Ref
+  (sz:Int gap:Int a:(Array2 Picture)
+   update:?[Int Int (Array2 Picture) Sig]):Picture
+ =
+  (new u:^[Picture Sig]
+   def build (sz:Int gap:Int a:(Array2 Picture)):Picture =
+     (val [w h] = (array2.size a)
+      val cellSize = (+ sz gap)
+      (array2.fold a \(x:Int y:Int p:Picture r:Picture):Picture =
+       (combine.add r
+        (transform.move p (+ gap (* x cellSize)) (+ gap (* y cellSize))))
+       if (>> gap 0) then (grid w h cellSize gap)
+       else basic.null))
+   def process (sz:Int gap:Int a:(Array2 Picture)):[] =
+     (u (build sz gap a))
+   run forward![update process]
+   (ref (build sz gap a) u))
+
+def button (label:String action:/[Sig]):Picture =
+  [(refMethods where
+    constant = true
+    reconfigure = \(_:[/[Sig] String] a:Active _:CX):Active = a
+    init = \([action:/[Sig] label:String] cx:CX):Active =
+      (val fore = (cx.colorResource "Button.fg" "black")
+       val back = (cx.colorResource "Button.bg" "yellow")
+       val font = (cx.fontResource "Button.font" "8x13bold")
+       val color = (cx.colorResource "ButtonBorder.fg" "blue")
+       val width = (cx.intResource "ButtonBorder.width" 2)
+       val margin = (cx.intResource "ButtonBorder.margin" 3)
+       val text =
+         (transform.font font (transform.fg fore (basic.text label)))
+       val border = (transform.fg color (combine.border width margin text))
+       val box = (combine.background back border)
+       val p = (transform.catchHit box \(_ _ _) = (action))
+       (package.init p cx)))
+   [action label]]
+     
+val quitButton = (transform.quitOnHit (button "Quit" \() = []))
+
+def slider (s:Slider) : [Picture (Ref Slider)] =
+  (new u:^[Picture Sig]
+   new lock:^Slider
+   run lock!s
+   def build (s:Slider):Picture =
+     (val sz = (- s.max s.min)
+      val p = (div (* (- s.pos s.min) s.w) sz)
+      val r = (div (* s.range s.w) sz)
+      (combine.add >
+       (basic.clickable 0 0 s.w s.h button)
+       (basic.rect 0 0 s.w s.h) (basic.fillRect p 0 r s.h)))
+   and button [_:Button _:Bool f:Int g:Int _:Int _:Int] =
+     (val s = (read lock)
+      val scaled = (+ (div (* f (- s.max s.min)) g) s.min)
+      if (<< scaled s.min) then
+        (val s = (s where pos = s.min)
+         (u (build s)); (s.posChanged s.pos); lock!s)
+      else if (>> (+ scaled s.range) s.max) then
+        (val s = (s where pos = (- s.max s.range))
+         (u (build s)); (s.posChanged s.pos); lock!s)
+      else
+        (val s = (s where pos = scaled)
+         (u (build s)); (s.posChanged s.pos); lock!s))
+   val control =
+     [get = \():Slider =
+        (val s = (read lock) (write lock s); s)
+      put = \(s:Slider):[] =
+        (val _ = (read lock) (u (build s)); (write lock s))]      
+   [(ref (build s) u) control])
+
+[[ref=ref stringRef=stringRef intRef=intRef array=arrayRef
+  array2=array2Ref button=button quitButton=quitButton slider=slider]]
+)

@@ -1,0 +1,34 @@
+{-
+ - File and Directory Operations.
+ -}
+
+import "Posix/File"
+
+val p:Perm =
+  [setuid=false setgid=false sticky=false
+   user=perm.rwx group=perm.r_x other=perm.r_x]
+
+(pr "creating dir.tmp\n");
+(file.mkdir "dir.tmp" p exn.exit);
+(pr "locking: dir.tmp/a\n");
+(file.lockFile "dir.tmp/a" exn.exit);
+(pr "locking: dir.tmp/b\n");
+(file.lockFile "dir.tmp/b" exn.exit);
+(pr "locking: dir.tmp/c\n");
+(file.lockFile "dir.tmp/c" exn.exit);
+(pr "applyDir:\n");
+(file.applyDir "dir.tmp" exn.exit prNL);
+(pr "foldDir:\n");
+(list.pr (file.listDir "dir.tmp" exn.exit) "" "" ""  prNL);
+(pr "unlocking: dir.tmp/c\n");
+(file.unlockFile "dir.tmp/c" exn.exit);
+(pr "unlocking: dir.tmp/b\n");
+(file.unlockFile "dir.tmp/b" exn.exit);
+(pr "unlocking: dir.tmp/a\n");
+(file.unlockFile "dir.tmp/a" exn.exit);
+(pr "applyDir:\n");
+(file.applyDir "dir.tmp" exn.exit prNL);
+(pr "foldDir:\n");
+(list.pr (file.listDir "dir.tmp" exn.exit) "" "" ""  prNL);
+(pr "removing dir.tmp\n");
+(file.rmdir "dir.tmp" exn.exit);

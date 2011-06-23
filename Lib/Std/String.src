@@ -1,0 +1,275 @@
+\section{@Std/String@: Strings}
+
+##import "Std/Char"
+##import "Std/Cmp"
+##import "Std/Prim"
+##import "Std/Misc"
+##import "Std/Bool"
+##import "Std/Exn"
+##import "Std/List"
+##import "Std/Int"
+
+\subsection{Types}
+
+\begin{doc}
+The type @String@ is built in and cannot be redefined.
+\end{doc}
+
+##val string : [
+
+\subsection{Creation}
+
+#*make = /[Char Int /String]
+\begin{doc}
+@(make c n)@ creates a string of size @n@, containing the character @c@.
+\end{doc}
+
+#*tabulate = /[Int /[Int /Char] /String]
+\begin{doc}
+@(tabulate n f)@ creates a string of size @n@, such that the character with
+index @i@ is initialised to @(f i)@.
+\end{doc}
+
+#*+$ = /[String String /String]
+\begin{doc} @(+$ s t)@ concatenates @s@ and @t@. \end{doc}
+
+\subsection{Interrogation}
+
+#*size = /[String /Int]
+\begin{doc}
+@(size s)@ returns the number of characters in @s@.
+\end{doc}
+
+#*nth = /[String Int /Char]
+#*unsafeNth = /[String Int /Char]
+\begin{doc}
+@(nth s n)@ returns the @n@'th character of @s@.  If @n@ is not in the
+range $@0@ \leq @n@ < @(size s)@$ then we generate a runtime error.
+@unsafeNth@ behaves just like @nth@, except that it does not do any range
+checking.
+\end{doc}
+
+#*sub = /[String Int Int /String]
+\begin{doc}
+Extract the substring of @s@, starting at @start@ and of length @len@.
+It must be the case that $@len@ \geq @0@$, $@start@ \geq @0@$ and
+$@start@+@len@ \leq @(size s)@$.
+\end{doc}
+
+\subsection{Comparison}
+
+#*cmp = /[String String /Cmp]
+\begin{doc}
+Returns a single value indicating the ordering of @s@ and @t@
+(cf.\ Section~\ref{s:Cmp}).
+\end{doc}
+
+#*==$ = /[String String /Bool]
+#*<>$ = /[String String /Bool]
+\begin{doc}
+@s@ equal to @t@, and @s@ not equal to @t@.
+\end{doc}
+
+#*>>$ = /[String String /Bool]
+#*<<$ = /[String String /Bool]
+\begin{doc}
+@s@ strictly greater than @t@, and @s@ strictly less than @t@.
+\end{doc}
+
+#*>=$ = /[String String /Bool]
+#*<=$ = /[String String /Bool]
+\begin{doc}
+@s@ greater than or equal to @t@, and @s@ less than or equal to @t@.
+\end{doc}
+
+#*in = /[String String /Bool]
+\begin{doc}
+@(in s t)@ returns @true@ whenever @s@ occurs as a substring of @t@.
+\end{doc}
+
+#*prefix = /[String String /Bool]
+\begin{doc}
+@(prefix s t)@ returns @true@ whenever @s@ occurs as a prefix of @t@.
+\end{doc}
+
+#*indexIn = /[Char String Exn /Int]
+\begin{doc}
+@(indexIn c s h)@ returns the index of the first occurrence of @c@ in @s@,
+calling the error handler @h@ if @c@ does not occur in @s@.
+\end{doc}
+
+#*occursIn = /[Char String /Bool]
+\begin{doc}
+@(occursIn c s)@ returns @true@ if the character @c@ occurs in the string @s@.
+\end{doc}
+
+\subsection{Conversion}
+
+#*hash = /[String /Int]
+\begin{doc} @(hash s)@ returns a hash value for @s@. \end{doc}
+
+#*split = /[String String /(List String)]
+\begin{doc}
+@(split sep s)@ splits @s@ into a list of tokens.  Any character in the
+string @sep@ is considered to be a separator.  For example,
+@(split " \n" "a b\n c")@ returns the tokens @"a"@, @"b"@ and @"c"@.
+\end{doc}
+
+#*toString = /[String /String]
+\begin{doc}
+@(toString s)@ converts all non-printable characters in @s@ into printable
+characters using Pict's character escape sequences.  Newlines are converted
+to @\n@, @"@ is converted to @\"@ and @\@ is converted to @\\@, all other
+non-printable characters are converted to a character literal of the form
+@\ddd@ where @d@ is a decimal digit.
+\end{doc}
+
+#*fromList = /[(List Char) /String]
+\begin{doc}
+@(fromList l)@ converts the list of characters @l@ to a string.
+\end{doc}
+
+\subsection{Printing}
+
+#*pr = /[String Sig]
+\begin{doc}
+@(pr s)@ prints the string @s@ on stdout.
+\end{doc}
+
+#{#}
+] = (
+
+(ccode 0 I "##include <string.h>");
+
+inline def setNth (s:String x:Int c:Char):[] =
+   (ccode 0 E "S(#)[I(#)] = I(#);" s x c)
+
+val size = prim.size
+
+inline def make (c:Char n:Int) : String =
+  (val s = (prim.alloc (inc n))
+   (ccode 0 E "memset(S(#),I(#),I(#));" s c n);
+   (setNth s n '\000');
+   s)
+
+def tabulate (n:Int f:/[Int /Char]) : String =
+  (val s = (prim.alloc (inc n))
+   (int.for 0 (dec n) \(x) = (setNth s x (f x)));
+   (setNth s n '\000');
+   s)
+
+inline def nth (s:String n:Int) : Char =
+  ((error.check "String.nth" (&& (>= n 0) (<< n (size s))));
+   (ccode 0 P "intInt((Val)((unsigned char *)S(#))[I(#)])" s n))
+
+inline def unsafeNth (s:String n:Int) : Char =
+  ((error.assert "String.unsafeNth" (&& (>= n 0) (<< n (size s))));
+   (ccode 0 P "intInt((Val)((unsigned char *)S(#))[I(#)])" s n))
+
+def sub (s:String start:Int len:Int) : String =
+  ((error.check "String.sub"
+    (&& > (>= len 0) (>= start 0) (<= (+ start len) (size s))));
+   val sub = (prim.alloc (inc len))
+   (ccode 0 E "COPY(S(#),S(#)+I(#),I(#));" sub s start len);
+   (setNth sub len '\000');
+   sub)
+
+inline def stringCmp (s1:String s2:String) : Cmp =
+  (val sz1 = (size s1)  val sz2 = (size s2)
+   if (<< sz1 sz2) then cmp.LT
+   else if (>> sz1 sz2) then cmp.GT
+   else (ccode 0 P "intInt(memcmp(S(#),S(#),I(#)))" s1 s2 sz1))
+
+inline def <>$ (s:String t:String) : Bool = (cmp.ne (stringCmp s t))
+inline def >>$ (s:String t:String) : Bool = (cmp.gt (stringCmp s t))
+inline def <<$ (s:String t:String) : Bool = (cmp.lt (stringCmp s t))
+inline def >=$ (s:String t:String) : Bool = (cmp.ge (stringCmp s t))
+inline def <=$ (s:String t:String) : Bool = (cmp.le (stringCmp s t))
+
+inline def in (s:String t:String) : Bool =
+  (ccode 0 P "(strstr(S(#),S(#)) != NULL)" t s)
+
+inline def prefix (s:String t:String) : Bool =
+  (ccode 0 P "(strstr(S(#),S(#)) == S(#))" t s t)
+
+inline def indexIn (c:Char s:String fail:Exn) : Int =
+  (val f:CString = (ccode 0 P "(Val)memchr(S(#),I(#),I(#))" s c (size s))
+   if (prim.nullPtr f) then (exn.raise fail "indexIn")
+   else (ccode 0 C "intInt(((char*)#)-S(#))" f s))
+
+inline def occursIn (c:Char s:String) : Bool =
+  (ccode 0 P "(memchr(S(#),I(#),I(#)) != NULL)" s c (size s))
+
+inline def hash (s:String) : Int =
+  (ccode 0 P "({
+    int hash = 0; unsigned char *s = S(#); int size = I(#);
+    while (size--) hash = hash * 19 + *s++;
+    intInt(hash);
+   })" s (size s))
+
+def split (sep:String s:String) : (List String) =
+  (val sz = (size s)
+   def loop (start:Int x:Int) : (List String) =
+     if (== x sz) then
+       if (== start x) then nil
+       else (cons (sub s start (- x start)) nil)
+     else
+       (val c = (unsafeNth s x)
+        if (occursIn c sep) then
+          if (<> start x) then
+            (cons (sub s start (- x start)) (loop (inc x) (inc x)))
+          else
+            (loop (inc x) (inc x))
+        else
+          (loop start (inc x)))
+   (loop 0 0))
+
+def toString (s:String):String =
+  (def expand (s:String e:String i:Int j:Int):String =
+     if (<< i (size s)) then
+       (val c = (unsafeNth s i)
+        if (char.isPrint c) then
+          ((setNth e j c); (expand s e (inc i) (inc j)))
+        else if (== c '"') then
+          ((setNth e j '\\'); (setNth e (inc j) '"');
+           (expand s e (inc i) (+ j 2)))
+        else if (== c '\\') then
+          ((setNth e j '\\'); (setNth e (inc j) '\\');
+           (expand s e (inc i) (+ j 2)))
+        else if (== c '\n') then
+          ((setNth e j '\\'); (setNth e (inc j) 'n');
+           (expand s e (inc i) (+ j 2)))
+        else
+          (val h = (div c 100) val t = (div (mod c 100) 10) val u = (mod c 10)
+           (setNth e j '\\');
+           (setNth e (+ j 1) (char.unsafeFromInt (+ h '0')));
+           (setNth e (+ j 2) (char.unsafeFromInt (+ t '0')));
+           (setNth e (+ j 3) (char.unsafeFromInt (+ u '0')));
+           (expand s e (inc i) (+ j 4))))
+      else
+        ((setNth e j '\000'); (prim.shortenTo e j); e)
+  (expand s (prim.alloc (inc (* 4 (size s)))) 0 0))
+  
+def fromList (l:(List Char)): String =
+  (val sz = (list.size l)
+   val s = (prim.alloc (inc sz))
+   (list.itApply l \(x:Int c:Char):[] = (setNth s x c));
+   (setNth s sz '\000');
+   s)
+
+[make=make tabulate=tabulate +$ = prim.+$ size=size nth=nth
+ unsafeNth=unsafeNth sub=sub cmp=stringCmp ==$ = prim.==$ <>$ = <>$ >>$ = >>$
+ <<$ = <<$ >=$ = >=$ <=$ = <=$ in=in prefix=prefix
+ indexIn=indexIn occursIn=occursIn hash=hash
+ split=split toString=toString fromList=fromList pr=pr]
+)
+
+#@\subsection{Abbreviations}
+
+#*val +$ = string.+$
+#*val ==$ = string.==$
+#*val <>$ = string.<>$
+#*val >>$ = string.>>$
+#*val <<$ = string.<<$
+#*val >=$ = string.>=$
+#*val <=$ = string.<=$

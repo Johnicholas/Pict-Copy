@@ -1,0 +1,224 @@
+\section{@Posix/Perm@: File Permissions}
+
+##import "Std/Bool"
+##import "Std/Int"
+
+##val [
+
+\subsection{Types}
+
+#*#AccessPerm =
+#*  [read    = Bool
+#*   write   = Bool
+#*   execute = Bool]
+\begin{doc}
+The type @AccessPerm@ has a boolean field for each different kind of access
+permission that a user can have for a file (or directory): @read@ indicates
+if we can read the file (for directories, this means we can list the
+contents of the directory); @write@ indicates if we can write to the file
+(for directories, this means we can create and remove files in the
+directory); and @execute@ indicates whether we can run the file as a
+program (for directories, this means we can access files in the directory).
+\end{doc}
+
+#*#Perm =
+#*  [setuid = Bool
+#*   setgid = Bool
+#*   sticky = Bool
+#*   user   = AccessPerm
+#*   group  = AccessPerm
+#*   other  = AccessPerm]
+\begin{doc}
+A value of type @Perm@ records access permissions for three categories of
+users: @user@ holds the access permissions for the user who owns the file;
+@group@ records the access permissions for the users who are in the file's
+group; and @other@ gives the access permissions for everyone else.
+
+In addition, @Perm@ records three special attributes, which affect only
+executable files and, on some systems, directories: the @setuid@ bit
+signals if the process' effective user id is set to that of the file upon
+execution (has no effect on directories); the @setgid@ bit signals if the
+process' effective group id is set to that of the file upon execution (on
+some systems, if this bit is set on a directory, this forces files created
+in the directory to be put into the same group as the directory, no matter
+what group the user who creates them is in); and the @sticky@ bit signals
+that the program's text image should be saved on the swap device so it will
+load more quickly when run (on some systems, if this bit is set on a
+directory, it prevents users from removing files that they do not own in
+the directory).
+\end{doc}
+
+##perm:[
+
+\subsection{Construction}
+
+#*___ = AccessPerm
+#*__x = AccessPerm
+#*_w_ = AccessPerm
+#*_wx = AccessPerm
+#*r__ = AccessPerm
+#*r_x = AccessPerm
+#*rw_ = AccessPerm
+#*rwx = AccessPerm
+\begin{doc}
+Abbreviations for all eight kinds of access permissions, named in the same
+way as access permissions are named by unix utilities.  For example, @rw_@
+allows reading and writing but not execution.
+\end{doc}
+
+#*null = Perm
+\begin{doc}
+The null permission (all permission attributes are set to @false@).
+\end{doc}
+
+\subsection{Combination}
+
+#*neg = /[Perm /Perm]
+\begin{doc}
+@(neg p)@ negates the permission bits in @p@.
+\end{doc}
+
+#*add = /[Perm Perm /Perm]
+\begin{doc}
+@(add p1 p2)@ combines the permissions in @p1@ and @p2@ by computing
+the boolean disjunction of corresponding permission bits in @p1@ and @p2@.
+\end{doc}
+
+#*del = /[Perm Perm /Perm]
+\begin{doc}
+@(del p1 p2)@ deletes from @p1@ those permissions which are set in @p2@ by
+computing the boolean exclusive-or of corresponding permission bits in @p1@
+and @p2@.
+\end{doc}
+
+#*mask = /[Perm Perm /Perm]
+\begin{doc}
+@(mask p1 p2)@ masks @p1@ by @p2@ by computing the boolean conjunction of
+corresponding permission bits in @p1@ and @p2@.
+\end{doc}
+
+\subsection{Conversion}
+
+#*toInt = /[Perm /Int]
+\begin{doc}
+@(toInt p)@ converts the permission bits in @p@ into an integer which
+is suitable for passing to Posix C functions (this functionality
+should not be required by user programs).
+\end{doc}
+
+#*fromInt = /[Int /Perm]
+\begin{doc}
+@(fromInt i)@ performs the inverse of @toInt@, converting the integer @i@
+into a permission value.
+\end{doc}
+
+\subsection{Printing}
+
+#*pr = /[Perm Sig]
+\begin{doc}
+@(pr p)@ prints the permission bits @p@ in the same format as is used by @ls@.
+\end{doc}
+
+#{#}
+]] = (
+
+(ccode 0 I "##include <sys/stat.h>");
+
+type AccessPerm =
+  [read    = Bool
+   write   = Bool
+   execute = Bool]
+
+type Perm =
+  [setuid = Bool
+   setgid = Bool
+   sticky = Bool
+   user   = AccessPerm
+   group  = AccessPerm
+   other  = AccessPerm]
+
+val ___ = [read=false write=false execute=false]
+val __x = [read=false write=false execute=true ]
+val _w_ = [read=false write=true  execute=false]
+val _wx = [read=false write=true  execute=true ]
+val r__ = [read=true  write=false execute=false]
+val r_x = [read=true  write=false execute=true ]
+val rw_ = [read=true  write=true  execute=false]
+val rwx = [read=true  write=true  execute=true ]
+
+val null =
+  [setuid=false setgid=false sticky=false user=___ group=___ other=___]
+val all =
+  [setuid=true setgid=true sticky=true user=rwx group=rwx other=rwx]
+
+inline
+def combineA (f:/[Bool Bool /Bool] a1:AccessPerm a2:AccessPerm):AccessPerm =
+  [read    = (f a1.read a2.read)
+   write   = (f a1.write a2.write)
+   execute = (f a1.execute a2.execute)]
+
+inline
+def combinePerm (f:/[Bool Bool /Bool] p1:Perm p2:Perm):Perm =
+  [setuid = (f p1.setuid p2.setuid)
+   setgid = (f p1.setgid p2.setgid)
+   sticky = (f p1.sticky p2.sticky)
+   user   = (combineA f p1.user p2.user)
+   group  = (combineA f p1.group p2.group)
+   other  = (combineA f p1.other p2.other)]
+
+def neg (p:Perm):Perm = (combinePerm xor p all)
+def add (p1:Perm p2:Perm):Perm = (combinePerm || p1 p2)
+def del (p1:Perm p2:Perm):Perm = (combinePerm xor p1 p2)
+def mask (p1:Perm p2:Perm):Perm = (combinePerm && p1 p2)
+
+def toInt (p:Perm):Int =
+  (+ >
+   (* (bool.toInt p.setuid) (ccode 0 C "intInt(S_ISUID)"))
+   (* (bool.toInt p.setgid) (ccode 0 C "intInt(S_ISGID)"))
+   (* (bool.toInt p.sticky) (ccode 0 C "intInt(S_ISVTX)"))
+   (* (bool.toInt p.user.read) (ccode 0 C "intInt(S_IRUSR)"))
+   (* (bool.toInt p.user.write) (ccode 0 C "intInt(S_IWUSR)"))
+   (* (bool.toInt p.user.execute) (ccode 0 C "intInt(S_IXUSR)"))
+   (* (bool.toInt p.group.read) (ccode 0 C "intInt(S_IRGRP)"))
+   (* (bool.toInt p.group.write) (ccode 0 C "intInt(S_IWGRP)"))
+   (* (bool.toInt p.group.execute) (ccode 0 C "intInt(S_IXGRP)"))
+   (* (bool.toInt p.other.read) (ccode 0 C "intInt(S_IROTH)"))
+   (* (bool.toInt p.other.write) (ccode 0 C "intInt(S_IWOTH)"))
+   (* (bool.toInt p.other.execute) (ccode 0 C "intInt(S_IXOTH)")))
+
+def fromInt (x:Int):Perm =
+  [setuid = (<> 0 (int.land (ccode 0 C "intInt(S_ISUID)") x))
+   setgid = (<> 0 (int.land (ccode 0 C "intInt(S_ISGID)") x))
+   sticky = (<> 0 (int.land (ccode 0 C "intInt(S_ISVTX)") x))
+   user =
+     [read = (<> 0 (int.land (ccode 0 C "intInt(S_IRUSR)") x))
+      write = (<> 0 (int.land (ccode 0 C "intInt(S_IWUSR)") x))
+      execute = (<> 0 (int.land (ccode 0 C "intInt(S_IXUSR)") x))]
+   group =
+     [read = (<> 0 (int.land (ccode 0 C "intInt(S_IRGRP)") x))
+      write = (<> 0 (int.land (ccode 0 C "intInt(S_IWGRP)") x))
+      execute = (<> 0 (int.land (ccode 0 C "intInt(S_IXGRP)") x))]
+   other =
+     [read = (<> 0 (int.land (ccode 0 C "intInt(S_IROTH)") x))
+      write = (<> 0 (int.land (ccode 0 C "intInt(S_IWOTH)") x))
+      execute = (<> 0 (int.land (ccode 0 C "intInt(S_IXOTH)") x))]]
+
+def prPerm (p:Perm):[] =
+  (if p.setuid then (pr "s") else (pr "-");
+   if p.user.read then (pr "r") else (pr "-");
+   if p.user.write then (pr "w") else (pr "-");
+   if p.user.execute then (pr "x") else (pr "-");
+   if p.group.read then (pr "r") else (pr "-");
+   if p.group.write then (pr "w") else (pr "-");
+   if p.setgid then (pr "S") else
+     if p.group.execute then (pr "x") else (pr "-");
+   if p.other.read then (pr "r") else (pr "-");
+   if p.other.write then (pr "w") else (pr "-");
+   if p.sticky then (pr "S") else
+     if p.user.execute then (pr "x") else (pr "-"))
+
+[[___ = ___  __x = __x  _w_ = _w_  _wx = _wx  r__ = r__  r_x = r_x  rw_ = rw_
+  rwx = rwx null=null neg=neg add=add del=del mask=mask toInt=toInt
+  fromInt=fromInt pr=prPerm]]
+
+)

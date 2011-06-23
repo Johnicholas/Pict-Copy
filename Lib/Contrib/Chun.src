@@ -1,0 +1,246 @@
+\section{@Contrib/Chun@: Network Channels}
+
+This library implements a physically distributed channel abstraction, using
+Unix sockets as the underlying transport layer.  This abstraction can be
+used to build Pict programs that operate ``semi-transparently'' across a
+physical network.  (The original version of this library was written by
+C\'edric Fournet and Benjamin Pierce.)
+
+Type descriptors (Section~\ref{s:TD}) are used for packing and unpacking
+values.  Any value for which a type descriptor can be constructed may be
+transmitted across the network.  Such types include integers, strings,
+tuples, recursively defined types, and user-defined types.  This library
+use Internet sockets to implement type descriptors for output-only channels
+and responsive channels.  This enables output-only channels and responsive
+channels to be transparently communicated across the network to other Pict
+programs.
+
+##import "Std/Exn"
+##import "Std/Io"
+##import "Std/Tags"
+##import "Contrib/TD"
+##import "Std/Hash"
+##import "Posix/Sockets"
+##import "Posix/Env"
+
+##val [
+
+\subsection{Types}
+
+#*#Chun =
+#*  [register = /[#X String (TD X) /X Sig]
+#*   lookup   = /[#X (TD X) String Port String //X]
+#*   rchanTD  = /[#X (TD X) /(TD /X)]
+#*   ochanTD  = /[#X (TD X) /(TD !X)]]
+\begin{doc}
+@(register n tdx c)@ associates a globally visible name @n@ with the local
+channel @c@, allowing Pict processes on remote machines to connect to it
+using @lookup@ (the type descriptor @tdx@ is used to unmarshall data sent
+across the network to @c@).
+
+@(lookup tdx h p n)@ contacts the server at host @h@ and port @p@ and asks
+to be connected to the channel named @n@.  @lookup@ returns a responsive
+channel of type @/X@, which can be used to send values of type @X@ to the
+remote machine @h@ (the type descriptor given when we called @lookup@ is
+used to marshall any data sent to the remote machine).
+
+@rchanTD@ and @ochanTD@ are implementations of type descriptors for
+responsive channels and output-only channels respectively (these operations
+are defined here, since they only make sense once we have started a server
+running on our local machine).
+\end{doc}
+
+##chun:[
+
+\subsection{Starting a Server}
+
+#*start = /[Port Exn /Chun]
+\begin{doc}
+@(start p h)@ starts a server on the local machine which enables Pict
+processes to receive data from remote machines (@p@ specifies which port
+the server should listen on for incoming data).  The server calls the error
+handler @h@ if it encounters any errors.
+\end{doc}
+
+#{#}
+]] = (
+
+val debugChun = true
+val debugText = false
+inline def chdebug (s:String):[] = if debugChun then (prErrNL s) else []
+
+type Host = String  {- later: a socket descriptor? -}
+type ID = Int
+
+type Chun =
+  [register = /[#X String (TD X) /X Sig]
+   lookup   = /[#X (TD X) String Port String //X]
+   rchanTD  = /[#X (TD X) /(TD /X)]
+   ochanTD  = /[#X (TD X) /(TD !X)]]
+
+type Exported = [#X (TD X) /X]
+
+def startChun  (port:Port fail:Exn) : Chun = (
+
+new current:^Int
+run current!1
+
+val chunTable = (hash.make #ID #Exported int.hash ==)
+
+{-
+ - Each machine maintains a local socketTable mapping (remote) machine ids 
+ - to sockets.  To send a message to a remote machine, we extract the
+ - socket and lock channel, grab the lock (giving us exclusive access to
+ - the socket), and transmit our message.
+ -}
+
+val socketTable = (hash.make #Host #[^[] Wr] string.hash ==$)
+
+def getSocket (host:Host port:Port):[^[] Wr] = 
+  (opt.case (hash.tryLookup socketTable host)
+   \():[^[] Wr] =
+     (new lock:^[]
+      run lock![]
+      val s = (sockets.streamSocket exn.exit)
+      val a = (sockets.getHostByName host port exn.exit)
+      (fd.mkASync s fail);
+      val fd = (sockets.connect s a exn.exit)
+      val wr  = 
+        if debugText then
+          (io.traceWr (io.fdWr fd) "Chun" (io.fnWr pr))
+        else
+          (io.fdWr fd)
+      (hash.insert socketTable host [lock wr]);
+      [lock wr])
+   \(p:[^[] Wr]):[^[] Wr] = p)
+
+{-
+ - Create a socket for the server
+ -}
+
+val s = (sockets.streamSocket fail)
+(chdebug (+$ > "Creating chunnel server on port " ($$ port)));
+(sockets.bindAny s port 4 fail);
+(fd.mkASync s fail); 
+
+{-
+ - Server loop which processes incoming messages.
+ -}
+
+def awaitMessage [str:Rd fail:Exn] =
+ ((chdebug "awaitMessage: next message");
+   val ID = (td.int.unmarshall str fail)
+   (chdebug (+$ "Chun.unmarshalled " ($$ ID)));
+   val [#X xtd:(TD X) c:!X] = (hash.lookup chunTable ID)
+   (write c (xtd.unmarshall str fail));
+   (parse.char str '\n' fail);
+   awaitMessage![str fail])
+
+{-
+ - Main server loop which waits for new clients to connect.
+ -}
+
+def acceptClient [] =
+  ((chdebug "Chun: waiting for new client");
+   val fd = (sockets.accept s fail)
+   (chdebug "Chun: new client");
+   val rd  = 
+     if debugText then
+       (io.traceRd (io.fdRd fd) "Chun" (io.fnWr pr))
+     else
+       (io.fdRd fd)
+   (awaitMessage![rd fail] | acceptClient![]))
+
+run acceptClient![]
+
+{-------------------------------------------------------------}
+
+val localHost = (env.get "HOSTNAME" exn.exit)
+
+{-
+ - There might be a potential problem here if the machine we
+ - wish to send a message to turns out to be localHost, but I think
+ - it should be ok.
+ -}
+
+def exportChan (#X xtd:(TD X) c:/X) : ID =
+  (val id = (read current)
+   (write current (inc id));
+   (hash.insert chunTable id [#X xtd c]);
+   id)
+
+def mkStub (#X xtd:(TD X) host:String port:Port id:ID) : /X = \x:X =
+  ((chdebug "Chun: Getting socket");
+   val [lock str] = (getSocket host port)
+   (chdebug "Chun: Locking socket");
+   (read lock);
+   (chdebug "Chun: Got socket");
+   (td.int.marshall str id);
+   (xtd.marshall str x);
+   (str.write "\n");
+   (chdebug "Chun: Releasing socket");
+   lock![])
+
+def rchanTD (#X xtd:(TD X)) : (TD /X) =
+  [marshall = \(str c) = 
+     (val id = (exportChan xtd c)
+      (td.string.marshall str localHost);
+      (td.int.marshall str port);
+      (td.int.marshall str id))
+   unmarshall = \(str fail) = 
+     (val host = (td.string.unmarshall str fail)
+      val port = (td.int.unmarshall str fail)
+      val id = (td.int.unmarshall str fail)
+      (mkStub xtd host port id))]
+
+def ochanTD (#X xtd:(TD X)) : (TD !X) =
+  (val rch = (rchanTD xtd)
+   [marshall = \(str c) = (rch.marshall str \x = c!x)
+    unmarshall = rch.unmarshall])
+
+{--------------------------------------------------------}
+
+val nameTable = (hash.make #String #ID string.hash string.==$)
+
+new lock:^[]
+run lock![]
+
+{-
+ - Type descriptors for the name server.
+ -}
+
+val rootTD : (TD [String /ID]) = (td.pair td.string (rchanTD td.int))
+
+def lookupEntry (name:String):ID =
+  ((read lock);
+   (opt.case (hash.tryLookup nameTable name)
+    \():ID = (error.fatal "Chun.lookupEntry: failed")
+    \(id:ID):ID = ((write lock []); id)))
+
+(hash.insert chunTable 0 [#[String /ID] rootTD lookupEntry]);
+
+{-
+ - Register a new service with the local nameserver.
+ -}
+
+def register (#X name:String xtd:(TD X) c:/X) : [] =
+  ((read lock);
+   (chdebug (+$ "Chun: Registering " name));
+   (opt.case (hash.tryLookup nameTable name)
+    \():[] =
+      ((hash.insert nameTable name (exportChan xtd c));
+       (write lock []))
+    \(_:ID):[] =
+      (error.fatal (+$ > "Nameserver entry '" name "' registered twice!"))))
+
+def lookup (#X xtd:(TD X) host:String port:Port name:String):/X =
+  (val nameServer = (mkStub rootTD host port 0)
+   (mkStub xtd host port (nameServer name)))
+
+[register=register lookup=lookup rchanTD=rchanTD ochanTD=ochanTD]
+
+)
+
+[[start=startChun]]
+
+)

@@ -1,0 +1,15 @@
+{-
+ - Regression test: ensures that recursively-defined process definitions get inlined
+ - properly (the optimiser used to miss some inlinings, which was not acceptable, since
+ - we *always* do dead-code elimination of bindings which we think will be inlined).
+ -}
+
+def a[x:Int] = b![x]
+and b[x:Int] = if (== x 0) then () else a![(- x 1)]
+
+run a![100]
+
+def c[x:Int] = d![x]
+and d[x:Int] = if (== x 0) then () else c![(- x 1)]
+
+run d![100]

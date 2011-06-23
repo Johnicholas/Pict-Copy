@@ -1,0 +1,147 @@
+\section{@Contrib/Clock@: A Clock Server}
+
+This package provides a simple clock server. Processes can await a single
+clock tick or awakened on every clock tick. The clock can be started,
+stopped, and the period of clock ticks may be changed. A process can ask to
+be notified when the clock either stops or starts.
+
+##import "Std/Misc"
+##import "Std/Bool"
+##import "Std/List"
+##import "Posix/Signals"
+
+##val clock : [
+
+\subsection{Waiting for Clock Ticks}
+
+#*awaitTick = /[Sig]
+\begin{doc}
+The expression @(awaitTick)@ blocks the current process until the next
+clock tick.
+\end{doc}
+
+#*everyTick = /Sig
+\begin{doc}
+The output @everyTick!c@ causes the clock to send a message along @c@ for
+every clock tick.
+\end{doc}
+
+\subsection{Starting and Stopping the Clock}
+
+#*stop = /[Sig] 
+#*go = /[Sig] 
+\begin{doc}
+@(stop)@ stops the clock (if the clock has already stopped, it does
+nothing).  @(go)@ starts the clock (if the clock is already running, it
+does does nothing).
+\end{doc}
+
+#*onStop = /Sig
+#*onGo = /Sig
+\begin{doc}
+@onStop!c@ and @onGo!c@ cause the clock to send a message along @c@
+whenever the clock is stopped or started, respectively.  Messages are only
+sent when a real change in the clock status occurs, and not for every call
+of the @stop@ and @go@ methods.
+\end{doc}
+
+#*toggle = /[Sig] 
+\begin{doc}
+@(toggle)@ restarts the clock, if it was stopped, or stops the clock if it
+was already running.
+\end{doc}
+
+#*tick = /[Sig] 
+\begin{doc}
+@(tick)@ manually ticks the clock, regardless of whether the clock is
+running or not.
+\end{doc}
+
+#*getDelay = /[/Int] 
+#*setDelay = /[Int Sig]
+\begin{doc}
+@(getDelay)@ gets the current delay between clock ticks (in hundredth's of
+a second).  @(setDelay x)@ sets the delay between clock ticks to @x@. The
+delay @x@ must be non-negative, or we generate a runtime error.  A value of
+@0@ makes the clock tick as fast as possible (100 times a second).
+\end{doc}
+
+#{#}
+] = (
+  (ccode 0 I "##include <sys/time.h>");
+
+  def awakenProcess [p:Sig c:Sig] = ( p![] | c![] )
+ 
+  new status : ^Bool
+  new lock : ^[x=Int period=Int every=(List Sig) ongo=(List Sig)
+               onstop=(List Sig) waiting=(List Sig)]
+
+  run status!false
+  run lock![x=100 period=100 every=nil ongo=nil
+            onstop=nil waiting=nil]
+ 
+  inline def isPersistent (every:(List Sig) waiting:(List Sig)):Bool =
+    (not (&& (null every) (null waiting)))
+
+  def handler [last=last:Bool gotSignal=gotSignal:Bool r:!SignalResult] =
+    status?isRunning =
+    if isRunning then
+      lock?s =
+      if gotSignal then
+        if (== s.x 0) then
+          ((list.apply s.every awakenProcess);
+           (list.apply s.waiting awakenProcess);
+           (lock!(s where x=s.period waiting=nil) |
+            r![wokeUp=true stayInstalled=true
+               persistent=(isPersistent s.every nil)] |
+            status!isRunning))
+        else
+          (lock!(s where x=(dec s.x)) |
+           r![wokeUp=true stayInstalled=true
+              persistent=(isPersistent s.every s.waiting)] |
+           status!isRunning)
+      else
+        (lock!s |
+         r![wokeUp=false stayInstalled=true
+            persistent=(isPersistent s.every s.waiting)] |
+         status!isRunning)
+    else
+      (status!isRunning |
+       r![wokeUp=false stayInstalled=true persistent=false])
+
+  (signals.register signals.SIGALRM handler);
+  (ccode 0 E "{
+    struct itimerval it;
+####ifdef __USE_FIXED_PROTOTYPES__
+    extern int setitimer (int,struct itimerval*,struct itimerval*);
+####endif
+    it.it_interval.tv_usec = 10000; it.it_interval.tv_sec = 0;
+    it.it_value.tv_usec = 10000; it.it_value.tv_sec = 0;
+    setitimer(ITIMER_REAL,&it,NULL);
+  }");
+  [awaitTick = \[c] = lock?s = lock!(s where waiting = (cons c s.waiting))
+   everyTick = \c = lock?s = lock!(s where every = (cons c s.every))
+   stop = \[c] = status?isRunning = lock?s =
+     (if isRunning then (list.apply s.onstop awakenProcess) else [];
+      (lock!s | status!false | c![]))
+   go = \[c] = status?isRunning = lock?s =
+     (if (not isRunning) then (list.apply s.ongo awakenProcess) else [];
+      (lock!s | status!true | c![]))
+   onStop = \c = lock?s = lock!(s where onstop = (cons c s.onstop))
+   onGo = \c = lock?s = lock!(s where ongo = (cons c s.ongo))
+   toggle = \[c] = status?isRunning = lock?s =
+     if isRunning then
+       ((list.apply s.onstop awakenProcess);
+        (lock!s | status!false | c![]))
+     else
+       ((list.apply s.ongo awakenProcess);
+        (lock!s | status!true | c![]))
+   tick = \[c] = lock?s =
+     ((list.apply s.every awakenProcess);
+      (list.apply s.waiting awakenProcess);
+      (lock!(s where waiting = nil) | c![]))
+   getDelay = \[r] = lock?s = (lock!s | r!s.period) 
+   setDelay = \[p c] = lock?s =
+     ((error.check "Clock.setDelay: negative delay" (>= p 0));
+      (lock!(s where period = p) | c![]))]
+)

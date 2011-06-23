@@ -1,0 +1,644 @@
+Wed Jul 10 15:34:10 1996  Benjamin C. Pierce  <bcp1000@cl.cam.ac.uk>
+
+* Many changes throughout the language, type system, compiler, and
+libraries.  This is an interim release.
+
+Note that the concrete syntax has undergone yet more changes since those
+described below.  See the grammar in the Language Definition for details.
+
+
+Fri Feb 16 16:13:41 1996  Benjamin Pierce  <bcp1000@iris.cl.cam.ac.uk>
+
+* new "SCHEME-STYLE syntax".  Highlights include...
+
+* All abstractions use an = to separate the pattern from the body.
+Abstractions whose bodies are processes look like:
+    Pat = Proc
+Abstractions whole bodies are values look like
+    (Pat1 Pat2 ... Patn) = Val
+i.e., instead of a single tuple pattern we use a (parenthesized) tuple of
+patterns.
+
+* Application:
+     f[v1,v2]   --->   (f v1 v2)
+
+* no commas in records or tuples:  
+    [x,y,z] --> [x y z]
+
+* if...then...else...end  --->  if...then...else...
+* if...then...end  --->  if...then...fi
+* elif --> else if
+
+* abs Abs end   --->  \ Abs
+
+* let DecSeq in Proc   --->  (DecSeq Proc)
+
+* let DecSeq in Val   --->  (DecSeq Val)
+
+* new x,y,z  --->   new x new y new z
+
+* v.x  -->  (v.x)
+
+* val [] = v      --->    v;      (the old one is still legal, 
+                                   but the v; declaration 
+                                   form is is preferred)
+
+* v1;v2;v3   --->    (v1; v2; v3)
+
+* x+y+z*w  ---->   (x+y+z*w)
+
+* v with x=w end   -->    (v with x=w)
+
+* record x=v, y=w end   --->   (record x=v y=w)
+
+* record x[y] > e end   --->  (record x = \[y] = e)
+
+
+
+Thu Jan 25 12:17:48 1996  Benjamin C. Pierce  <bcp1000@cl.cam.ac.uk>
+
+* Added new types and syntax for updateable fields and field override.
+See documentation for details.
+
+* MAJOR CHANGES TO SYNTAX -- Many incompatibilities with previous version 
+
+We've changed the pict conrete syntax from SML-style to a more C-like
+style where most constructs are explicitly bracketed.  Benefits of the
+change are a much simpler YACC grammar and the elimination of many
+irregularities and special cases.  We have also taken the opportunity to
+make a number of smaller changes that have been pending for a long time,
+since the big changes will require changing existing code anyway.
+
+Refer to the grammar in the user's manual for full details of the new
+syntax.  The code in the Examples and Lib subdirectories has all been
+translated to use the new syntax.
+
+Major changes include...
+
+* Bodies of abstractions are now enclosed in curly braces.  
+  For example, instead of "x?y > e" we now write "x?y > { e }".
+* if b then e elif b then e else e end
+  -->
+  if b { e } elif b { e } else { e }
+* let d in e end
+  -->
+  {d in e}
+* Bracketed bodies of abstractions may now begin with a sequence of
+  declarations terminated by "in".
+  There is no separate "let" construct.
+  So
+    let val x = 5 in x end
+    -->
+    {val x = 5 in x}
+  and
+    def f [x] = let val y = x*x in y end
+    -->
+    def f [x] = { val y = x*x in y }
+* local d in d end
+  -->
+  local { d in d }
+* record <fields> end
+  -->
+  record { <fields> }
+* v with <fields> end
+  -->
+  v with { <fields> }
+* Anonymous abstractions use the keyword "\" instead of "abs":
+    abs p > e end
+    -->
+    \p > { e }    
+* the type constructors Rec, Fun, Record, and with are similarly bracketed:
+  Fun (X) T
+  -->
+  Fun X { T }
+
+Smaller changes include...
+
+* The subtyping token <: changed to <
+* Processes of the form v; are no longer allowed.  Write v;skip instead.
+* Parentheses for grouping processes, types, and value expressions have all
+  changed to curly braces.  Write {x+y}*3 instead of (x+y)*3, etc.
+* The "object" declaration form has been removed.
+* Explicit coercions v:T must now be bracketed {v:T}
+
+
+Thu Jan 18 20:17:15 1996  Benjamin C. Pierce  <bcp1000@cl.cam.ac.uk>
+
+Improved error messages for subtype failure
+Added PointerMotion event handling
+
+Thu Dec 14 13:11:16 1995  David N. Turner  <dnt@savaii.dcs.gla.ac.uk>
+
+* 3.6m
+
+Fixed support for signals and non-blocking I/O.
+Put X keyboard event support back in.
+Known bugs: programs using signals don't always terminate properly.
+
+Wed Dec 13 19:41:14 1995  Benjamin Pierce  <bcp1000@iris.cl.cam.ac.uk>
+
+* 3.6l
+
+Stable version without signals and proper non-blocking I/O.
+Created "Pict Compiler Manual"
+Other minor fixes to documentation
+
+Tue Nov 21 10:19:17 1995  David N. Turner  <dnt@blackisle.dcs.gla.ac.uk>
+
+* 3.6k
+
+Removed XPile.src from Lib (it is never used, and has been replaced by
+other updatable widgets anyway).
+
+Thu Nov  9 12:44:01 1995  David N. Turner  <dnt@blackisle.dcs.gla.ac.uk>
+
+* 3.6j
+
+Added a proper dependency generator and changed the way we store dependencies
+(we now store dependencies in a .depend file and include that in the Makefile).
+Removed a few old features: default values (didn't work properly anyway,
+replaced by special cases for assertions and checks in the library code),
+builtin val (redundant, use ccode instead).  Fixed top-level Makefile to
+use mkdir -p rather than INSTALLDIRPARENT stuff.
+
+Wed Oct 18 12:13:19 1995  David N. Turner  <dnt@blackisle>
+
+* 3.6i
+
+Various small changes and tidying up libraries and documentation.  Many
+small improvements to the code generator, including: an option to generate
+GCC specific code again; an (unsafe) option which allows one to assume that
+result channels are linear (or responsive); we can now often avoid testing
+the status of the run queue (since in many threads we know statically that
+the run queue cannot be empty).
+
+Mon Sep 18 16:23:56 1995  David N. Turner  <dnt@blackisle>
+
+* 3.6h
+
+Extended lexer so that it can lex character and string constants of
+the form \ddd (where d denotes a decimal digit). Tidied up various
+library modules, adding a few missing functions such as subString,
+and tidying the implementation of I/O.
+
+Fri Sep  1 09:01:35 1995  Benjamin Pierce  <bcp1000@ouse.cl.cam.ac.uk>
+
+* 3.6g
+
+Added Config subdirectory with autoconf configuration script to help guess
+pathnames on various architectures/OSs.
+
+Moved ChangeLog into main pict directory, since Misc subdirectory
+is no longer part of standard distribution.
+
+Pictdep script now adds "touch" commands to reflect dependencies
+among .pi files.
+
+
+Sat Aug 12 11:40:21 1995  David N. Turner  <dnt@blackisle>
+
+* 3.6d
+
+New code generator (compilation times are worse, but gcc never gets much
+bigger than 3Mb, so background compilations no longer thrash the virtual
+memory). It should also be possible to let gcc optimise big Pict programs,
+though it will still take a long time.
+
+Major tidy up of ML code : Most of the MLLib files we underused, so we now
+use caml-light libraries wherever possible.
+
+Wrote new garbage collector (still a simple copying collector, but should
+be much clearer code now). Runtime system is now built into three different
+libraries (ordinary, profiling and debugging): specifying -g gets you the
+debugging library (low-level debugging information is printed out during
+execution), specifying -set profiling get you the profiling library
+(low-level profiling).
+
+Sat Aug  5 12:26:09 1995  David N. Turner  <dnt@darkstar>
+
+* 3.6c
+
+A few small changes to the lexer (identifiers may now start with
+an underscore, and newlines may appear in strings).
+
+Removed old-style builtin def's (now fully replaced by ccode and cproc
+expressions).
+
+Fixed bug in flags.ml which caused an uncaught exception whenever a
+flag name was more than 15 characters long. Changed behaviour of
+-help, -version and -shortversion options so that they terminate
+the compiler immediately and don't attempt to call the compiler.
+
+Improved life demo so that it can load initial configurations from
+files.
+
+New library file Socket.src, and examples directory Sockets.
+
+IO.src: Fixed bug in openCreate which caused files created by Pict programs
+to have the wrong permissions.
+
+Stream.src: Rewrote using explicit locks (rather than Locks.pi), thereby
+speeding up rotateppm by 30%. Deleted byteArrayInstream, replaced with
+stringInstream.
+
+String.src: Added the inString function.
+
+Thu Jun  1 14:59:43 1995  Benjamin Pierce  (bcp1000@ouse.cl.cam.ac.uk)
+
+* Split User Manual into separate Language Definition and Standard
+Libraries documents.  Small changes in rules.
+
+
+Thu May 25 19:31:02 1995  Benjamin Pierce  (bcp1000@ouse.cl.cam.ac.uk)
+
+* 3.6b
+
+Small bugfix in types.ml to correct incompleteness (reflexivity for "R with
+l:T end") 
+
+
+Thu May 11 20:58:37 1995  Benjamin Pierce  (bcp1000@ouse.cl.cam.ac.uk)
+
+* 3.6a
+
+Polishing on documentation, minor changes to typing rules, integration of
+recent changes in examples. 
+
+External beta-release.
+
+
+Thu Apr 27 15:18:35 1995  David N Turner  <dnt@rousay>
+
+* 3.5zf
+
+Many small changes.  Made widespread changes to the internal code language
+(inter.mli) in preparation for the new code generator (that's why code runs
+a bit slower at the moment).
+
+Code runs 2 times slower :-(
+Optimiser now does a better job (not a contradiction to above).
+
+New way of declaring C code which produces much more compact C.
+For example, `ccode[alloc,purity,"intInt(# + #)",x,y]' compiles to
+`intInt([code to get x] + [code to get y])'.
+
+In the old system, we used to get something like this:
+`{Val x = [code to get x]; Val y = [code to get y]; intInt(x + y);}'
+
+If the C optimiser is turned on, there should probably be no difference,
+but we can't really turn the C optimiser on with large programs (takes too
+long to be practical).
+
+
+Sat Feb 25 19:26:47 1995  Benjamin Pierce  (bcp1000@merganser.cl.cam.ac.uk)
+
+* 3.5z
+
+Many changes to documentation.  Cosmetic changes to other parts of the
+system. 
+
+Small interface changes in the events module (renamed ^^ to ??, newChannel
+to newEventChan, etc.; added buildEventChan).
+
+
+Tue Feb 14 12:16:52 1995  Benjamin Pierce  (bcp1000@merganser.cl.cam.ac.uk)
+
+* 3.5w
+
+Merged bcp's changes and dnt's.  Many improvements to documentation.  
+
+Feb 1995  David N. Turner  <dnt@dcs.ed.ac.uk>
+
+* 3.5v
+
+Importing:
+
+  We now no longer use cpp to preprocess Pict programs. Instead, you should
+  write 'import "file.pi"' to import file.pi. The compiler ensures that
+  each imported file is loaded exactly once.
+
+Inlinable definitions:
+
+  You can specify that a (non-recursive) definition should be inlined
+  by preceding the definition with the 'inline' keyword. Use 'inline' with
+  care, since indiscriminate use can dramatically increase code size.
+  The file Misc.src contains a number of examples where inlining
+  substantially improves performance.
+
+Default values:
+
+  You can specify a default value for a variable. Currently the default
+  value must be a boolean. The declaration
+
+    default val myFlag = true
+
+  binds the variable 'flag' to true. However, if the program contains
+  a statement of the form 'now reset myFlag', the program will be compiled
+  with myFlag bound to false.
+
+  This feature is used mainly in library program which do bounds checking
+  or can print debugging information. Thus, for example, putting the
+  statement 'now set debugWidgets' in your program causes widget debugging
+  information to be printed. See Lib/Error.src for more uses of default
+  values in bounds checking.
+
+  BUGS: Setting and resetting default values from the command-line
+  doesn't work (because we have to parse the program first, to find out
+  what default values there are).
+
+Optimisations:
+
+  We can now inline definitions and optimise away communications.
+  For example, the program
+
+    new c
+    run c!3 | (c?x > prInt[3];)
+
+  will be optimised to
+
+    run prInt[3];
+
+Statistics:
+
+  Setting 'now set codeStats' shows the number of program constructs
+  after each optimisation step. See all that code disappear before
+  your very eyes.
+
+Testing:
+
+  We now test EVERY library file to check that it can be compiled. I put
+  this in after finding a number of library files which didn't even parse
+  correctly, and which had splipped through because they were never used
+  in the examples.
+
+Mon Jan  9 13:47:04 1995  David N. Turner  <dnt@dcs.ed.ac.uk>
+
+* 3.5t
+
+Added a simple optimiser for the intermediate code. It does dead code
+elimination, which can give up to 30% savings in code size. Fixed a bug in
+the simplifier, which was evaluating tuple in the wrong order :-) Funny how
+nobody noticed that (I only noticed while examining the intermediate code
+for optimisations, not because of a bug). Changed code generation slightly
+so that it doesn't create as many processes. Completely changed compilation
+of patterns: in some cases things could go slower (we should really do
+common sub-expression elimination to fix this problem), but in general we
+seem to do better. In particular, this scheme reduces the stack space
+needed by processes, and in the common case avoids a lot of stack pushes.
+
+Also added some simple inlining optimisation. Inlining of values works
+well, but inlining of process definitions isn't really usable until we
+provide some user-level control over what definitions may be inlined.
+To derive the full benefit from inlining, we need to be able to evaluate
+communications at compile time.
+
+Mon Dec 12 16:53:10 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* 3.5s
+
+Changed < to <: and <X>[...] to [:X:][...]
+
+First public beta-release
+
+Fri Dec  9 13:44:01 1994  David N. Turner  <dnt@dcs.ed.ac.uk>
+
+* 3.5q
+
+Tons of changes in documentation (due to Benjamin). Put in Imakefile
+stuff to automatically determine how to use Xlib. This should hopefully
+eliminate all fidlling about with X11 settings in SiteSpecific.
+
+Wed Dec  7 16:12:56 1994  David N. Turner  <dnt@dcs.ed.ac.uk>
+
+* 3.5p
+
+Sorted out X11 include and lib file stuff in a nicer way. Fixed bug
+in parser.src, and in src2pi.l. Took out version.ml and put version
+printing in pict.tmpl.
+
+Tue Dec  6 17:42:25 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* 3.5n
+
+Allow "now set f1 f2 ... fn"
+
+Added a call to "expose" before calling "basis" in types__unroll, to allow
+unrolling of abbreviations and beta-redexes.
+
+Changed uses of FIX inside types module to REC, following the concrete
+syntax and typing rules.
+
+Thu Dec  1 20:28:25 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+Changed concrete syntax of high-level OBJECT ... WITH construct to agree
+with new record...end syntax.
+
+Added v??a (without surrounding choose...end) as a process, for
+completeness. 
+
+Wed Nov 30 14:07:42 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* 3.5k
+
+Changed names of random, randomize, and dice to Random, Randomize, and
+Dice to avoid a clash with linux libraries.
+
+Nuked comments in headers of lex scripts (they confused some versions of
+lex). 
+
+Corrected some bugs in the tutorial.
+
+Sun Nov 27 13:53:51 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* Changed concrete syntax of records from {...} to record...end for values
+and Record...end for types.  
+
+Mon Nov 21 17:29:47 1994  David N. Turner  <dnt@dcs.ed.ac.uk>
+
+* 3.5i
+
+Completely changed the way we call C primitives. This vastly
+simplifies accessing most C functions, since we no longer
+have to create `stub' C functions.
+
+The above change enabled the monolithic prims.c (and corresponding
+builtin.src) to be split up into more sensible units (such as
+Int.src, Bool.src, List.src, ...).
+
+Thu Nov 17 14:43:07 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+generalized Exceptions package 
+
+Mon Nov 14 14:41:15 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+mines demo fixed
+better versions of stream i/o and parsing code
+added standard input stream
+stdOut renamed to pr; related naming changes
+added builtin values to compiler backend and runtime
+nuked lockPrinter
+
+Fri Nov 11 15:34:31 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* 3.5h
+
+added "make demo" command
+fixes to various installation problems reported by alpha-testers
+bouncy fixed
+"resize loop" in X demos on some servers fixed
+
+Fri Oct 28 13:43:19 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* 3.5f
+
+Standardized syntax for infix names (should not affect code
+outside of prims.c)
+
+fixed unsound subtyping of recursive types
+
+Thu Oct 27 14:48:12 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* 3.5e
+
+added -verbose flag to pict (and Makefiles)
+changed export procedure (this may introduce some new problems!)
+small portability changes
+
+Wed Oct 26 18:00:09 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* 3.5d
+
+added -I flag to pict (passed through to gcc)
+
+Wed Oct 26 17:20:39 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* version 3.5c
+
+implemented our own CCopyBytes to remove portability problem
+merged Ants and BigAnts
+portability improvements
+
+Wed Oct 26 17:20:12 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* version 3.5a
+
+cleaned up for release
+
+Tue Oct 11 12:09:34 1994  Benjamin Pierce  <bcp@dcs.ed.ac.uk>
+
+* version 3.4z
+
+name change in check.ml to avoid CAMLOT bug 
+larger buttons in demos
+changed memmove in prims.c to either memmove or bcopy, depending on OS
+
+removed kind annotations on bound vars in tuple types and patterns
+
+Thu Sep 29 18:10:29 1994  Benjamin Pierce  (bcp@craro.dcs.ed.ac.uk)
+
+* Removed COERCIONp patterns; instead, added an optional
+type annotation on _, variable, and @ patterns (1 source-code
+change required in the examples :-)
+
+Mon Sep 26 15:57:35 1994  Benjamin Pierce  (bcp@craro.dcs.ed.ac.uk)
+
+Changed => to -> in kinds
+Brought mines.pi up to date with syntax and X.pi changes
+Many improvements in manual and tutorial
+
+Wed Sep 21 12:55:27 1994  Benjamin Pierce  (bcp@craro.dcs.ed.ac.uk)
+
+* added a replicated input prefix ?* (this is not intended
+for everyday programming, since it is not as efficient as the def
+form, but it is convenient for giving the core language semantics)
+
+removed "monomorphic" flag, since we have rewritten the beginning
+chapter of the tutorial using the explicitly typed core language
+
+Mon Sep 12 12:34:08 1994  Benjamin Pierce  (bcp@craro.dcs.ed.ac.uk)
+
+* version 3.4y
+
+Concrete syntax changes:
+   - Changed , to | for parallel composition
+   - Changed | to 'with' for record extension
+   - Allow  ID Abs  as a record field
+
+began rewriting tutorial
+
+most refs are now objects
+
+Sat Sep  3 23:22:58 1994  David N. Turner  (dnt@papa.dcs.ed.ac.uk)
+
+* VERSION 3.4W.
+
+This version contains a new implementation of checkleq, which
+operates around twice as fast as before. Numberous additions and
+changes to the Examples directory. The X libraries have been
+extended. New Streams, Ppm and ByteArray libraries.  Array2 is now
+an abstract datatype.
+
+
+CHANGES IN VERSION 3.4o
+-----------------------
+
+* MAJOR concrete syntax changes
+* Comment syntax changed again: now use {- ... -}
+* implemented if...then...else in values 
+* reorganized directory structure and makefiles
+* reimplemented records
+* added a top-level Gnu directory and a simple pict.el
+* fixed a scoping bug in compilation of nested LET values
+
+
+CHANGES IN VERSION 3.4i
+-----------------------
+
+* Changed the way pict bytecode files search for the bytecode interpreter
+  when they are executed.  This should get rid of some mysterious
+  bugs caused by hard 40-character limits on some operating systems.
+* Several new libraries.
+* Added an experimental system of extensible record types.
+* Added a "monomorphic" flag, which makes the type inference behave better
+  on small programs with no type annotations at all.  This flag is not 
+  intended to be used in larger programs; it is provided for the convenience
+  of users who want to think of Pict as "just the pi-calculus" for
+  purposes of small experiments such as the exercises in the first section
+  of the tutorial.
+* Improvements to type inference.  Bounded quantifiers should work 
+  better now. 
+* Refined the Makefiles so that the lexer and parser generators are not 
+  always recompiled during a build (only when the parser or lexer needs
+  to be regenerated).  Added a "gmake tidy" command.
+
+CHANGES IN VERSION 3.4b
+-----------------------
+
+* The syntax of comments has changed from (* ... *) to /* ... */
+
+CHANGES IN VERSION 3.4
+----------------------
+
+* New demo programs: XTest and Clone, using a new graphics toolkit 
+  N.b.: All this is very new, not completely working, and subject
+  to change in the next version.
+* Numerous small changes to concrete syntax.
+* Split documentation into manual and tutorial.  Substantial new
+  text in both.
+* Faster typechecking
+* ? and ?? type constructors dropped; ^^ split into input- and output-ends.  
+  This allows most of the typechecker to be independent of the details
+  of the Pict type system.
+* Better error reporting and type printing
+
+
+CHANGES IN VERSION 3
+--------------------
+
+From version 2 to version 3 was essentially a complete redesign.  Some
+of the main changes were:
+    * Much more efficient bytecode compiler
+    * Static type system
+    * X interface
+    * Many changes to concrete syntax
+    * Summation is now a library module

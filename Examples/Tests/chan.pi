@@ -1,0 +1,18 @@
+{-
+ - Replicated input.
+ -}
+
+new c:^[Int Sig]
+run forward![c \(x:Int):[] = (int.pr x)]
+(pr "*** Replicated input ***\n ");
+(c 1); (c 2); (c 3); (c 4); (c 5);
+(c 6); (c 7); (c 8); (c 9); (nl);
+
+{-
+ - Plain inputs and outputs.
+ -}
+
+new x:^^[]
+new y:^[]
+(prNL "\n*** Plain input and output ***");
+run (x!y | x?z = z![] | y?[] = ((pr "Got it!\n"); ()))

@@ -1,0 +1,63 @@
+\section{@Std/Error@: Error Handling}
+
+This module provides some simple facilties to check for and signal fatal
+errors (i.e.\ errors which cause the whole Pict runtime system to exit).
+
+##val error : [
+
+#*exit = /[Int /Bot]
+\begin{doc}
+@(exit n)@ terminates the whole runtime system, returning the error code
+@n@. This should only be used for fatal errors since it terminates all Pict
+processes, not just the current thread. @exit@ never returns, so its result
+can be given any type.
+\end{doc}
+
+#*fatal = /[String /Bot]
+\begin{doc}
+@(fatal s)@ prints @s@ on the standard error and then calls @exit@ with
+error code @1@.
+\end{doc}
+
+#*fail = /String
+\begin{doc}
+@fail@ is similar to @fatal@, except that it does not require a
+result channel.
+\end{doc}
+
+#*check = /[String Bool /[]]
+\begin{doc}
+@(check s b)@ checks that the boolean expression @b@ is true. If @b@ is not
+true, then we print the string @s@ and generate a runtime error. This
+function is used to implement various runtime checks such as array bounds
+checking. It is possible to disable these runtime checks by resetting the
+@checks@ compiler flag.
+\end{doc}
+
+#*assert = /[String Bool /[]]
+\begin{doc}
+@assert@ is similar to @check@, except that by default it does {\em not}
+check that the condition @b@ is true. It is possible to enable checking of
+assertions by setting the @assertions@ compiler flag. This function is used
+in various `unsafe' library calls which do not want to do range checking.
+Setting the @assertions@ compiler flag enables us to conveniently enable
+all possible runtime checks.
+\end{doc}
+
+#{#}
+]
+= (
+
+inline def exit [n:Int r:/Bot] =
+  ((ccode 0 E "exit(I(#));" n); ())
+inline def fatal (s:String):Bot =
+  ((ccode 0 E "fprintf(stderr,\"Fatal error: %s\\n\",S(#));" s); (exit 1))
+inline def fail s:String =
+  ((ccode 0 E "fprintf(stderr,\"Fatal error: %s\\n\",S(#));" s); (exit 1); ())
+inline def check (s:String b:Bool) : [] =
+  if (ccall 0 C "%checks") then if b then [] else (fatal s) else []
+inline def assert (s:String b:Bool) : [] =
+  if (ccall 0 C "%assertions") then if b then [] else (fatal s) else []
+
+[exit=exit fatal=fatal fail=fail check=check assert=assert]
+)

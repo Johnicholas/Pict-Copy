@@ -1,0 +1,111 @@
+\section{@Std/Exn@: Exception Handling}
+
+##import "Std/Error"
+##import "Std/Prim"
+
+The Pict language provides no built-in facilities for raising or handling
+runtime exceptions.  This library provides some simple utilities for
+programming with ``exception continuations.''
+
+##val [
+
+\subsection{Types}
+
+#*#Handler = \X:Neg Type = /X
+#*#Exn = (Handler String)
+\begin{doc}
+The type @(Handler X)@ is just a synonym for the channel type @/X@.  Values
+of type @(Handler X)@ are used, by convention, to signal errors.  The type
+@Exn@ is just a convenient abbreviation for a handler which carries a
+string value.
+\end{doc}
+
+##exn:[
+
+\subsection{Operations}
+
+#*fail = /[String /(Handler Top)]
+\begin{doc}
+@(fail s)@ returns an exception handler which, if invoked, printing the
+error message @s@ and exits the program.
+\end{doc}
+
+#*ignore = (Handler Top)
+\begin{doc}
+A predefined handler that ignores any exceptions.
+\end{doc}
+
+#*exit = Exn
+\begin{doc}
+A predefined handler that handles a string-carrying exception by printing
+the string and exiting the program.
+\end{doc}
+
+#*tag = /[Exn String /Exn]
+\begin{doc}
+Given a string-carrying handler @h@, @(tag h s)@ returns a handler that
+catches exceptions, appends the comment string @s@, and reraises them along
+@h@.
+\end{doc}
+
+#*rename = /[Exn String /Exn]
+\begin{doc}
+Given a string-carrying handler @h@, @(rename h s)@ returns a handler that
+catches exceptions, and reraises them along @h@ using the given string @s@.
+\end{doc}
+
+#*raise = /[#X (Handler X) X /Bot]
+\begin{doc}
+@(raise h x)@ sends the value @x@ to the handler @h@ and blocks the caller.
+(The result type is @Bot@ since @raise@ never returns control to the
+caller.)
+\end{doc}
+
+#*suspend = /[#X #Y (Handler [X /Y]) X /Y]
+\begin{doc}
+@(suspend h x)@ sends @x@ to the handler @h@ and blocks the caller.  The
+caller's continuation is included in the value sent to @h@ so that the
+handler can continue from the point where the exception is raised, if it
+chooses.
+\end{doc}
+
+#*try = /[#X #Y /[(Handler X) /Y] /[X /Y] /Y]
+\begin{doc}
+The expression @(try \(h) = body \(x) = default)@ evaluates @body@,
+binding @h@ to a new exception handler.  If the execution of @body@
+is successful, we simply return the value (of type @Y@) returned by @body@.
+If, however, @h@ is raised in @body@, then we pass the raised value
+(of type @X@) to the @default@ expression.
+\end{doc}
+
+#{#}
+]] = (
+
+type (Handler X:Neg Type) = /X
+type Exn = (Handler String)
+
+inline def fail (s:String):(Handler Top) =
+  \_ = error.fail!s
+
+val ignore:(Handler Top) =
+  \_ = ()
+
+val exit:(Handler String) =
+  \s = error.fail!s
+
+inline def tag (h:(Handler String) comment:String) : (Handler String) =
+  \s = h!(prim.+$ > comment ": " s)
+
+inline def rename (h:(Handler String) name:String) : (Handler String) =
+  \_ = h!name
+
+inline def raise [#X h:(Handler X) x:X res:/Bot] = h!x
+inline def suspend [#X #Y h:(Handler [X /Y]) x:X res:/Y] = h![x res]
+
+inline def try [#X #Y body:/[(Handler X) /Y] handler:/[X /Y] res:/Y] =
+  body![\x = handler![x res] res]
+
+[[fail=fail ignore=ignore exit=exit tag=tag rename=rename raise=raise
+  suspend=suspend try=try]]
+
+)

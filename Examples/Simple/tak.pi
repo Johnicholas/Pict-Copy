@@ -1,0 +1,13 @@
+{-
+ - That funny old tak function that everyone plays with.
+ -}
+
+now (setHeapSize 512)
+
+def tak (x:Int y:Int z:Int):Int =
+  if (>= y x) then z
+  else (tak (tak (dec x) y z) (tak (dec y) z x) (tak (dec z) x y))
+
+(pr "(tak 24 16 8) = ");
+(int.pr (tak 24 16 8));
+(nl);

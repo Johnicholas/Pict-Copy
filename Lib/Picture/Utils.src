@@ -1,0 +1,34 @@
+\section{@Picture/Utils@: Picture Utilities}
+\label{s:Utils}
+
+##(ccode 0 I "##include <math.h>");
+
+#*val [#Rot utils:[
+#*make = /[Int /Rot]
+#*rotx = /[Int Int Rot /Int]
+#*roty = /[Int Int Rot /Int]
+#*]]
+#{#}
+= (
+
+val [#Rot] = [#Top]
+
+inline def make (a:Int) : Rot =
+  (ccode 0 P "({
+    double *rot = malloc(sizeof(double[2]));
+    double angle = ((double)# * 3.14159265358979323846) / 360;
+    rot[0] = sin(angle); rot[1] = cos(angle); (Val)rot;
+  })" a)
+
+{-
+ - We multiply a by (2*pi)/360 to convert to radians (the multiplication
+ - by 2 is achieved by omitting the coercion I(#) on x and y).
+ -}
+inline def rotx (x:Int y:Int rot:Rot) : Int =
+  (ccode 0 C "((double)# * ((double*)#)[1] - (double)# * ((double*)#)[0])"
+   x rot y rot)
+inline def roty (x:Int y:Int rot:Rot) : Int =
+  (ccode 0 C "((double)# * ((double*)#)[0] + (double)# * ((double*)#)[1])"
+   x rot y rot)
+
+[[make = make rotx = rotx roty = roty]])

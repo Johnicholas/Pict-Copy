@@ -1,0 +1,187 @@
+#!/bin/sh
+
+rm -f Config test.h config.h config.output
+touch Config test.h config.h config.output
+
+# Test for broken include files (SunOS)
+
+echo "#include <stdio.h>" > test.c
+echo "void main() { fprintf(stderr,\"hello\"); }" >> test.c
+if gcc -Wall -c test.c 2>config.output; then
+  if grep -q implicit config.output; then
+    echo "Some function prototypes seem to be missing"
+    echo "#define __USE_FIXED_PROTOTYPES__" > config.h
+  else
+    echo "Function prototypes seem to be ok"
+  fi
+else
+  echo "C compiler failed!"
+  exit 1
+fi
+
+# Check behaviour of / and %
+
+if sh ./runtest div.c; then
+  echo "/ and % operations round towards zero ok"
+else
+  echo "/ and % operations do not round towards zero!"
+  exit 1
+fi
+
+# Check type of sprintf
+
+if sh ./runtest sprintf.c; then
+  echo "Type of sprintf seems to be ok"
+else
+  echo "sprintf does not seem to return an integer"
+  echo "#define BAD_SPRINTF" > test.h
+  if sh ./runtest sprintf.c; then
+    cat test.h >> config.h
+    echo "Managed to work around problem with sprintf"
+  else
+    echo "No good version of sprintf could be found"
+    exit 1
+  fi
+fi
+
+# To find a good byte copy function
+
+echo "#include <string.h>" > test.h
+echo "#define COPY(d,s,l) memmove(d,s,l)" >> test.h
+if sh ./runtest bytecopy.c; then
+  cat test.h >> config.h
+  echo "Using memmove as byte copy function"
+else
+  echo "extern void bcopy (char *,char *,int);" > test.h
+  echo "#define COPY(d,s,l) bcopy(s,d,l)" >> test.h
+  if sh ./runtest bytecopy.c; then
+    cat test.h >> config.h
+    echo "Using bcopy as byte copy function"
+  else
+    echo "No good version of memmove or bcopy could be found:"
+    echo "the functions either do not exist or do not handle"
+    echo "overlapping moves correctly"
+    exit 1
+  fi
+fi
+
+# Check for POSIX signals
+
+if sh ./hasgot sigaction sigprocmask sigsuspend; then
+  echo "POSIX signals found"
+else
+  echo "No POSIX signals!"
+  exit 1
+fi
+
+# For the Sockets library
+
+if sh ./hasgot socket socketpair bind listen accept connect; then
+  echo "Found the sockets library"
+  X11EXTRA=""
+else
+  libs="-lnsl -lsocket"
+  export libs
+  if sh ./hasgot socket socketpair bind listen accept connect; then
+    echo "Found the sockets library (requires -lnsl -lsocket)"
+    X11EXTRA="-lnsl -lsocket"
+  else
+    echo "Unable to locate sockets library!"
+    exit 1
+  fi
+fi
+
+# Check for Asynchronous I/O
+
+if sh ./runtest async.c; then
+  echo "Asynchronous I/O seems to work"
+  echo "PICTASYNC = yes" >> Config
+else
+  echo "No working asynchronous I/O (will try to work around)"
+  echo "PICTASYNC = no" >> Config
+fi
+
+# Test non-blocking I/O on accept
+
+if sh ./runtest sockets.c; then
+  echo "O_NONBLOCK seems to work for accept"
+else
+  echo "O_NONBLOCK does not seem to work for accept"
+  echo "#define USE_NDELAY" > test.h
+  if sh ./runtest sockets.c; then
+    echo "Using O_NDELAY instead seems to work"
+    echo "#define USE_NDELAY" >> config.h
+  else
+    echo "Neither O_NONBLOCK nor O_NDELAY seem to work for accept"
+    exit 1
+  fi
+fi
+
+for dir in $X11INCLUDE \
+  /usr/X11R6/include /usr/X11R5/include /usr/X11R4/include \
+  /usr/include/X11R6 /usr/include/X11R5 /usr/include/X11R4 \
+  /usr/local/X11R6/include /usr/local/X11R5/include /usr/local/X11R4/include \
+  /usr/local/include/X11R6 /usr/local/include/X11R5 /usr/local/include/X11R4 \
+  /usr/X11/include /usr/include/X11 /usr/local/X11/include \
+  /usr/local/include/X11 /usr/X386/include /usr/x386/include \
+  /usr/XFree86/include/X11 /usr/include /usr/local/include \
+  /usr/unsupported/include /usr/athena/include /usr/local/x11r5/include \
+  /usr/lpp/Xamples/include /usr/openwin/include /usr/openwin/share/include \
+  /opt/X11R6/include /opt/X11R5/include /usr/local/share/X11R5/include
+do
+  if test -f $dir/X11/X.h; then
+    X11INCLUDE=$dir
+    break
+  fi
+done
+
+for dir in $X11LIB \
+  /usr/X11R6/lib /usr/X11R5/lib /usr/X11R4/lib \
+  /usr/lib/X11R6 /usr/lib/X11R5 /usr/lib/X11R4 \
+  /usr/local/X11R6/lib /usr/local/X11R5/lib /usr/local/X11R4/lib \
+  /usr/local/lib/X11R6 /usr/local/lib/X11R5 /usr/local/lib/X11R4 \
+  /usr/X11/lib /usr/lib/X11 /usr/local/X11/lib \
+  /usr/local/lib/X11 /usr/X386/lib /usr/x386/lib \
+  /usr/XFree86/lib/X11 /usr/lib /usr/local/lib \
+  /usr/unsupported/lib /usr/athena/lib /usr/local/x11r5/lib \
+  /usr/lpp/Xamples/lib /usr/openwin/lib /usr/openwin/share/lib \
+  /opt/X11R6/lib /opt/X11R5/lib /usr/local/lib/X11R5
+do
+  if test -f $dir/libX11.a || \
+     test -f $dir/libX11.so || \
+     test -f $dir/libX11.sa
+  then
+    X11LIB=$dir
+    break
+  fi
+done
+
+if test "$X11INCLUDE" = "" || test "$X11LIB" = ""; then
+  echo "Could not find X11 includes or libraries!"
+  echo "Please set X11INCLUDE and X11LIB in SiteSpecific"
+  exit 1
+else
+  echo "X11INCLUDE = $X11INCLUDE" >> Config
+  echo "X11LIB = $X11LIB" >> Config
+  echo "X11INCLUDE = $X11INCLUDE"
+  echo "X11LIB = $X11LIB"
+fi
+
+libs="-idirafter $X11INCLUDE -L$X11LIB -lX11 $X11EXTRA"
+export libs
+if sh ./runtest x11.c; then
+  echo "Successfully linked sample X11 program"
+  echo "X11EXTRA = $X11EXTRA" >>Config
+else
+  libs="-idirafter $X11INCLUDE -R$X11LIB -L$X11LIB -lX11 $X11EXTRA"
+  export libs
+  if sh ./runtest x11.c; then
+    echo "Successfully linked sample X11 program by using -R$X11LIB"
+    echo "X11EXTRA = -R$X11LIB $X11EXTRA" >>Config
+  else
+    echo "Failed to link sample X11 program"
+    exit 1
+  fi
+fi
+
+rm -f test hasgot.c test.h

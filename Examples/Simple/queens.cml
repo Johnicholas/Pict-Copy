@@ -1,0 +1,65 @@
+(*
+ * Count the number of solutions to the "n queens" problem.
+ *)
+
+fun foldl ([],f,v,r) = CML.send(r,v)
+  | foldl (h :: t,f,v,r) = let
+    val ch = CML.channel()
+  in
+    CML.spawn (fn () => f(h,v,ch));
+    foldl(t,f,CML.accept ch,r)
+  end
+
+fun sizeList (l,ch) = foldl (l,fn (_,v,ch) => CML.send(ch,v+1),0,ch)
+
+fun nqueens (size,ch) = let
+  fun safe (x,d,[],ch) = CML.send(ch,true)
+    | safe (x,d,q :: l,ch) =
+      if x <> q andalso x <> q+d andalso x <> q-d then
+	safe(x,d+1,l,ch)
+      else
+	CML.send(ch,false)
+
+  fun tryPosition (q,b,l,ch) =
+    if q = 0 then CML.send(ch,l) else
+      let
+	val r = CML.channel()
+      in
+	CML.spawn (fn () => safe(q,1,b,r));
+	if CML.accept r then
+	  tryPosition(q-1,b,(q :: b) :: l,ch)
+	else
+	  tryPosition(q-1,b,l,ch)
+      end
+
+  fun addSolution (b,l,ch) =
+    tryPosition(size,b,l,ch)
+
+  fun gen (0,ch) = CML.send(ch,[[]])
+    | gen (x,ch) =
+      let
+	val r = CML.channel()
+      in
+	CML.spawn(fn () => gen(x-1,r));
+	foldl(CML.accept r,addSolution,[],ch)
+      end
+  val r = CML.channel()
+in
+  CML.spawn(fn () => gen(size,r));
+  sizeList(CML.accept r,ch)
+end
+
+fun test x =
+  if x <= 10 then
+    let
+      val ch = CML.channel()
+    in
+      CML.spawn(fn () => nqueens(x,ch));
+      (CIO.print "nqueens["; CIO.print(makestring(x:int)); CIO.print "] = ";
+       CIO.print (makestring(CML.accept ch)); CIO.print "\n"; test (x+1))
+    end
+  else
+    ()
+
+fun top _ = RunCML.doit (fn () => test 0, SOME 20)
+

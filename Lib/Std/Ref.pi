@@ -1,0 +1,58 @@
+# line 1 "/home/pierce/pict/Lib/Std/Ref.src"
+
+
+  import "Std/Misc"
+
+  val [
+
+
+
+  #Ref = \X =
+    [get = /[/X] 
+     put = /[X Sig]]
+
+
+
+
+
+  ref:[
+
+
+
+  make = /[#X X /(Ref X)]
+
+
+
+
+  empty = /[#X /(Ref X)]
+
+
+
+
+
+
+    
+]] = (
+
+type (Ref X) =
+  [get = /[/X] 
+   put = /[X Sig]]
+
+def make (#X init:X):(Ref X) =
+  (new l:^X
+   run l!init
+   [get = \[r]   = l?x = (r!x | l!x) 
+    put = \[n c] = l?_ = (l!n | c![])])
+
+def empty (#X):(Ref X) =
+  (new l:^X
+   new full:^Bool
+   run full!false
+   [get = \[r] = l?x = (r!x | l!x) 
+    put = \[n c] = full?f =
+      if f then l?_ = (full!true | l!n | c![])
+      else (full!true | l!n | c![])])
+
+[#Ref [make=make empty=empty]]
+
+)

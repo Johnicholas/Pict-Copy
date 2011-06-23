@@ -1,0 +1,53 @@
+{-
+ - String and char functions.
+ -}
+
+import "Std/Char"
+
+def prS (s:String):[] = ((pr "\""); (pr s); (pr "\""))
+
+def testString (x:Int):String =
+  (val s = (string.make (char.fromInt (+ '@' x)) x)
+   if (<> (string.size s) x) then
+     (error.fatal "testString:\n  incorrect string length")
+   else
+     ((pr "  "); (prS s); (pr " "); (int.pr (string.hash s)); (nl); s))
+
+(prNL "Testing makeString and hashString...");
+val s0 = (testString 0)
+val s1 = (testString 1)
+val s2 = (testString 2)
+val s3 = (testString 3)
+val s4 = (testString 4)
+
+(prNL "\nTesting +$...");
+val s = (+$ > s0 s1 s2 s3 s4)
+(pr "  "); (prS s); (nl);
+
+(pr "\nTesting nthChar...\n  ");
+(char.pr (string.nth s4 3)); (pr " ");
+(char.pr (string.nth s3 2)); (pr " ");
+(char.pr (string.nth s2 1)); (pr " ");
+(char.pr (string.nth s1 0)); (nl);
+
+(pr "\nTesting inString...\n  ");
+(bool.pr (string.in s0 s)); (pr " ");
+(bool.pr (string.in s1 s)); (pr " ");
+(bool.pr (string.in s2 s)); (pr " ");
+(bool.pr (string.in s3 s)); (pr " ");
+(bool.pr (string.in s4 s)); (pr " ");
+(bool.pr (string.in "xx" s)); (nl);
+
+(pr "\nTesting subString...\n  \"");
+(pr (string.sub s 0 0)); (pr "\" \"");
+(pr (string.sub s 0 1)); (pr "\" \"");
+(pr (string.sub s 1 2)); (pr "\" \"");
+(pr (string.sub s 3 3)); (pr "\" \"");
+(pr (string.sub s 6 4)); (pr "\"\n");
+
+(pr "\nTesting tabulateString...\n  \"");
+(pr (string.tabulate 0 \(x) = (char.fromInt (+ 'A' x)))); (pr "\" \"");
+(pr (string.tabulate 1 \(x) = (char.fromInt (+ 'A' x)))); (pr "\" \"");
+(pr (string.tabulate 2 \(x) = (char.fromInt (+ 'A' x)))); (pr "\" \"");
+(pr (string.tabulate 3 \(x) = (char.fromInt (+ 'A' x)))); (pr "\" \"");
+(pr (string.tabulate 4 \(x) = (char.fromInt (+ 'A' x)))); (pr "\"\n");

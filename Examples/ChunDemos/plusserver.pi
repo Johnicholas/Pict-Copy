@@ -1,0 +1,63 @@
+import "Std/List"
+import "Posix/Args"
+import "Contrib/Chun"
+
+now (setHeapSize 1024)
+
+{-
+ - We get the port number for the local server, and the name and port
+ - of the remote server, from the command-line arguments.
+ -}
+
+val [intOpts strOpts _ _] =
+  (args.getOpts
+   (cons ["remotePort" "remotePort"] (cons ["port" "port"] (nil)))
+   (cons ["remoteHost" "remoteHost"] (nil))
+   (nil) exn.exit)
+
+val port =
+ (exn.try #String #Int \(h) = (intOpts "port" h)
+  \(_) = (error.fatal "You must specify a port number"))
+
+val remotePort =
+ (exn.try #String #Int \(h) = (intOpts "remotePort" h)
+  \(_) = (error.fatal "You must specify a remote port number"))
+
+val remoteHost =
+ (exn.try #String #String \(h) = (strOpts "remoteHost" h)
+  \(_) = (error.fatal "You must specify a remote host name"))
+
+{-
+ - We start the local server on the specified port.
+ -}
+
+val ch = (chun.start port exn.exit)
+
+{-
+ - A type descriptor which matches the type of integer addition.
+ -}
+
+val intOpTD = (td.triple td.int td.int (ch.rchanTD td.int))
+
+{-
+ - A simple server which adds numbers (registered with the nameserver
+ - under the name "add").
+ -}
+
+def add (i:Int j:Int):Int =
+  ((prNL (+$ > "Adding " ($$ i) " and " ($$ j))); (+ i j))
+
+(ch.register "add" intOpTD add);
+
+{-
+ - We assume that the other Pict program we are communicating with also
+ - has registered an "add" server, so we send it some numbers to add.
+ -}
+
+(int.for 0 50000 \(_) = []);
+
+val remoteAdd = (ch.lookup intOpTD remoteHost remotePort "add")
+(prNL (+$ "1 + 2 = " ($$ (remoteAdd 1 2))));
+(prNL (+$ "3 + 4 = " ($$ (remoteAdd 3 4))));
+(prNL (+$ "5 + 6 = " ($$ (remoteAdd 5 6))));
+(prNL (+$ "7 + 8 = " ($$ (remoteAdd 7 8))));

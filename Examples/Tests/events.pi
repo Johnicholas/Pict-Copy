@@ -1,0 +1,19 @@
+{-
+ - Test of the events library
+ -}
+
+import "Std/Events"
+
+def show [m:String i:Int] =  ((prNL (+$ m ($$ i))); ())
+
+val [h1Send h1] = (events.make #Int)
+val [h2Send h2] = (events.make #Int)
+
+run h1Send!77
+run h2Send!88
+
+run
+  events.sync!(events.choose
+    (events.read h1 \r:Int = show!["high-level event 1 = " r])
+    (events.read h2 \r:Int = show!["high-level event 2 = " r])
+  )

@@ -1,0 +1,15 @@
+{-
+ - UNIX process creation.
+ -}
+
+import "Posix/Proc"
+
+(prNL "Waiting for shell process to terminate"); (misc.flush);
+val x  = (proc.shell "echo Hello")
+(prNL (+$ "Shell exited normally: " (bool.toString (proc.exited x))));
+(prNL (+$ "Shell exit status: " ($$ (proc.exitStatus x))));
+
+(prNL "Waiting for shelle process to terminate"); (misc.flush);
+val y  = (proc.shelle "echo $XXXX" (cons "XXXX=1234" nil))
+(prNL (+$ "Shelle exited normally: " (bool.toString (proc.exited y))));
+(prNL (+$ "Shelle exit status: " ($$ (proc.exitStatus y))));

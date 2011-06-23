@@ -1,0 +1,276 @@
+# line 1 "/home/pierce/pict/Lib/Std/String.src"
+
+
+  import "Std/Char"
+  import "Std/Cmp"
+  import "Std/Prim"
+  import "Std/Misc"
+  import "Std/Bool"
+  import "Std/Exn"
+  import "Std/List"
+  import "Std/Int"
+
+
+
+
+
+
+
+  val string : [
+
+
+
+  make = /[Char Int /String]
+
+
+
+
+  tabulate = /[Int /[Int /Char] /String]
+
+
+
+
+
+  +$ = /[String String /String]
+
+
+
+
+  size = /[String /Int]
+
+
+
+
+  nth = /[String Int /Char]
+  unsafeNth = /[String Int /Char]
+
+
+
+
+
+
+
+  sub = /[String Int Int /String]
+
+
+
+
+
+
+
+
+  cmp = /[String String /Cmp]
+
+
+
+
+
+  ==$ = /[String String /Bool]
+  <>$ = /[String String /Bool]
+
+
+
+
+  >>$ = /[String String /Bool]
+  <<$ = /[String String /Bool]
+
+
+
+
+  >=$ = /[String String /Bool]
+  <=$ = /[String String /Bool]
+
+
+
+
+  in = /[String String /Bool]
+
+
+
+
+  prefix = /[String String /Bool]
+
+
+
+
+  indexIn = /[Char String Exn /Int]
+
+
+
+
+
+  occursIn = /[Char String /Bool]
+
+
+
+
+
+
+  hash = /[String /Int]
+
+
+  split = /[String String /(List String)]
+
+
+
+
+
+
+  toString = /[String /String]
+
+
+
+
+
+
+
+
+  fromList = /[(List Char) /String]
+
+
+
+
+
+
+  pr = /[String Sig]
+
+
+
+
+    
+] = (
+
+(ccode 0 I "##include <string.h>");
+
+inline def setNth (s:String x:Int c:Char):[] =
+   (ccode 0 E "S(#)[I(#)] = I(#);" s x c)
+
+val size = prim.size
+
+inline def make (c:Char n:Int) : String =
+  (val s = (prim.alloc (inc n))
+   (ccode 0 E "memset(S(#),I(#),I(#));" s c n);
+   (setNth s n '\000');
+   s)
+
+def tabulate (n:Int f:/[Int /Char]) : String =
+  (val s = (prim.alloc (inc n))
+   (int.for 0 (dec n) \(x) = (setNth s x (f x)));
+   (setNth s n '\000');
+   s)
+
+inline def nth (s:String n:Int) : Char =
+  ((error.check "String.nth" (&& (>= n 0) (<< n (size s))));
+   (ccode 0 P "intInt((Val)((unsigned char *)S(#))[I(#)])" s n))
+
+inline def unsafeNth (s:String n:Int) : Char =
+  ((error.assert "String.unsafeNth" (&& (>= n 0) (<< n (size s))));
+   (ccode 0 P "intInt((Val)((unsigned char *)S(#))[I(#)])" s n))
+
+def sub (s:String start:Int len:Int) : String =
+  ((error.check "String.sub"
+    (&& > (>= len 0) (>= start 0) (<= (+ start len) (size s))));
+   val sub = (prim.alloc (inc len))
+   (ccode 0 E "COPY(S(#),S(#)+I(#),I(#));" sub s start len);
+   (setNth sub len '\000');
+   sub)
+
+inline def stringCmp (s1:String s2:String) : Cmp =
+  (val sz1 = (size s1)  val sz2 = (size s2)
+   if (<< sz1 sz2) then cmp.LT
+   else if (>> sz1 sz2) then cmp.GT
+   else (ccode 0 P "intInt(memcmp(S(#),S(#),I(#)))" s1 s2 sz1))
+
+inline def <>$ (s:String t:String) : Bool = (cmp.ne (stringCmp s t))
+inline def >>$ (s:String t:String) : Bool = (cmp.gt (stringCmp s t))
+inline def <<$ (s:String t:String) : Bool = (cmp.lt (stringCmp s t))
+inline def >=$ (s:String t:String) : Bool = (cmp.ge (stringCmp s t))
+inline def <=$ (s:String t:String) : Bool = (cmp.le (stringCmp s t))
+
+inline def in (s:String t:String) : Bool =
+  (ccode 0 P "(strstr(S(#),S(#)) != NULL)" t s)
+
+inline def prefix (s:String t:String) : Bool =
+  (ccode 0 P "(strstr(S(#),S(#)) == S(#))" t s t)
+
+inline def indexIn (c:Char s:String fail:Exn) : Int =
+  (val f:CString = (ccode 0 P "(Val)memchr(S(#),I(#),I(#))" s c (size s))
+   if (prim.nullPtr f) then (exn.raise fail "indexIn")
+   else (ccode 0 C "intInt(((char*)#)-S(#))" f s))
+
+inline def occursIn (c:Char s:String) : Bool =
+  (ccode 0 P "(memchr(S(#),I(#),I(#)) != NULL)" s c (size s))
+
+inline def hash (s:String) : Int =
+  (ccode 0 P "({
+    int hash = 0; unsigned char *s = S(#); int size = I(#);
+    while (size--) hash = hash * 19 + *s++;
+    intInt(hash);
+   })" s (size s))
+
+def split (sep:String s:String) : (List String) =
+  (val sz = (size s)
+   def loop (start:Int x:Int) : (List String) =
+     if (== x sz) then
+       if (== start x) then nil
+       else (cons (sub s start (- x start)) nil)
+     else
+       (val c = (unsafeNth s x)
+        if (occursIn c sep) then
+          if (<> start x) then
+            (cons (sub s start (- x start)) (loop (inc x) (inc x)))
+          else
+            (loop (inc x) (inc x))
+        else
+          (loop start (inc x)))
+   (loop 0 0))
+
+def toString (s:String):String =
+  (def expand (s:String e:String i:Int j:Int):String =
+     if (<< i (size s)) then
+       (val c = (unsafeNth s i)
+        if (char.isPrint c) then
+          ((setNth e j c); (expand s e (inc i) (inc j)))
+        else if (== c '"') then
+          ((setNth e j '\\'); (setNth e (inc j) '"');
+           (expand s e (inc i) (+ j 2)))
+        else if (== c '\\') then
+          ((setNth e j '\\'); (setNth e (inc j) '\\');
+           (expand s e (inc i) (+ j 2)))
+        else if (== c '\n') then
+          ((setNth e j '\\'); (setNth e (inc j) 'n');
+           (expand s e (inc i) (+ j 2)))
+        else
+          (val h = (div c 100) val t = (div (mod c 100) 10) val u = (mod c 10)
+           (setNth e j '\\');
+           (setNth e (+ j 1) (char.unsafeFromInt (+ h '0')));
+           (setNth e (+ j 2) (char.unsafeFromInt (+ t '0')));
+           (setNth e (+ j 3) (char.unsafeFromInt (+ u '0')));
+           (expand s e (inc i) (+ j 4))))
+      else
+        ((setNth e j '\000'); (prim.shortenTo e j); e)
+  (expand s (prim.alloc (inc (* 4 (size s)))) 0 0))
+  
+def fromList (l:(List Char)): String =
+  (val sz = (list.size l)
+   val s = (prim.alloc (inc sz))
+   (list.itApply l \(x:Int c:Char):[] = (setNth s x c));
+   (setNth s sz '\000');
+   s)
+
+[make=make tabulate=tabulate +$ = prim.+$ size=size nth=nth
+ unsafeNth=unsafeNth sub=sub cmp=stringCmp ==$ = prim.==$ <>$ = <>$ >>$ = >>$
+ <<$ = <<$ >=$ = >=$ <=$ = <=$ in=in prefix=prefix
+ indexIn=indexIn occursIn=occursIn hash=hash
+ split=split toString=toString fromList=fromList pr=pr]
+)
+
+
+
+  val +$ = string.+$
+  val ==$ = string.==$
+  val <>$ = string.<>$
+  val >>$ = string.>>$
+  val <<$ = string.<<$
+  val >=$ = string.>=$
+  val <=$ = string.<=$

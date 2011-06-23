@@ -1,0 +1,21 @@
+{-
+ - Test picture references.
+ -}
+
+import "Picture/Picture"
+
+def toggle (init:Bool on:String off:String):Picture =
+  (new lock:^Bool
+   new update:^[Picture Sig]
+   run lock!init
+   val on = (picture.text on)
+   val off = (picture.text off)
+   val area = (picture.ref on update)
+   (picture.northwest
+    (picture.catchHit (picture.border 5 5 area)
+     \(_ _ _) = if (read lock) then ((update off); (write lock false))
+		else ((update on); (write lock true)))))
+
+val s = (picture.server "" "Ref")
+(s.open "Ref"
+ (picture.add (picture.spacer 0 0 70 50) (toggle true "On" "Off")));

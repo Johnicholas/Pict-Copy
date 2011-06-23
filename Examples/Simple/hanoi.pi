@@ -1,0 +1,30 @@
+{-
+ - The towers of Hanoi.
+ -}
+
+now (setHeapSize 512)
+
+def transfer (src:Char dest:Char spare:Char n:Int) : (List [Char Char]) =
+  if (== n 0) then
+    nil
+  else
+    (list.append (transfer src spare dest (dec n))
+     (cons [src dest] (transfer spare dest src (dec n))))
+
+(pr "Simple version: ");
+(int.pr (list.size (transfer 'A' 'B' 'C' 15)));
+(nl);
+
+def accum
+  (src:Char dest:Char spare:Char n:Int res:(List [Char Char])) :
+  (List [Char Char])
+ =
+  if (== n 0) then
+    res
+  else
+    (accum src spare dest (dec n)
+     (cons [src dest] (accum spare dest src (dec n) res)))
+
+(pr "Accumulating version: ");
+(int.pr (list.size (accum 'A' 'B' 'C' 15 nil)));
+(nl);

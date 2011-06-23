@@ -1,0 +1,15 @@
+{-
+ - Regression test: ensures that recursively-defined process
+ - definitions, some of which are closed, others of which have
+ - free variables, are compiled correctly.
+ -}
+
+new c:^[]
+def A [] = c?[] = ()
+
+def B [] = (C![] | D![])
+and C [] = ()
+and D [] = A![]
+  
+run B![]
+run A![]

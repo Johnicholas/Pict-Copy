@@ -1,0 +1,128 @@
+  0   f f t f f f f f f f f
+  1   f f t f f f f f f f f
+  2   f f t f f f f f f f f
+  3   f f t f f f f f f f f
+  4   f f t f f f f f f f f
+  5   f f t f f f f f f f f
+  6   f f t f f f f f f f f
+  7   f f t f f f f f f f f
+  8   f f t f f f f f f f f
+  9   f f t f f f f f t f f
+ 10   f f t f f f f f t f f
+ 11   f f t f f f f f t f f
+ 12   f f t f f f f f t f f
+ 13   f f t f f f f f t f f
+ 14   f f t f f f f f f f f
+ 15   f f t f f f f f f f f
+ 16   f f t f f f f f f f f
+ 17   f f t f f f f f f f f
+ 18   f f t f f f f f f f f
+ 19   f f t f f f f f f f f
+ 20   f f t f f f f f f f f
+ 21   f f t f f f f f f f f
+ 22   f f t f f f f f f f f
+ 23   f f t f f f f f f f f
+ 24   f f t f f f f f f f f
+ 25   f f t f f f f f f f f
+ 26   f f t f f f f f f f f
+ 27   f f t f f f f f f f f
+ 28   f f t f f f f f f f f
+ 29   f f t f f f f f f f f
+ 30   f f t f f f f f f f f
+ 31   f f t f f f f f f f f
+ 32   f f f f f f t f t f f
+ 33 ! f f f f t f t t f f f
+ 34 " f f f f t f t t f f f
+ 35 # f f f f t f t t f f f
+ 36 $ f f f f t f t t f f f
+ 37 % f f f f t f t t f f f
+ 38 & f f f f t f t t f f f
+ 39 ' f f f f t f t t f f f
+ 40 ( f f f f t f t t f f f
+ 41 ) f f f f t f t t f f f
+ 42 * f f f f t f t t f f f
+ 43 + f f f f t f t t f f f
+ 44 , f f f f t f t t f f f
+ 45 - f f f f t f t t f f f
+ 46 . f f f f t f t t f f f
+ 47 / f f f f t f t t f f f
+ 48 0 t f f t t f t f f f t
+ 49 1 t f f t t f t f f f t
+ 50 2 t f f t t f t f f f t
+ 51 3 t f f t t f t f f f t
+ 52 4 t f f t t f t f f f t
+ 53 5 t f f t t f t f f f t
+ 54 6 t f f t t f t f f f t
+ 55 7 t f f t t f t f f f t
+ 56 8 t f f t t f t f f f t
+ 57 9 t f f t t f t f f f t
+ 58 : f f f f t f t t f f f
+ 59 ; f f f f t f t t f f f
+ 60 < f f f f t f t t f f f
+ 61 = f f f f t f t t f f f
+ 62 > f f f f t f t t f f f
+ 63 ? f f f f t f t t f f f
+ 64 @ f f f f t f t t f f f
+ 65 A t t f f t f t f f t t
+ 66 B t t f f t f t f f t t
+ 67 C t t f f t f t f f t t
+ 68 D t t f f t f t f f t t
+ 69 E t t f f t f t f f t t
+ 70 F t t f f t f t f f t t
+ 71 G t t f f t f t f f t f
+ 72 H t t f f t f t f f t f
+ 73 I t t f f t f t f f t f
+ 74 J t t f f t f t f f t f
+ 75 K t t f f t f t f f t f
+ 76 L t t f f t f t f f t f
+ 77 M t t f f t f t f f t f
+ 78 N t t f f t f t f f t f
+ 79 O t t f f t f t f f t f
+ 80 P t t f f t f t f f t f
+ 81 Q t t f f t f t f f t f
+ 82 R t t f f t f t f f t f
+ 83 S t t f f t f t f f t f
+ 84 T t t f f t f t f f t f
+ 85 U t t f f t f t f f t f
+ 86 V t t f f t f t f f t f
+ 87 W t t f f t f t f f t f
+ 88 X t t f f t f t f f t f
+ 89 Y t t f f t f t f f t f
+ 90 Z t t f f t f t f f t f
+ 91 [ f f f f t f t t f f f
+ 92 \ f f f f t f t t f f f
+ 93 ] f f f f t f t t f f f
+ 94 ^ f f f f t f t t f f f
+ 95 _ f f f f t f t t f f f
+ 96 ` f f f f t f t t f f f
+ 97 a t t f f t t t f f f t
+ 98 b t t f f t t t f f f t
+ 99 c t t f f t t t f f f t
+100 d t t f f t t t f f f t
+101 e t t f f t t t f f f t
+102 f t t f f t t t f f f t
+103 g t t f f t t t f f f f
+104 h t t f f t t t f f f f
+105 i t t f f t t t f f f f
+106 j t t f f t t t f f f f
+107 k t t f f t t t f f f f
+108 l t t f f t t t f f f f
+109 m t t f f t t t f f f f
+110 n t t f f t t t f f f f
+111 o t t f f t t t f f f f
+112 p t t f f t t t f f f f
+113 q t t f f t t t f f f f
+114 r t t f f t t t f f f f
+115 s t t f f t t t f f f f
+116 t t t f f t t t f f f f
+117 u t t f f t t t f f f f
+118 v t t f f t t t f f f f
+119 w t t f f t t t f f f f
+120 x t t f f t t t f f f f
+121 y t t f f t t t f f f f
+122 z t t f f t t t f f f f
+123 { f f f f t f t t f f f
+124 | f f f f t f t t f f f
+125 } f f f f t f t t f f f
+126 ~ f f f f t f t t f f f
+127   f f t f f f f f f f f

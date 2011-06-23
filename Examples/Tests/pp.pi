@@ -1,0 +1,48 @@
+{-
+ - Tests pretty printing library.
+ -}
+
+import "Std/PP"
+
+val stdOut = (io.fdWr fd.stdOut)
+def test (br:Int pp:PP):[] = ((await (pp.format stdOut br 0)); (nl))
+
+val pp1 = (list.map (cons > "a" "bc" "def" nil) pp.string)
+
+(test 0
+ (pp.hbox
+  (pp.list pp1 start=(pp.string "{") before=(pp.string ",")
+   after=pp.null finish=(pp.string "}"))));
+
+(test 0 (pp.hbox pp1));
+(test 0 (pp.vbox pp1));
+(test 0 (pp.hvbox pp1));
+(test 1 (pp.hvbox pp1));
+
+def showSizes (n:PP):[] = (test 0 (pp.vbox (list.map n.sizes pp.int)))
+
+val pp2 = (pp.hvbox (cons > (pp.hbox pp1) (pp.hbox pp1) nil))
+(test 0 pp2); (test 1 pp2); (test 2 pp2); (showSizes pp2);
+
+val pp3 = (pp.hvbox (cons > (pp.vbox pp1) (pp.vbox pp1) nil))
+(test 0 pp3); (test 1 pp3); (test 2 pp3); (showSizes pp3);
+
+val pp4 = (pp.hvbox (cons > (pp.hvbox pp1) (pp.hvbox pp1) nil))
+(test 0 pp4); (test 1 pp4); (test 2 pp4); (showSizes pp4);
+
+val pp5 =
+  (list.map #String #PP
+   (cons > "a" "bc" "def" nil) \(s) = (pp.center 5 (pp.string s)))
+
+val pp6 =
+  (pp.hvbox
+   (pp.list pp5 start=(pp.string "{") before=(pp.string ",")
+    after=pp.null finish=(pp.string "}")))
+
+(test 0 pp6); (test 1 pp6); (test 2 pp6); (showSizes pp6);
+
+def f (pp:PP):[] = ((await (pp.format stdOut 0 10)); (nl))
+
+(f (pp.leftJustify 10 (pp.string "abc")));
+(f (pp.rightJustify 10 (pp.string "abc")));
+(f (pp.center 10 (pp.string "abc")));

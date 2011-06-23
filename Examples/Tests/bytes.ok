@@ -1,0 +1,8 @@
+Original contents:
+  Buff (size  5 bytes) =  65 65 65 65 65
+Now containing good data:
+  Buff (size  5 bytes) =  84 104 101 32 32
+After (copyBytes buff 1 2 buff 3)...
+  Buff (size  5 bytes) =  84 104 101 104 101
+After (copyBytes buff 0 2 buff 1)...
+  Buff (size  5 bytes) =  84 84 104 104 101

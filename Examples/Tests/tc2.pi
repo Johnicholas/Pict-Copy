@@ -1,0 +1,15 @@
+{-
+ - Regression test: ensures that types constructed using 'with' have
+ - the same meaning as the flattened out version.
+ -}
+
+type AB = [a=Int b=Int]
+type ABCD = (AB with c=Int d=Int)
+val [#R < ABCD] = [#[a=Int b=Int c=Int d=Int]]
+
+{-
+ - Checks that the typechecker correctly implements type equality up
+ - to alpha-conversion of bound type variables.
+ -}
+
+def test (f:[#S #T<S !T]) : [#T #S<T !S] = f

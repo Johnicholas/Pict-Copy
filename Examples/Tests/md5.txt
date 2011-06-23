@@ -1,0 +1,56 @@
+\sect{Introduction}
+
+Milner, Parrow, and Walker's \pic{}~\cite{Milner89,Milner91a} generalizes
+the channel-based communication of CCS and its relatives by allowing
+channels to be passed as data along other channels.  This extension
+introduces an element of {\em mobility}, enabling the specification and
+verification of concurrent systems with dynamically evolving communication
+topologies.  Channel mobility leads to a surprising increase in expressive
+power, yielding a calculus capable of describing a wide variety of
+high-level concurrent features while retaining a simple semantics and
+tractable algebraic theory.
+
+A similar combination of simplicity and expressiveness has made the
+$\lambda$-calculus both a popular object of theoretical investigation
+and an attractive basis for sequential programming language design.
+By analogy, then, one may wonder what kind of high-level
+programming language can be constructed from the \pic.  
+$$
+\frac{\mbox{ML, Haskell, \ldots}}{\lambda\mbox{-calculus}}
+=
+\frac{?}{\pi\mbox{-calculus}}
+$$
+A number of programming language designs have combined \pic-like
+communication with a functional core language, but none have gone so far as
+to take communication as the sole mechanism of computation.  The primary
+motivation of the Pict project, begun at the University of Edinburgh in
+1992, was to design and implement a high-level concurrent language purely
+in terms of the \pic{} primitives~\cite{PierceTurner:PictDefn,Pierce94b}.
+
+Compiling a language based solely on communicating processes raises
+challenging code generation problems.  To achieve acceptable
+performance for realistic applications, a \pic{} compiler must
+implement process creation, context switching, and communication on
+channels extremely efficiently, since these operations are the
+fundamental computational mechanism used in the \pic. Such operations
+are at least as pervasive as function calls in a functional language.
+
+Another goal of the Pict project was to explore the practical applicability
+of our earlier theoretical work on type systems for the
+\pic{}~\cite{PierceSangiorgi95,TurnerThesis} and on $\lambda$-calculus type
+systems with
+subtyping~\cite{PierceTurner92,HofmannPierce94,PierceSteffen95}.  In
+particular, in~\cite{PierceTurner92} we proposed a powerful combination
+of subtyping and polymorphism as a basis for statically typed
+object-oriented programming in functional languages; equipping Pict with a
+similar type system provides a testbed for experiments with statically
+typed concurrent objects.  Using such a powerful type system raises other
+important issues such as typechecking algorithms, efficiency of
+typechecking, and type inference.
+
+The questions motivating the Pict project, then, can be summarized as
+follows: (1) What is it like to program in the \pic?  What kind of
+high-level language can be built on it?  (2) What kinds of concurrent
+objects arise in this setting?  (3) Can the \pic\ be implemented
+efficiently?  (4) Can we design a practical type system for the \pic{}
+combining subtyping and higher-order polymorphism?

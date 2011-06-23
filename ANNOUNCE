@@ -1,0 +1,54 @@
+
+                         The Pict Programming Language
+                                       
+     _________________________________________________________________
+                                      
+   We are pleased to announce a new public release of Pict, a concurrent
+   programming language based on the pi-calculus.
+   
+   Pict is a language in the ML tradition, formed by adding a layer of
+   convenient syntactic sugar and a static type system to a tiny core.
+   The current release includes a Pict-to-C compiler, reference manual,
+   language tutorial, numerous libraries, and example programs.
+   
+   The core language - an asynchronous variant of Milner, Parrow, and
+   Walker's pi-calculus - has been used as a theoretical foundation for a
+   broad class of concurrent computations. The goal in Pict is to
+   identify high-level idioms that arise naturally when these primitives
+   are used to build working programs - idioms such as basic data
+   structures, protocols for returning results, higher-order programming,
+   selective communication, and concurrent objects. The type system
+   integrates a number of features found in recent work on theoretical
+   foundations for typed object-oriented languages: higher-order
+   polymorphism, simple recursive types, subtyping, and a powerful
+   partial type inference algorithm.
+   
+   Highlights of the new release include...
+     * a complete formal definition
+     * a separate compilation facility
+     * an expanded set of standard libraries
+     * a binary distribution for simpler installation on some common
+       architectures (a full source distribution is also available)
+     * numerous simplifications and generalizations from previous
+       releases.
+       
+   The current release of the compiler is available in both source and
+   binary form from:
+   
+     http://www.cs.indiana.edu/ftp/pierce/pict
+     
+   For the binary distribution, go to the subdirectory labeled pict-NNN
+   with the largest version number NNN and retrieve the file
+   pict-NNN.ARCH.tar.gz for an appropriate value of ARCH. To use the
+   binary distribution, you will need a unix workstation with the Gnu
+   make utility, the Gnu C compiler, and (for some of the demos) X11.
+   
+   For the source distribution, retrieve the file pict-NNN.tar.gz, with
+   the largest version number NNN. In addition to the tools listed above,
+   you will need the Objective CAML compiler, available from
+   ftp://ftp.inria.fr/pub/lang/caml-light.
+   
+     _________________________________________________________________
+                                      
+   Benjamin C. Pierce (pierce@cs.indiana.edu)
+   David N. Turner (dnt@dcs.gla.ac.uk)

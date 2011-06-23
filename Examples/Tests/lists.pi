@@ -1,0 +1,27 @@
+{-
+ - Lists.
+ -}
+
+val l1 = (list.make 10 7)
+val l2 = (list.tabulate #Int 1000 \(x) = x)
+
+(pr "List 1 (in  order): ");
+(list.apply l1 int.pr) ;
+(pr "\nList 1 (rev order): ");
+(list.revApply l1 int.pr) ;
+(pr "\nMax list 2 (in  order): ");
+(int.pr (list.fold l2 int.max 0));
+(pr "\nMax list 2 (rev order): ");
+(int.pr (list.revFold l2 int.max 0));
+(pr "\nSum list 2 (in  order): ");
+(int.pr (list.fold l2 + 0));
+(pr "\nSum list 2 (rev order): ");
+(int.pr (list.revFold l2 + 0));
+(nl);
+
+val l = (cons > "b" "c" "a" "b" "d" "5" "aa" nil)
+val ls = (list.sort l string.cmp false)
+val lsd = (list.sort l string.cmp true)
+(list.pr l   "Unsorted: " " " "\n" pr);
+(list.pr ls  "Sorted:   " " " "\n" pr);
+(list.pr lsd "Unique:   " " " "\n" pr);

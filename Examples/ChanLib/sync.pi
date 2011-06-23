@@ -1,0 +1,39 @@
+{-
+ - A simple library for synchronous channels.
+ -
+ - The types CSync and OSync match the asynchronous
+ - types ^ and ! respectively.
+ -}
+
+type (OSync X) = ![X Sig]
+type (Sync X) = ^[X Sig]
+
+def newSync (#X) : (Sync X) = (new ch:^[X Sig] ch)
+
+{- If we leaves the types opaque, we don't need to use outSync -}
+def outSync (#X ch:(OSync X) x:X) : [] = (ch x)
+
+def inSync (#X ch:(Sync X)) : X = (
+  val [x ack] = (read ch)
+  run ack![]
+  x
+)
+
+{-
+ - A simple test.
+ -}
+
+val ch = (newSync #Int)
+
+def loop x:Int = (
+  (prNL (+$ "Attempted to send " ($$ x)));
+  (outSync ch x);
+  (prNL (+$ "Succeeded in sending " ($$ x)));
+  loop!(inc x)
+)
+
+run loop!0
+
+(prNL (+$ "Received " ($$ (inSync ch))));
+(prNL (+$ "Received " ($$ (inSync ch))));
+(prNL (+$ "Received " ($$ (inSync ch))));

@@ -1,0 +1,187 @@
+# line 1 "/home/pierce/pict/Lib/Std/Misc.src"
+
+
+  val [
+
+
+
+  #Sig = /[]
+
+
+
+
+
+
+  misc:[
+
+
+
+  fst = /[#X [X] /X]
+  snd = /[#X #Y [X Y] /Y]
+  thd = /[#X #Y #Z [X Y Z] /Z]
+
+
+
+
+
+
+
+
+
+  chan = /[#X /^X]
+
+
+
+
+  read = /[#X ?X /X]
+
+
+
+
+  write = /[#X !X X Sig]
+
+
+
+
+  forward = /[#X ?X /X]
+
+
+
+
+
+  rchan = /[#X !X //X]
+
+
+
+
+
+
+
+  discard = /[#X //X]
+
+
+
+
+
+
+
+
+  await = /[#X X /[]]
+
+
+
+
+
+
+  compose = /[#X #Y #Z /[Y /Z] /[X /Y] //[X /Z]]
+
+
+
+
+
+
+
+
+
+
+
+  pr = /[String Sig]
+
+
+
+
+  prNL = /[String Sig]
+
+
+
+
+  nl = /[Sig]
+
+
+  prErr = /[String Sig]
+
+
+
+
+  prErrNL = /[String Sig]
+
+
+
+
+  nlErr = /[Sig]
+
+
+  flush = /[Sig]
+
+
+  print = /String
+  printi = /Int
+
+
+
+
+
+
+
+    
+]] = (
+
+type Sig = /[]
+
+inline def fst (#X [x:X]) : X = x
+inline def snd (#X #Y [_:X y:Y]) : Y = y
+inline def thd (#X #Y #Z [_:X _:Y z:Z]) : Z = z
+inline def chan (#X) : ^X = (new x:^X x)
+inline def read [#X c:?X res:/X] = c?v = res!v
+def forward [#X c:?X to:/X] = c?v = (to!v | forward![c to])
+inline def write [#X c:!X v:X res:/[]] = ( c!v | res![] )
+def rchan (#X r:!X) : /X = \v:X = r!v
+inline def discard (#X) : /X = \_ = ()
+inline def await (#X _:X) : [] = []
+inline def compose (#X #Y #Z g:/[Y /Z] f:/[X /Y]) : /[X /Z] = \(x) = (g (f x))
+
+inline def pr (s:String) : [] = (ccode 0 E "fputs(S(#),stdout);" s)
+inline def prNL (s:String) : [] =
+  (ccode 0 E "fputs(S(#),stdout); fputs(\"\\n\",stdout);" s)
+inline def nl () : [] = (pr "\n")
+inline def prErr (s:String) : [] = (ccode 0 E "fputs(S(#),stderr);" s)
+inline def prErrNL (s:String) : [] =
+  (ccode 0 E "fputs(S(#),stderr); fputs(\"\\n\",stderr);" s)
+inline def nlErr () : [] = (prErr "\n")
+inline def flush () : [] = (ccode 0 E "fflush(stdout);")
+inline def print s:String = ((pr s); (pr "\n"); (flush); ())
+inline def printi i:Int = ((ccode 0 E "printf(\"%ld\\n\",(Val)I(#));" i); ())
+{-
+ - We should be able to just do fflush(NULL) to flush all open streams,
+ - but SunOS doesn't implement that functionality.  We therefore just
+ - flush stdout (there is no need to flush stderr since it is unbuffered).
+ -}
+
+[#Sig
+ [fst=fst snd=snd thd=thd chan=chan read=read write=write forward=forward 
+  rchan=rchan discard=discard await=await compose=compose pr=pr prNL=prNL 
+  nl=nl prErr=prErr prErrNL=prErrNL nlErr=nlErr flush=flush print=print 
+  printi=printi]]
+)
+
+
+
+  val fst = misc.fst
+  val snd = misc.snd
+  val thd = misc.thd
+  val chan = misc.chan
+  val read = misc.read
+  val write = misc.write
+  val forward = misc.forward
+  val rchan = misc.rchan
+  val discard = misc.discard
+  val await = misc.await
+  val compose = misc.compose
+  val pr = misc.pr
+  val prNL = misc.prNL
+  val nl = misc.nl
+  val prErr = misc.prErr
+  val prErrNL = misc.prErrNL
+  val nlErr = misc.nlErr
+  val print = misc.print
+  val printi = misc.printi

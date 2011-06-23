@@ -1,0 +1,34 @@
+{-
+ - Bytearrays.
+ -}
+
+import "Std/Bytes"
+
+val buff = (bytes.make 'A' 5)
+
+def show ():[] = (
+  val size = (bytes.size buff)
+  (pr (+$ > "  Buff (size  " ($$ size) " bytes) = "));
+  (int.for 0 (dec size) \(i) =
+   (pr (+$ " " ($$ (bytes.nth buff i)))));
+  (nl)
+)
+
+(prNL "Original contents:");
+(show);
+
+(prNL "Now containing good data:");
+(bytes.update buff 0 'T');
+(bytes.update buff 1 'h');
+(bytes.update buff 2 'e');
+(bytes.update buff 3 ' ');
+(bytes.update buff 4 ' ');
+(show);
+
+(prNL "After (copyBytes buff 1 2 buff 3)...");
+(bytes.copy src=buff srcIdx=1 len=2 dst=buff dstIdx=3);
+(show);
+
+(prNL "After (copyBytes buff 0 2 buff 1)...");
+(bytes.copy src=buff srcIdx=0 len=2 dst=buff dstIdx=1);
+(show);

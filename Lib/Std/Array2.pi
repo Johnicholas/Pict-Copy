@@ -1,0 +1,205 @@
+# line 1 "/home/pierce/pict/Lib/Std/Array2.src"
+
+
+  import "Std/Array"
+  import "Std/Bool"
+  import "Std/List"
+  import "Std/Misc"
+
+  val [
+
+
+
+  #Array2 : (Type -> Type)
+
+
+
+
+
+  array2:[
+
+
+
+  empty = /[#X /(Array2 X)] 
+
+
+
+
+
+  make = /[#X X Int Int /(Array2 X)] 
+
+
+
+
+
+
+  tabulate = /[#X Int Int /[Int Int /X] /(Array2 X)] 
+
+
+
+
+
+
+
+
+  fromList = /[#X (List(List X)) /(Array2 X)] 
+
+
+
+
+
+
+
+
+  size = /[#X (Array2 X) /[Int Int]] 
+
+
+
+
+  nth = /[#X (Array2 X) Int Int /X] 
+  unsafeNth = /[#X (Array2 X) Int Int /X] 
+
+
+
+
+
+
+
+
+
+  update = /[#X (Array2 X) Int Int X Sig] 
+  unsafeUpdate = /[#X (Array2 X) Int Int X Sig] 
+
+
+
+
+
+
+
+  reset = /[#X (Array2 X) X Sig] 
+
+
+
+
+  rotate = /[#X (Array2 X) Int Int Sig]
+
+
+
+
+
+
+
+
+
+  fold = /[#X #Y (Array2 X) /[Int Int X Y /Y] Y /Y] 
+  revFold = /[#X #Y (Array2 X) /[Int Int X Y /Y] Y /Y] 
+
+
+
+
+
+
+
+  apply = /[#X (Array2 X) /[Int Int X Sig] Sig] 
+  revApply = /[#X (Array2 X) /[Int Int X Sig] Sig] 
+
+
+
+
+
+
+  map = /[#X (Array2 X) /[Int Int X /X] Sig] 
+  revMap = /[#X (Array2 X) /[Int Int X /X] Sig] 
+
+
+
+
+
+
+
+    
+]]
+= (
+
+type (Array2 X) = (Array (Array X))
+
+def empty (#X) : (Array2 X) = (array.empty #(Array X)){-HACK-}
+
+def make (#X x:X w:Int h:Int) : (Array2 X) =
+  ((error.check "array2.make: negative size" (&& (>= w 0) (>= h 0)));
+   (array.tabulate #(Array X) w \(_) = (array.make #X x h)))
+
+def tabulate (#X w:Int h:Int init:/[Int Int /X]) : (Array2 X) =
+  ((error.check "array2.tabulate: negative size" (&& (>= w 0) (>= h 0)));
+   (array.tabulate #(Array X) w
+    \(x) = (array.tabulate #X h \(y) = (init x y))))
+
+def fromList (#X l:(List(List X))) : (Array2 X) =
+  (val width = (list.size l)
+   val height = if (== width 0) then 0 else (list.size (car l))
+   def makeColumn (column:(List X)):(Array X) =
+     ((error.check "array2.fromList: sub-lists have different lengths"
+       (== (list.size column) height));
+      (array.fromList column))
+   (array.fromList (list.map l makeColumn)))
+
+def size (#X a:(Array2 X)) : [Int Int] =
+  if (== (array.size a) 0) then [0 0]
+  else [(array.size a) (array.size (array.nth a 0))]
+
+inline def nth (#X a:(Array2 X) x:Int y:Int) : X =
+  (array.nth (array.nth a x) y)
+
+inline def unsafeNth (#X a:(Array2 X) x:Int y:Int) : X =
+  (array.unsafeNth (array.unsafeNth a x) y)
+
+inline def update (#X a:(Array2 X) x:Int y:Int v:X) : [] =
+  (array.update (array.nth a x) y v)
+
+inline def unsafeUpdate (#X a:(Array2 X) x:Int y:Int v:X) : [] =
+  (array.unsafeUpdate (array.unsafeNth a x) y v)
+
+def reset (#X a:(Array2 X) x:X) : [] =
+  (array.apply #(Array X) a \(_ col) = (array.reset col x))
+
+def rotate (#X a:(Array2 X) dx:Int dy:Int) : [] =
+  ((array.apply #(Array X) a \(_ col) = (array.rotate col dy));
+   (array.rotate a dx))
+
+def fold (#X #Y a:(Array2 X) f:/[Int Int X Y /Y] init:Y) : Y =
+  (def fCol (x:Int col:(Array X) acc:Y):Y =
+     (array.fold col \(y:Int v:X acc:Y):Y = (f x y v acc) acc)
+   (array.fold a fCol init))
+
+def revFold (#X #Y a:(Array2 X) f:/[Int Int X Y /Y] init:Y) : Y =
+  (def fCol (x:Int col:(Array X) acc:Y):Y =
+     (array.revFold col \(y:Int v:X acc:Y):Y = (f x y v acc) acc)
+   (array.revFold a fCol init))
+
+def apply (#X a:(Array2 X) f:/[Int Int X Sig]) : [] =
+  (def fCol (x:Int col:(Array X)):[] =
+     (array.apply col \(y:Int v:X):[] = (f x y v))
+   (array.apply a fCol))
+
+def revApply (#X a:(Array2 X) f:/[Int Int X Sig]) : [] =
+  (def fCol (x:Int col:(Array X)):[] =
+     (array.revApply col \(y:Int v:X):[] = (f x y v))
+   (array.revApply a fCol))
+
+def map (#X a:(Array2 X) f:/[Int Int X /X]) : [] =
+  (def fCol (x:Int col:(Array X)):[] =
+     (array.map col \(y:Int v:X):X = (f x y v))
+   (array.apply a fCol))
+
+def revMap (#X a:(Array2 X) f:/[Int Int X /X]) : [] =
+  (def fCol (x:Int col:(Array X)):[] =
+     (array.revMap col \(y:Int v:X):X = (f x y v))
+   (array.revApply a fCol))
+
+[#Array2
+ [empty=empty make=make tabulate=tabulate fromList=fromList size=size
+  nth=nth unsafeNth=unsafeNth update=update unsafeUpdate=unsafeUpdate
+  reset=reset rotate=rotate fold=fold revFold=revFold apply=apply
+  revApply=revApply map=map revMap=revMap]]
+
+)

@@ -1,0 +1,6 @@
+#!/bin/sh
+echo "main() {" > test.c
+(for f in $*; do echo "  $f();"; done) >> test.c
+echo "}" >> test.c
+echo hasgot $* $libs >>config.output
+exec gcc -o test test.c $libs 2>>config.output

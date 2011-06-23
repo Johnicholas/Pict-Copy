@@ -1,0 +1,48 @@
+{-
+ - A simple implementation of Reppy-style events.
+ - Unfortunately, this implementation has a space leak.
+ -
+ - The types CChan and OChan match the asynchronous
+ - types ^ and ! respectively.
+ -}
+
+type (OChan X) = !X
+type (Chan X) = ^X
+
+def newEventChan (#X) : (Chan X) = (new ch:^X ch)
+
+def outChan [#X ch:(OChan X) x:X] = ch!x
+
+type Event = !^Bool
+
+val nullEvent : Event =
+  \lock = ()
+
+def chooseEvent (e1:Event e2:Event) : Event =
+  \lock = (e1!lock | e2!lock)
+
+def receiveEvent (#X ch:(Chan X) receiver:!X) : Event =
+  \lock = ch?x = lock?b =
+   if b then (lock!true | ch!x) else (lock!true | receiver!x)
+
+def sync e:Event = (new l:^Bool (e!l | l!false))
+
+{-
+ - A simple test.
+ -}
+
+def show (m:String):/Int =
+  \x = ((pr (+$ > "Received " ($$ x) m)); ())
+
+val c1 = (newEventChan #Int)
+val c2 = (newEventChan #Int)
+
+run (outChan![c1 77] | outChan![c1 77] | outChan![c1 77] | outChan![c1 77])
+run (outChan![c2 88] | outChan![c2 88] | outChan![c2 88] | outChan![c2 88])
+
+val e1 = (receiveEvent c1 (show " from c1\n"))
+val e2 = (receiveEvent c2 (show " from c2\n"))
+
+run sync!(chooseEvent > nullEvent e1 e2)
+run sync!(chooseEvent > e2 e2 nullEvent)
+run sync!(chooseEvent > e2 e1)

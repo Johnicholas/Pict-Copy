@@ -1,0 +1,6 @@
+"*" "Hello" -> true
+"[A-Z]*.pi" "Hello.pi" -> true
+"[a-z]*.pi" "Hello.pi" -> false
+"*[0-9]*" "A 267 number" -> true
+"??[0-9]*" "A 267 number" -> true
+"?[0-9]*" "A 267 number" -> false

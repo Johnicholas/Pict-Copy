@@ -1,0 +1,100 @@
+# line 1 "/home/pierce/pict/Lib/Std/Bool.src"
+
+
+  import "Std/Misc"
+  import "Std/Prim"
+  import "Std/Exn"
+
+  val bool : [
+
+
+
+
+
+
+
+
+  &&  = /[Bool Bool /Bool]
+  ||  = /[Bool Bool /Bool]
+  xor = /[Bool Bool /Bool]
+  not = /[Bool /Bool]
+
+
+
+
+
+
+  while = /[/[/Bool] /[Sig] Sig]
+  until = /[/[Sig] /[/Bool] Sig]
+
+
+
+
+
+
+
+  fromString = /[String Exn /Bool]
+
+
+
+
+
+
+  toString = /[Bool /String]
+
+
+  fromInt = /[Int /Bool]
+
+
+
+
+
+  toInt = /[Bool /Int]
+
+
+
+
+
+
+
+  pr = /[Bool Sig]
+
+
+    
+]= (
+
+inline def && (a:Bool b:Bool):Bool = (ccode 0 C "(# & #)" a b)
+inline def || (a:Bool b:Bool):Bool = (ccode 0 C "(# | #)" a b)
+inline def xor (a:Bool b:Bool):Bool = (ccode 0 C "(# ^ #)" a b)
+inline def not (b:Bool):Bool = (ccode 0 C "(# ^ 1)" b)
+
+def while (b:/[/Bool] f:/[Sig]):[] =
+  if (b) then ((f); (while b f)) else []
+def until (f:/[Sig] b:/[/Bool]):[] =
+  ((f); if (not(b)) then (until f b) else [])
+
+inline def fromString (s:String fail:Exn):Bool =
+  if (prim.==$ s "true") then true
+  else if (prim.==$ s "false") then false
+  else (exn.raise fail "bool.toString")
+
+inline def toString (b:Bool):String = if b then "true" else "false"
+
+inline def fromInt (x:Int):Bool = (prim.<> x 0)
+inline def toInt (b:Bool):Int = if b then 1 else 0
+
+inline def pr (b:Bool):[] = (misc.pr (toString b))
+
+[&& = && || = || xor=xor not=not while=while until=until fromString=fromString
+ toString=toString fromInt=fromInt toInt=toInt pr=pr]
+
+)
+
+
+
+  val &&    = bool.&&
+  val ||    = bool.||
+  val xor   = bool.xor
+  val not   = bool.not
+  val while = bool.while
+  val until = bool.until

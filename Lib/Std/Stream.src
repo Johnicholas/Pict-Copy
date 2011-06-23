@@ -1,0 +1,71 @@
+\section{@Std/Stream@: Streams}
+\label{s:Stream}
+
+##import "Std/Cmp"
+##import "Std/Error"
+
+##val [
+
+\subsection{Types}
+
+#*#Stream = \X = ![/[] /X]
+\begin{doc}
+We can interrogate a stream of type @(Stream X)@ by sending it a pair of
+channels @[e r]@.  The stream will signal on @e@ if it is empty, or return
+a value of type @X@ along @r@ if it is non-empty.
+\end{doc}
+
+##stream:[
+
+\subsection{Operations}
+
+#*isEmpty = /[#X (Stream X) /Bool]
+\begin{doc}
+@(isEmpty s)@ tests whether the stream @s@ is empty.
+\end{doc}
+
+#*get = /[#X (Stream X) /X]
+\begin{doc}
+@(get s)@ gets the next element of the stream @s@ (generating a runtime
+error if @s@ is empty).
+\end{doc}
+
+#*append = /[#X (Stream X) (Stream X) /(Stream X)]
+\begin{doc}
+@(append s1 s2)@ appends the streams @s1@ and @s2@.
+\end{doc}
+
+\subsection{Comparison}
+
+#*cmp = /[#X (Stream X) (Stream X) /[X X /Cmp] /Cmp]
+\begin{doc}
+@(cmp s1 s2 f)@ returns a single value indicating the ordering of @s1@ and
+@s2@.
+\end{doc}
+
+#{#}
+]] = (
+
+type (Stream X) = ![/[] /X]
+
+def isEmpty (#X s:(Stream X)) : Bool =
+  (def empty [r:/Bool] = s![\[] = r!true \_ = r!false]  (empty))
+
+def get (#X s:(Stream X)) : X =
+  (s \[] = error.fail!"getStream: empty stream")
+
+def append (#X s1:(Stream X) s2:(Stream X)) : (Stream X) =
+  \[e r] = s1![\[] = s2![e r]  \x = r!x]
+
+def cmpStream (#X s1:(Stream X) s2:(Stream X) f:/[X X /Cmp]) : Cmp =
+  (def loop [r:/Cmp] =
+     s1![\[] = s2![\[] = r!cmp.EQ
+                   \_  = r!cmp.LT]
+         \x1 = s2![\[] = r!cmp.GT
+                   \x2 = (val c = (f x1 x2)
+                          if (cmp.eq c) then loop![r] else r!c)]]
+   (loop))
+
+[#Stream [isEmpty=isEmpty get=get append=append cmp=cmpStream]]
+
+)

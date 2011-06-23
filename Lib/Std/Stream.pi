@@ -1,0 +1,72 @@
+# line 1 "/home/pierce/pict/Lib/Std/Stream.src"
+
+
+
+  import "Std/Cmp"
+  import "Std/Error"
+
+  val [
+
+
+
+  #Stream = \X = ![/[] /X]
+
+
+
+
+
+
+  stream:[
+
+
+
+  isEmpty = /[#X (Stream X) /Bool]
+
+
+
+
+  get = /[#X (Stream X) /X]
+
+
+
+
+
+  append = /[#X (Stream X) (Stream X) /(Stream X)]
+
+
+
+
+
+
+  cmp = /[#X (Stream X) (Stream X) /[X X /Cmp] /Cmp]
+
+
+
+
+
+    
+]] = (
+
+type (Stream X) = ![/[] /X]
+
+def isEmpty (#X s:(Stream X)) : Bool =
+  (def empty [r:/Bool] = s![\[] = r!true \_ = r!false]  (empty))
+
+def get (#X s:(Stream X)) : X =
+  (s \[] = error.fail!"getStream: empty stream")
+
+def append (#X s1:(Stream X) s2:(Stream X)) : (Stream X) =
+  \[e r] = s1![\[] = s2![e r]  \x = r!x]
+
+def cmpStream (#X s1:(Stream X) s2:(Stream X) f:/[X X /Cmp]) : Cmp =
+  (def loop [r:/Cmp] =
+     s1![\[] = s2![\[] = r!cmp.EQ
+                   \_  = r!cmp.LT]
+         \x1 = s2![\[] = r!cmp.GT
+                   \x2 = (val c = (f x1 x2)
+                          if (cmp.eq c) then loop![r] else r!c)]]
+   (loop))
+
+[#Stream [isEmpty=isEmpty get=get append=append cmp=cmpStream]]
+
+)

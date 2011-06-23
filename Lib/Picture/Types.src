@@ -1,0 +1,136 @@
+\section{@Picture/Types@: Picture Interface Types}
+\label{s:Types}
+
+##import "X11/Xlib"
+##import "Picture/Utils"
+
+The @Picture@ type is unimportant unless you wish to create
+your own picture primitives.
+
+\subsection{Resource Manager}
+
+#*type ResourceManager = [
+
+#*newFont = /[String Exn /Font]
+\begin{doc}
+@(newFont n h)@ allocates the font named @n@, calling the given error
+handler @h@ if the font could not be found.  @newFont@ caches the results
+of font lookups (to avoid the long delays caused by repeatedly querying the
+X server).
+\end{doc}
+
+#*newColor = /[String Exn /Color]
+#*newColorRGB = /[Int Int Int (Handler [Int Int Int]) /Color]
+\begin{doc}
+@(newColor n h)@ allocates the color named @n@, calling the given error
+handler @h@ if the color could not be found.  @newColor@ caches the results
+of color lookups.  @(newColorRGB r g b h)@ behaves similarly, except that the
+required color is specified as a triple of RGB intensities (in the range
+@0@ to @65535@).
+\end{doc}
+
+#*resource = /[String Exn /String]
+\begin{doc}
+@(resource n h)@ looks up the resource name @n@ in the resource database,
+calling the given error handler if no matching resource could be found.  It
+first searches the \verb+RESOURCE_MANAGER+ string, and if it cannot find a
+matching entry it searches the application-specific default resources
+(which are specified we open a connection to the server using
+@initResourceManager@).
+\end{doc}
+
+#*colorResource = /[String String /Color]
+\begin{doc}
+Looks up the resource name @res@ in the resource database.  If a matching
+resource is found, we attempt to load that color.  If no matching resource
+is found or if the color specified in the resource cannot be loaded, we
+load the color @default@ and return that instead (in this case, if
+@default@ is not a valid color name we generate a runtime error).
+\end{doc}
+
+#*fontResource = /[String String /Font]
+\begin{doc}
+Looks up the resource name @res@ in the resource database.  If a matching
+resource is found, we attempt to load that font.  If no matching resource
+is found or if the font specified in the resource cannot be loaded, we
+load the font @default@ and return that instead (in this case, if
+@default@ is not a valid font name we generate a runtime error).
+\end{doc}
+
+#*intResource = /[String Int /Int]
+\begin{doc}
+Looks up the resource name @res@ in the resource database.  If a matching
+resource is found, we attempt to convert the resource string to an integer.
+If no matching resource is found or the string specified in the resource is
+not an integer, we return default value @x@.
+\end{doc}
+
+#*boolResource = /[String Bool /Bool]
+\begin{doc}
+Looks up the resource name @res@ in the resource database.  If a matching
+resource is found, we attempt to convert the resource string to a boolean.
+If no matching resource is found or the string specified in the resource is
+not a boolean, we return default value @b@.
+\end{doc}
+
+#*]
+
+\subsection{Contexts}
+
+#*type CX =
+#*  (ResourceManager with
+#*   display = Display
+#*   screen  = ScreenNum
+#*   root    = Window
+#*   window  = Window
+#*   font = Font
+#*   fg = Color
+#*   bg = Color
+#*   gc = GC
+#*   useGc   = /[/[GC Sig] Sig]
+#*   quit    = ![]
+#*   changed = ![])
+
+\subsection{Boundaries}
+
+#*type Bounds = [Int Int Int Int]
+
+\subsection{Methods}
+
+#*type (M I R) =
+#*  [constant = Bool
+#*   reconfigure = /[I R CX /R]
+#*   delete = /[R Sig]
+#*   boundary = /[R /Bounds] {- Combine with init method -}
+#*   move = /[R Int Int /R]
+#*   scale = /[R Int Int Int Int /R]
+#*   rotate = /[R Rot /R]
+#*   rot90 = /[R /R]
+#*   rot180 = /[R /R]
+#*   rot270 = /[R /R]
+#*   button = /[R CX Int Int Button Bool Int /Bool]
+#*   render = /[R CX Sig]
+#*   init = /[I CX /R]]
+
+\subsection{Pictures}
+
+#*type Picture = [#I #R (M I R) I]
+\begin{doc}
+Values of type @Picture@ may be scaled, moved, rotated, or rendered
+(onto some X window or pixmap).  We also provide various operators for
+building composite pictures.
+\end{doc}
+
+#*type Active = [#I #R (M I R) I R]
+
+\subsection{Servers}
+
+#*type Controller =
+#*  [map   = /[Sig]
+#*   unmap = /[Sig]
+#*   quit  = /[Sig]]
+
+#*type Server =
+#*  (ResourceManager with
+#*   open = /[String Picture Sig]
+#*   openControlled = /[String Picture /Controller])

@@ -1,0 +1,213 @@
+# line 1 "/home/pierce/pict/Lib/X11/Xrm.src"
+
+
+  import "Std/Misc"
+  import "Std/Exn"
+  import "X11/Xlib"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  val [
+
+  #XrmDatabase
+
+
+  xrm:[
+
+
+
+  initialize = /[Sig]
+
+
+
+
+
+  string = /[Display Exn /String]
+
+
+
+
+
+
+  getDatabase = /[Display Exn /XrmDatabase]
+
+
+
+
+
+  fromString = /[String /XrmDatabase]
+
+
+
+
+
+
+  destroy = /[XrmDatabase Sig]
+
+
+  combine = /[XrmDatabase XrmDatabase Bool /XrmDatabase]
+
+
+
+
+
+
+
+  getResource = /[XrmDatabase String String /(Opt String)]
+
+
+
+
+
+    
+]] = (
+
+(ccode 0 I "##include <X11/Xlib.h>");
+(ccode 0 I "##include <X11/Xresource.h>");
+
+inline def initialize () : [] =
+  (ccode 0 E "XrmInitialize();")
+
+inline def string (d:Display fail:Exn) : String =
+  (val cs:CString = (ccode 0 R "(Val)XResourceManagerString(D(#))" d)
+   if (prim.nullPtr cs) then (exn.raise fail "xResourceManagerString")
+   else (prim.fromCString cs))
+
+val [#XrmDatabase] = [#Top]
+
+inline def getDatabase (d:Display fail:Exn) : XrmDatabase =
+  (val db:XrmDatabase = (ccode 0 R "(Val)XrmGetDatabase(D(#))" d)
+   if (prim.nullPtr db) then (exn.raise fail "xrmGetDatabase")
+   else db)
+
+inline def fromString (s:String) : XrmDatabase =
+  (ccode 0 P "(Val)XrmGetStringDatabase(S(#))" s)
+
+inline def destroy (db:XrmDatabase) : [] =
+  (ccode 0 E "XrmDestroyDatabase((XrmDatabase)#);" db)
+
+inline def combine
+  (src:XrmDatabase dest:XrmDatabase override:Bool) : XrmDatabase
+= (ccode 0 W "({
+    XrmDatabase ret = (XrmDatabase)#;
+    XrmCombineDatabase((XrmDatabase)#,&ret,#); (Val)ret;
+  })" dest src override)
+
+inline def getResource
+  (db:XrmDatabase name:String class:String) : (Opt String)
+= (val cs:CString =
+     (ccode 0 R "({
+        char *type; XrmValue v;
+        (XrmGetResource((XrmDatabase)#,S(#),S(#),&type,&v)) ?
+        (Val)v.addr : (Val)NULL;
+      })" db name class)
+   if (prim.nullPtr cs) then opt.no else (opt.yes (prim.fromCString cs)))
+
+[[initialize=initialize string=string getDatabase=getDatabase
+  fromString=fromString destroy=destroy combine=combine
+  getResource=getResource]]
+
+)

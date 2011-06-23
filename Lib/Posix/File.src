@@ -1,0 +1,234 @@
+\section{@Posix/File@: File and Directory Manipulation}
+
+This module provides some simple functions for manipulating directories and
+files.
+
+##import "Std/Bool"
+##import "Std/Int"
+##import "Std/List"
+##import "Std/String"
+##import "Posix/Fd"
+##import "Posix/Perm"
+##import "Posix/Proc"
+
+##val [
+
+\subsection{Types}
+
+#*#Dir
+\begin{doc}
+The type @Dir@ represents a directory as a stream of directory entries.
+\end{doc}
+
+##file:[
+
+\subsection{Setting File Permissions}
+
+#*chmod = /[String Perm Exn Sig]
+\begin{doc}
+@(chmod f p h)@ sets the permissions of the file @f@ to @p@, calling
+the error handler @h@ if the permissions could not be changed.
+\end{doc}
+
+\subsection{Removing Files}
+
+#*unlink = /[String Exn Sig]
+\begin{doc}
+@(unlink f h)@ deletes the file @f@, calling the error handler @h@ if @f@
+could not be deleted.  The filename @f@ must not denote a directory.
+\end{doc}
+
+#*rmdir = /[String Exn Sig]
+\begin{doc}
+@(rmdir d h)@ deletes the directory @d@, calling the error handler @h@ if
+@d@ could not be deleted.  The directory @d@ must be empty.
+\end{doc}
+
+\subsection{Renaming Files}
+
+#*rename = /[String String Exn Sig]
+\begin{doc}
+@(rename f n h)@ renames the file @f@ to @n@, calling the error handler @h@
+if any problems are encountered.
+\end{doc}
+
+\subsection{Hard Links}
+
+#*link = /[String String Exn Sig]
+\begin{doc}
+@(link f l h)@ creates a new (hard) link named @l@ to the existing file
+@f@, calling the error handler @h@ if any problems are encountered.
+\end{doc}
+
+\subsection{Working Directory}
+
+#*getcwd = /[/String]
+\begin{doc}
+@(getcwd)@ returns the working directory of the current unix process.
+\end{doc}
+
+\subsection{Creating Directories}
+
+#*mkdir = /[String Perm Exn Sig]
+\begin{doc}
+@(mkdir d p h)@ creates the directory @d@ with the permissions @p@, calling
+the error handler @h@ if the directory could not be created.
+\end{doc}
+
+\subsection{Directory Streams}
+
+#*openDir = /[String Exn /Dir]
+\begin{doc}
+@(openDir d h)@ opens the directory @d@, calling the error handler @h@ if
+@d@ is not a directory, or if @d@ could not be opened.
+\end{doc}
+
+#*closeDir = /[Dir Sig]
+\begin{doc}
+@(closeDir dir)@ closes the directory stream @dir@.
+\end{doc}
+
+#*readDir = /[Dir Exn /String]
+\begin{doc}
+@(readDir dir h)@ reads the next directory entry from the directory @dir@.
+Note that we never return entries for @"."@ or @".."@, even though these
+are always valid file names in any Unix directory.
+\end{doc}
+
+\subsection{Iterating over Directories}
+
+#*applyDir = /[String Exn /[String Sig] Sig]
+\begin{doc}
+@(applyDir d h f)@ applies the function @f@ to every entry in the directory
+@d@, calling the error handler @h@ if @d@ could not be opened.
+\end{doc}
+
+#*foldDir = /[#X String Exn /[String X /X] X /X]
+\begin{doc}
+@(foldDir d h f i)@ applies the function @f@ to every entry in the
+directory @d@, accumulating a value of type @X@.  Calls the error handler
+@h@ if @d@ could not be opened.
+\end{doc}
+
+#*listDir = /[String Exn /(List String)]
+\begin{doc}
+@(listDir d h)@ returns the contents of the directory @d@ as a list of
+strings, calling the error handler @h@ if @d@ could not be opened.
+\end{doc}
+
+\subsection{Lock Files}
+
+#*lockFile = /[String Exn Sig]
+\begin{doc}
+@(lockFile f h)@ creates the lock file @f@.  This is an atomic operation.
+Calls the given error handler if the lock file could not be created (this
+could either be because some other process has already created the lock
+file or because of other filesystem problems).
+\end{doc}
+
+#*unlockFile = /[String Exn Sig]
+\begin{doc}
+@(unlockFile f h)@ deletes the lock file @f@, calling the given error
+handler if the lock file could not be removed.
+\end{doc}
+
+#{#}
+]] = (
+(ccode 0 I "##include <dirent.h>");
+(ccode 0 I "##include <errno.h>");
+(ccode 0 I "##include <sys/stat.h>");
+
+def chmod (f:String p:Perm onError:Exn):[] =
+  (val r:Int = (ccode 0 R "intInt(chmod(S(#),I(#)))" f (perm.toInt p))
+   if (== r -1) then (exn.raise onError (+$ "chmod failed for " f))
+   else [])
+
+def unlink (f:String fail:Exn):[] =
+  if (ccode 0 W "(unlink(S(#)) == 0)" f) then []
+  else (exn.raise fail "unlink")
+
+def rmdir (d:String fail:Exn):[] =
+  if (ccode 0 W "(rmdir(S(#)) == 0)" d) then []
+  else (exn.raise fail "rmdir")
+
+def rename (f:String n:String fail:Exn):[] =
+  if (ccode 0 W "(rename(S(#),S(#)) == 0)" f n) then []
+  else (exn.raise fail "rename")
+
+def link (f:String l:String fail:Exn):[] =
+  if (ccode 0 W "(link(S(#),S(#)) == 0)" f l) then []
+  else (exn.raise fail (+$ "link -- errno=" ($$ (ccode 0 R "intInt(errno)"))))
+
+def getcwd ():String =
+ (val s = (prim.alloc 100)
+  val cs:CString = (ccode 0 R "(Val)getcwd(S(#),100)" s)
+  if (prim.nullPtr cs) then
+    (def loop (x:Int):String =
+       (val s = (prim.alloc x)
+        val cs:CString = (ccode 0 R "(Val)getcwd(S(#),100)" s)
+        if (prim.nullPtr cs) then (loop (* x 2))
+        else ((prim.shorten s); s))
+       (loop 200))
+  else
+    ((prim.shorten s); s))
+
+def mkdir (d:String p:Perm onError:Exn):[] =
+  (val r:Int = (ccode 0 R "intInt(mkdir(S(#),I(#)))" d (perm.toInt p))
+   if (== r -1) then (exn.raise onError (+$ "mkdir failed for " d))
+   else [])
+  
+val [#Dir] = [#Top]
+
+inline def openDir (d:String fail:Exn):Dir =
+  (val dir:Dir = (ccode 0 R "(Val)opendir(S(#))" d)
+   if (prim.nullPtr dir) then (exn.raise fail (+$ "openDir: " d)) else dir)
+
+inline def closeDir (dir:Dir):[] =
+  if (== (ccode 0 W "intInt(closedir((DIR *)(#)))" dir) 0) then []
+  else (error.fatal "closeDir")
+
+val [#Dirent] = [#Top]
+
+def readDir (d:Dir fail:Exn):String =
+  (val dirent:Dirent = (ccode 0 W "(Val)readdir((DIR *)(#))" d)
+   if (prim.nullPtr dirent) then (exn.raise fail "readDir: eof") else
+   (val namec:CString =
+      (ccode 0 R "(Val)((struct dirent *)(#))->d_name" dirent)
+    val name = (prim.fromCString namec)
+    if (|| (==$ name ".") (==$ name "..")) then (readDir d fail)
+    else name))
+
+def applyDir (dir:String fail:Exn f:/[String Sig]):[] =
+  (val d = (openDir dir fail)
+   def loop (d:Dir):[] =
+     (exn.try #String #[] \(h) = ((f (readDir d h)); (loop d)) \(_) = [])
+   (loop d); (closeDir d))
+
+def foldDir (#X dir:String fail:Exn f:/[String X /X] init:X):X =
+  (val d = (openDir dir fail)
+   def loop (x:X d:Dir):X =
+     (exn.try #String #X \(h) = (loop (f (readDir d h) x) d) \(_) = x)
+   val x = (loop init d)
+   (closeDir d); x)
+
+def listDir (dir:String fail:Exn):(List String) =
+  (foldDir #(List String) dir fail \(x xs) = (cons x xs) nil)
+
+def lockFile (name:String fail:Exn):[] =
+  (val l =
+     (fd.open name fd.writeOnly true true false 
+      [setuid=false setgid=false sticky=false
+       user=perm.rw_ group=perm.___ other=perm.___]
+      fail)
+   (fd.write l (proc.pidString (proc.getpid)));
+   (fd.close l))
+
+def unlockFile (name:String fail:Exn):[] =
+  (unlink name fail)
+
+[[chmod=chmod unlink=unlink rmdir=rmdir rename=rename link=link
+  getcwd=getcwd mkdir=mkdir openDir=openDir closeDir=closeDir
+  readDir=readDir applyDir=applyDir foldDir=foldDir listDir=listDir
+  lockFile=lockFile unlockFile=unlockFile]]
+
+)

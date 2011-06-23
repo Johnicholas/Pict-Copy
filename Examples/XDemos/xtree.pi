@@ -1,0 +1,83 @@
+{-
+ - Concurrently draws some tree structures in a window.
+ - The order in which the tree is drawn shows the scheduling policy.
+ - I got the idea to write this program from the Oz group at Saarbrucken.
+ -}
+
+import "Picture/Picture"
+
+now (setHeapSize 512)
+
+def drawInParallel [cx:CX x:Int y:Int xbranch:Int ybranch:Int c:![]] =
+  if (&& (<> xbranch 0) (<> ybranch 0)) then
+    (new c1:^[] new c2:^[] new c3:^[] new c4:^[] new c5:^[]
+     val halfX = (div xbranch 2) val quarterX = (div xbranch 4)
+     val halfY = (div ybranch 2) val quarterY = (div ybranch 4)
+     (xlib.drawLine cx.display cx.window cx.gc
+      x y (+ x xbranch) (+ y ybranch));
+     (xlib.drawLine cx.display cx.window cx.gc
+      x y (- x xbranch) (+ y ybranch));
+     run drawInParallel![cx (+ x xbranch) (+ y ybranch) halfX halfY c1]
+     run drawInParallel![cx (+ x halfX) (+ y halfY) quarterX quarterY c2]
+     run drawInParallel![cx x y quarterX quarterY c3]
+     run drawInParallel![cx (- x halfX) (+ y halfY) quarterX quarterY c4]
+     run drawInParallel![cx (- x xbranch) (+ y ybranch) halfX halfY c5]
+     c1?[] = c2?[] = c3?[] = c4?[] = c5?[] = c![])
+  else
+    c![]
+
+def drawSequentially (cx:CX x:Int y:Int xbranch:Int ybranch:Int):[] =
+  if (&& (<> xbranch 0) (<> ybranch 0)) then
+    (val halfX = (div xbranch 2) val quarterX = (div xbranch 4)
+     val halfY = (div ybranch 2) val quarterY = (div ybranch 4)
+     (xlib.drawLine cx.display cx.window cx.gc
+      x y (+ x xbranch) (+ y ybranch));
+     (xlib.drawLine cx.display cx.window cx.gc
+      x y (- x xbranch) (+ y ybranch));
+     (drawSequentially cx (+ x xbranch) (+ y ybranch) halfX halfY);
+     (drawSequentially cx (+ x halfX) (+ y halfY) quarterX quarterY);
+     (drawSequentially cx x y quarterX quarterY);
+     (drawSequentially cx (- x halfX) (+ y halfY) quarterX quarterY);
+     (drawSequentially cx (- x xbranch) (+ y ybranch) halfX halfY))
+  else
+    []
+
+val treeMethods:(M [Int Int Int Int] [Int Int Int Int]) =
+  [constant = true
+   reconfigure = \(_ s _) = s
+   delete = \(_) = []
+   boundary = \([x y w h]) = [x (+ x w) (+ y h) y]
+   move = \([x y w h] dx dy) = [(+ x dx) (+ y dy) w h] 
+   scale = \([x y w h] sx dx sy dy) =
+     [(div (* x dx) sx) (div (* y dy) sy)
+      (div (* w dx) sx) (div (* h dy) sy)] 
+   rotate = \([x y w h] an) =
+     [(utils.rotx x y an) (utils.roty x y an) w h] 
+   rot90 = \([x y w h]) = [(neg y) x w h] 
+   rot180 = \([x y w h]) = [(neg x) (neg y) w h] 
+   rot270 = \([x y w h]) = [y (neg x) w h] 
+   button = \(_ _ _ _ _ _ _) = false
+   render = \([x y w h] cx) =
+     (drawInParallel cx (+ x (div w 2)) y (div w 4) (div h 2))
+   init = \(s _) = s]
+
+val parallel : Picture =
+  [treeMethods [0 0 600 300]]
+
+val sequential : Picture =
+  [(treeMethods where
+    render = \([x:Int y:Int w:Int h:Int] cx:CX):[] =
+      (drawSequentially cx (+ x (div w 2)) y (div w 4) (div h 2)))
+   [0 0 600 300]]
+
+new update:^[Picture Sig]
+val s = (picture.server "" "XTree")
+
+(s.open "XTree"
+ (picture.northwest
+  (picture.above >
+   (picture.beside >
+    (picture.button "Draw tree in parallel" \() = (update parallel))
+    (picture.button "Draw tree sequentially" \() = (update sequential))
+    picture.quitButton)
+   (picture.ref sequential update))));

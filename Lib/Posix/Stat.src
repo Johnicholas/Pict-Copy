@@ -1,0 +1,124 @@
+\section{@Posix/Stat@: File Status Queries}
+
+A simple interface to the Posix @stat@ function.  We currently do not make
+all the information that is returned by @stat@ accesible to Pict programs.
+
+##import "Posix/File"
+##import "Posix/Perm"
+##import "Std/List"
+##import "Std/Io"
+##import "Contrib/TD"
+
+##val [
+
+\subsection{Types}
+
+#*#FileType < Int
+\begin{doc}
+A value of type @FileType@ tells us what kind of file.
+\end{doc}
+
+#*#Time = Int 
+\begin{doc}
+An abbreviation for integers used to represent system times (in
+seconds since January 1st, 1970).
+\end{doc}
+
+#*#Stat =
+#*  [dev = FileType     {- Regular, directory, symlink, or other -}
+#*   perm = Perm        {- Permission bits -}
+#*   size = Int         {- Size in bytes -}
+#*   atime = Time       {- Unix atime -}
+#*   mtime = Time       {- Unix mtime -}
+#*   ctime = Time]      {- Unix ctime -}
+\begin{doc}
+The type of results of file status queries.
+\end{doc}
+
+\subsection{Construction}
+
+##stat : [
+
+#*regular = FileType
+#*directory = FileType
+#*symlink = FileType
+#*other = FileType
+\begin{doc}
+Constructors for the four recognized unix file types.
+\end{doc}
+
+\subsection{Conversion}
+
+#*prFileType = /[FileType Sig]
+\begin{doc}
+@(prFileType ft)@ prints the file type @ft@.
+\end{doc}
+
+#*fileTypeTD = (TD FileType)
+\begin{doc}
+Type descriptor for file types.
+\end{doc}
+
+\subsection{File Status Queries}
+
+#*stat = /[String Exn /Stat]
+\begin{doc}
+Low-level interface to the Posix @stat@ system call.
+\end{doc}
+
+#*fileExists = /[String /Bool]
+\begin{doc}
+@(fileExists f)@ returns @true@ if the file @f@ exists.
+\end{doc}
+
+#{#}
+]] = (
+
+(ccode 0 I "##include <sys/stat.h>");
+
+val regular = 0
+val directory = 1
+val symlink = 2
+val other = 3
+
+def prFileType (x:Int):[] =
+  if (== x regular) then (pr "regular")
+  else if (== x directory) then (pr "directory")
+  else if (== x symlink) then (pr "symlink")
+  else (pr "other")
+
+val fileTypeTD = td.int
+
+type Stat = [
+  dev = Int
+  perm = Perm
+  size = Int
+  atime = Int
+  mtime = Int
+  ctime = Int
+]
+
+def stat (path:String fail:Exn) : Stat =
+ (val buf = (prim.alloc (ccode 0 C "intInt(sizeof(struct stat))"))
+  val err:Int = (ccode 0 R "intInt(stat(S(#),(struct stat *)S(#)))" path buf)
+  if (== err -1) then (exn.raise fail (+$ > "stat failed for " path)) else
+  [dev =
+     if (ccode 0 R "(S_ISREG(((struct stat*)S(#))->st_mode))" buf) then 0
+     else if (ccode 0 R "(S_ISDIR(((struct stat*)S(#))->st_mode))" buf) then 1
+     else if (ccode 0 R "(S_ISLNK(((struct stat*)S(#))->st_mode))" buf) then 2
+     else 3
+   perm =
+     (perm.fromInt (ccode 0 R "intInt(((struct stat*)S(#))->st_mode)" buf))
+   size = (ccode 0 R "intInt(((struct stat*)S(#))->st_size)" buf)
+   atime = (ccode 0 R "intInt(((struct stat*)S(#))->st_atime)" buf)
+   mtime = (ccode 0 R "intInt(((struct stat*)S(#))->st_mtime)" buf)
+   ctime = (ccode 0 R "intInt(((struct stat*)S(#))->st_ctime)" buf)])
+
+def fileExists (path:String):Bool =
+  (ccode 0 R "({struct stat buf; (stat(S(#),&buf) == 0);})" path)
+
+[[regular=regular directory=directory symlink=symlink other=other
+  prFileType=prFileType fileTypeTD=fileTypeTD stat=stat
+  fileExists=fileExists]]
+
+)

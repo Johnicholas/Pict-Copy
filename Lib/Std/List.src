@@ -1,0 +1,372 @@
+\section{@Std/List@: Lists}
+
+##import "Std/Bool"
+##import "Std/Cmp"
+##import "Std/Error"
+##import "Std/Int"
+##import "Std/Misc"
+##import "Std/Stream"
+
+##val [
+
+\subsection{Types}
+
+#*#List : (Pos Type -> Type)
+\begin{doc}
+@(List X)@ is the type of lists of elements of type @X@.
+\end{doc}
+
+##list:[
+
+\subsection{Creation}
+
+#*nil = (List Bot)
+\begin{doc}
+@nil@ is the empty list.
+\end{doc}
+
+#*cons = /[#X X (List X) /(List X)]
+\begin{doc}
+@(cons x l)@ creates a new cons cell.
+\end{doc}
+
+#*make = /[#X Int X /(List X)]
+\begin{doc}
+@(make n x)@ creates a list of size @n@, with each cell containing @x@.
+\end{doc}
+
+#*tabulate = /[#X Int /[Int /X] /(List X)]
+\begin{doc}
+@(tabulate n f)@ creates a list of size @n@, such that the element with
+index @i@ is initialised to @(f i)@.
+\end{doc}
+
+\subsection{Interrogation}
+
+#*null = /[#X (List X) /Bool]
+\begin{doc}
+@(null l)@ returns a boolean indicating whether @l@ is the empty list.
+\end{doc}
+
+#*car = /[#X (List X) /X]
+#*unsafeCar = /[#X (List X) /X]
+\begin{doc}
+@(car l)@ returns the head of the list @l@, if @l@ is a cons cell. Causes a
+runtime failure if @l@ is the empty list.  @unsafeCar@ behaves similarly,
+except that it does not test if @l@ is the empty list.
+\end{doc}
+
+#*cdr = /[#X (List X) /(List X)]
+#*unsafeCdr = /[#X (List X) /(List X)]
+\begin{doc}
+@(cdr l)@ returns the tail of the list @l@, if @l@ is a cons cell. Causes a
+runtime failure if @l@ is the empty list.  @unsafeCdr@ behaves similarly,
+except that it does not test if @l@ is the empty list.
+\end{doc}
+
+#*case = /[#X #R (List X) /[/R] /[X (List X) /R] /R]
+\begin{doc}
+@(case l n c)@ returns the result of evaluating @(n)@ if @l@ is the empty
+list, otherwise it returns the result of evaluating @(c hd tl)@ where @hd@
+and @tl@ are the head and tail of the list @l@.
+\end{doc}
+
+#*size = /[#X (List X) /Int]
+\begin{doc}
+@(size l)@ returns the size of @l@.
+\end{doc}
+
+#*nth = /[#X (List X) Int /X]
+\begin{doc}
+@(nth l n)@ finds the @n@th element of the list @l@. Causes a runtime error
+if @n << 0@ or if @n >= (size l)@.
+\end{doc}
+
+\subsection{Iteration}
+
+#*apply = /[#X (List X) /[X Sig] Sig]
+#*revApply = /[#X (List X) /[X Sig] Sig]
+\begin{doc}
+@(apply l f)@ applies @f@ to each element of @l@ (sequentially and in
+order).  @revApply@ behaves just like @apply@, except that it traverses @l@
+in reverse order.
+\end{doc}
+
+#*itApply = /[#X (List X) /[Int X Sig] Sig]
+#*revItApply = /[#X (List X) /[Int X Sig] Sig]
+\begin{doc}
+@(itApply l f)@ applies @f@ to each element of @l@ (sequentially and in
+order), passing @f@ the index of each element.  @revItApply@ behaves just
+the same as @itApply@, except that it traverses @l@ in reverse order.
+\end{doc}
+
+#*fold = /[#X #R (List X) /[X R /R] R /R]
+#*revFold = /[#X #R (List X) /[X R /R] R /R]
+\begin{doc}
+@(fold l f i)@ applies @f@ to each element of @l@ (sequentially and in
+order), passing @f@ an accumulated result of type @R@. The initial
+accumulated result is @i@.  @revFold@ behaves just like @fold@, except that
+it traverses @l@ in reverse order.
+\end{doc}
+
+#*itFold = /[#X #R (List X) /[Int X R /R] R /R]
+#*revItFold = /[#X #R (List X) /[Int X R /R] R /R]
+\begin{doc}
+@(itFold l f i)@ applies @f@ to each element of @l@ (sequentially and in
+order), passing @f@ the index of each element, and an accumulated result of
+type @R@. The initial accumulated result is @i@.  @revItFold@ behaves
+just like @itFold@, except that it traverses @l@ in reverse order.
+\end{doc}
+
+#*map = /[#X #R (List X) /[X /R] /(List R)]
+#*revMap = /[#X #R (List X) /[X /R] /(List R)]
+\begin{doc}
+@(map l f)@ maps the function @f@ over each element in @l@ (sequentially
+and in order).  @revMap@ behaves just like @map@, except that it traverses
+@l@ in reverse order.
+\end{doc}
+
+#*filter = /[#X (List X) /[X /Bool] /(List X)]
+\begin{doc}
+@(filter l f)@ returns a list containing those elements of @l@ for
+which @f@ returns @true@.
+\end{doc}
+
+\subsection{Combination}
+
+#*rev = /[#X (List X) /(List X)]
+\begin{doc}
+@(rev l)@ reverses the list @l@.
+\end{doc}
+
+#*append = /[#X (List X) (List X) /(List X)]
+\begin{doc}
+@(append l1 l2)@ appends the lists @l1@ and @l2@.
+\end{doc}
+
+#*revAppend = /[#X (List X) (List X) /(List X)]
+\begin{doc}
+@(revAppend l1 l2)@ reverses @l1@ and appends it to @l2@.
+\end{doc}
+
+\subsection{Sorting}
+
+#*sort = /[#X (List X) /[X X /Cmp] Bool /(List X)]
+\begin{doc}
+@(sort l f d)@ sorts @l@ according to the comparison function @f@.  If @d@
+is @true@, then all but one of each set of elements of @l@ that are judged
+equal by @f@ will be dropped.
+\end{doc}
+
+\subsection{Conversion}
+
+#*hash = /[#X (List X) /[X /Int] /Int]
+\begin{doc}
+Given a hash function @f@ for values of type @X@, @(hash l f)@ returns a
+hash value for a list @l@ of type @(List X)@.
+\end{doc}
+
+#*toStream = /[#X (List X) /(Stream X)]
+\begin{doc}
+@(toStream l)@ converts the list @l@ into a stream (cf.\
+Section~\ref{s:Stream}).
+\end{doc}
+
+\subsection{Comparison}
+
+#*cmp = /[#X (List X) (List X) /[X X /Cmp] /Cmp]
+\begin{doc}
+Given an comparison function @f@ for values of type @X@, @(cmp l1 l2 f)@
+returns a single value indicating the ordering of @l1@ and @l2@
+(cf.\ Section~\ref{s:Cmp}).
+\end{doc}
+
+\subsection{Printing}
+
+#*pr = /[#X (List X) String String String /[X Sig] Sig]
+\begin{doc}
+@(pr l beg sep end prx)@ prints the list @l@. It first prints @beg@, then
+prints all the elements of @l@ (using the supplied printing function @prx@,
+separating each element with @sep@) and finishes by printing @end@.
+\end{doc}
+#{#}
+]] = (
+
+{- Generate a fresh type -}
+val [#List:(Pos Type->Type)] = [#\X = Top]
+
+val nil:(List Bot) = (ccode 0 C "#" [])
+inline def cons (#X hd:X tl:(List X)):(List X) = (ccode 0 C "#" [hd tl])
+
+def make (#X n:Int x:X):(List X) =
+  (def loop (n:Int l:(List X)) : (List X) =
+     if (== n 0) then l else (loop (dec n) (cons x l))
+   (loop n nil))
+
+def tabulate (#X n:Int f:/[Int /X]):(List X) =
+  (def loop (i:Int) : (List X) =
+     if (== i n) then nil else (cons (f i) (loop (inc i)))
+   (loop 0))
+
+inline def null (#X l:(List X)):Bool = (ccode 0 C "(# == Zero)" l)
+inline def getCar (#X l:(List X)):X = (ccode 0 P "OFFSET(#,1)" l)
+inline def getCdr (#X l:(List X)):(List X) = (ccode 0 P "OFFSET(#,2)" l)
+inline def car (#X l:(List X)):X =
+  ((error.check "car: expected a non-empty list" (not(null l))); (getCar l))
+inline def unsafeCar (#X l:(List X)):X =
+  ((error.assert "unsafeCar: expected a non-empty list" (not(null l)));
+   (getCar l))
+
+inline def cdr (#X l:(List X)) : (List X) =
+  ((error.check "cdr: expected a non-empty list" (not(null l))); (getCdr l))
+inline def unsafeCdr (#X l:(List X)) : (List X) =
+  ((error.assert "cdr: expected a non-empty list" (not(null l))); (getCdr l))
+
+inline def case (#X #R l:(List X) n:/[/R] c:/[X (List X) /R]):R =
+  if (null l) then (n) else (c (unsafeCar l) (unsafeCdr l))
+
+def nth (#X l:(List X) n:Int):X =
+  if (null l) then
+    (error.fatal (prim.+$ "Bad index in list.nth: " ($$ n)))
+  else if (== n 0) then
+    (unsafeCar l)
+  else
+    (nth (unsafeCdr l) (dec n))
+
+def size (#X l:(List X)):Int =
+  (def loop (x:Int l:(List X)):Int =
+     if (null l) then x else (loop (inc x) (unsafeCdr l))
+   (loop 0 l))
+
+def apply (#X l:(List X) f:/[X Sig]):[] =
+  if (not(null l)) then
+    ((f(unsafeCar l)); (apply (unsafeCdr l) f))
+  else
+    []
+def revApply (#X l:(List X) f:/[X Sig]):[] =
+  if (not(null l)) then
+    ((revApply (unsafeCdr l) f); (f(unsafeCar l)))
+  else
+    []
+
+def itApply (#X l:(List X) f:/[Int X Sig]):[] =
+  (def loop (x:Int l:(List X)) : [] =
+     if (not(null l)) then
+       ((f x (unsafeCar l)); (loop (inc x) (unsafeCdr l)))
+     else
+       []
+   (loop 0 l))
+def revItApply (#X l:(List X) f:/[Int X Sig]):[] =
+  (def loop (l:(List X)) : Int =
+     if (not(null l)) then
+       (val x = (loop (unsafeCdr l)) (f x (unsafeCar l)); (inc x))
+     else
+       0
+   (await (loop l)))
+
+def fold (#X #R l:(List X) f:/[X R /R] init:R):R =
+  if (null l) then init else (fold (unsafeCdr l) f (f (unsafeCar l) init))
+def revFold (#X #R l:(List X) f:/[X R /R] init:R):R =
+  if (null l) then init else (f (unsafeCar l) (revFold (unsafeCdr l) f init))
+
+def itFold (#X #R l:(List X) f:/[Int X R /R] init:R):R =
+  (def loop (x:Int l:(List X) v:R) : R =
+     if (null l) then v
+     else (loop (inc x) (unsafeCdr l) (f x (unsafeCar l) v))
+   (loop 0 l init))
+def revItFold (#X #R l:(List X) f:/[Int X R /R] init:R):R =
+  (def loop (x:Int l:(List X) v:R) : R =
+     if (null l) then v
+     else (f x (unsafeCar l) (loop (inc x) (unsafeCdr l) v))
+   (loop 0 l init))
+
+def map (#X #R l:(List X) f:/[X /R]) : (List R) =
+  if (null l) then nil else (cons (f (unsafeCar l)) (map (unsafeCdr l) f))
+def revMap (#X #R l:(List X) f:/[X /R]) : (List R) =
+  if (null l) then nil
+  else (val r = (revMap (unsafeCdr l) f) (cons (f (unsafeCar l)) r))
+
+def filter (#X l:(List X) f:/[X /Bool]) : (List X) =
+  (case #X #(List X) l
+   \() = nil
+   \(hd tl) = if (f hd) then (cons hd (filter tl f)) else (filter tl f))
+
+def rev (#X l:(List X)) : (List X) =
+  (fold #X #(List X) l \(hd tl) = (cons hd tl) nil)
+
+def append (#X l1:(List X) l2:(List X)) : (List X) =
+  (revFold #X #(List X) l1 \(hd tl) = (cons hd tl) l2)
+
+def revAppend (#X l1:(List X) l2:(List X)) : (List X) =
+  (fold #X #(List X) l1 \(hd tl) = (cons hd tl) l2)
+
+def hash (#X l:(List X) f:/[X /Int]) : Int =
+  (fold #X #Int l \(x h) = (+ (* (f x) 19) h) 0)
+
+def toStream (#X l:(List X)) : (Stream X) =
+  (new c:^(List X)
+   run c!l
+   \[e r] =
+     (val l = (read c)
+      if (null l) then e![] else (r!(unsafeCar l) | c!(unsafeCdr l))))
+
+def cmpList (#X l1:(List X) l2:(List X) f:/[X X /Cmp]):Cmp =
+  if (null l1) then
+    if (null l2) then cmp.EQ else cmp.LT
+  else if (null l2) then
+    cmp.GT
+  else
+    (val c = (f (unsafeCar l1) (unsafeCar l2))
+     if (cmp.eq c) then (cmpList (unsafeCdr l1) (unsafeCdr l2) f)
+     else c)
+
+def prList
+  (#X l:(List X) beg:String sep:String end:String prx:/[X Sig]) : []
+= (def printSep (x:X needsSep:Bool) : Bool =
+     if needsSep then ((pr sep); (prx x); true)
+     else ((prx x); true)
+   (pr beg); (await(fold l printSep false)); (pr end))
+
+def sort (#X list:(List X) f:/[X X /Cmp] removeDuplicates:Bool) : (List X)
+=
+  (def split (l1:(List X) l2:(List X) n:Int) : [(List X) (List X)] =
+     if (== n 0) then [(rev l1) l2]
+     else (split (cons (unsafeCar l2) l1) (unsafeCdr l2) (dec n))
+   def merge (rest:(List X) l1:(List X) l2:(List X)) : (List X) =
+     if (null l1) then (revAppend rest l2)
+     else if (null l2) then (revAppend rest l1)
+     else 
+       (val h1 = (unsafeCar l1)
+        val h2 = (unsafeCar l2)
+        val c = (f h1 h2)
+        if (&& (cmp.eq c) removeDuplicates) then
+          (merge rest (unsafeCdr l1) l2)
+        else if (cmp.le c) then
+          (merge (cons h1 rest) (unsafeCdr l1) l2)
+        else
+          (merge (cons h2 rest) l1 (unsafeCdr l2)))
+   def s (l:(List X) n:Int) : (List X) = 
+     if (<= n 1) then l 
+     else 
+       (val middle = (div n 2)
+        val [l1 l2] = (split nil l middle)
+        (merge nil (s l1 middle) (s l2 (- n middle))))
+   (s list (size list)))
+
+[#List
+ [nil=nil cons=cons make=make tabulate=tabulate null=null car=car
+  unsafeCar=unsafeCar cdr=cdr unsafeCdr=unsafeCdr case=case size=size
+  nth=nth apply=apply revApply=revApply itApply=itApply
+  revItApply=revItApply fold=fold revFold=revFold itFold=itFold
+  revItFold=revItFold map=map revMap=revMap filter=filter rev=rev
+  append=append revAppend=revAppend sort=sort hash=hash toStream=toStream
+  cmp=cmpList pr=prList]]
+)
+
+#@\subsection{Abbreviations}
+
+#*val nil  = list.nil
+#*val cons = list.cons
+#*val null = list.null
+#*val car  = list.car
+#*val cdr  = list.cdr

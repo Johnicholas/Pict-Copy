@@ -1,0 +1,18 @@
+true  prints out as true
+false prints out as false
+
+Conditional OK for true
+Conditional OK for false
+
+true  &&  true == true
+true  && false == false
+false &&  true == false
+false && false == false
+
+true  ||  true == true
+true  || false == true
+false ||  true == true
+false || false == false
+
+not[false] == true
+not[ true] == false

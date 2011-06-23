@@ -1,0 +1,26 @@
+{-
+ - The sieve of Eratosthenes
+ -}
+
+now (reset checks)
+
+def interval (min:Int max:Int):(List Int) =
+  if (>> min max) then nil else (cons min (interval (inc min) max))
+
+def sieve (max:Int):(List Int) = (
+  def again (l:(List Int)):(List Int) =
+    if (null l) then
+      nil
+    else
+      (val n = (car l)
+       if (>> (* n n) max) then l
+       else (cons n (again (list.filter #Int l \(x) = (<> (mod x n) 0)))))
+
+  (again (interval 2 max))
+)
+
+def prPrime (idx:Int x:Int):[] =
+  if (== (mod idx 10) 9) then ((int.pr x); (nl))
+  else ((int.pr x); (pr " "))
+
+(list.itApply (sieve 4000) prPrime);

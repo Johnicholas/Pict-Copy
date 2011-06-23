@@ -1,0 +1,128 @@
+# line 1 "/home/pierce/pict/Lib/Picture/Package.src"
+
+
+
+  import "Picture/Types"
+
+
+
+
+
+
+  val package : [
+
+  rotate = /[Active Rot /Active]
+  rot90  = /[Active /Active]
+  rot180 = /[Active /Active]
+  rot270 = /[Active /Active]
+
+
+
+
+
+
+  scale = /[Active Int Int Int Int /Active]
+
+
+
+
+
+  move = /[Active Int Int /Active]
+
+
+
+
+
+  button = /[Active CX Int Int Button Bool Int /Bool]
+
+
+
+
+
+
+
+
+  boundary = /[Active /[Int Int Int Int]]
+
+
+
+
+  render = /[Active CX Sig]
+
+
+
+
+  init = /[Picture CX /Active]
+
+
+
+
+
+  constant = /[Picture /Bool]
+
+
+
+
+
+
+  reconfigure = /[Active CX /Active]
+
+
+
+
+
+
+  delete = /[Active Sig]
+
+
+
+
+    
+] = (
+
+inline def rotate (p:Active rot:Rot) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.rotate r rot)])
+inline def delete (p:Active) : [] =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   (methods.delete r))
+inline def constant (p:Picture) : Bool =
+  (val [#I #R methods:(M I R) i:I] = p
+   methods.constant)
+inline def reconfigure (p:Active cx:CX) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   if methods.constant then p else [methods i (methods.reconfigure i r cx)])
+inline def boundary (p:Active) : [Int Int Int Int] =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   (methods.boundary r))
+inline def render (p:Active cx:CX) : [] =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   (methods.render r cx))
+inline def rot90 (p:Active) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.rot90 r)])
+inline def rot180 (p:Active) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.rot180 r)])
+inline def rot270 (p:Active) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.rot270 r)])
+inline def scale (p:Active sx:Int dx:Int sy:Int dy:Int) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.scale r sx dx sy dy)])
+inline def move (p:Active dx:Int dy:Int) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.move r dx dy)])
+inline
+def button (p:Active cx:CX bx:Int by:Int b:Button ud:Bool t:Int) : Bool =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   (methods.button r cx bx by b ud t))
+inline def init (p:Picture cx:CX) : Active =
+  (val [#I #R methods:(M I R) i:I] = p
+   [methods i (methods.init i cx)])
+
+[rotate=rotate rot90=rot90 rot180=rot180 rot270=rot270 scale=scale
+ move=move button=button boundary=boundary render=render init=init
+ constant=constant reconfigure=reconfigure delete=delete]
+
+)

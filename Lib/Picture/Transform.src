@@ -1,0 +1,130 @@
+\section{@Picture/Transform@: Picture Transformations}
+
+All the operations in this module are re-exported from the module
+@Picture/Picture@ (where they are documented).
+
+##import "Picture/Utils"
+##import "Picture/Types"
+##import "Picture/Basic"
+##import "Picture/Package"
+
+##val transform : [
+#*rotate = /[Picture Int /Picture] 
+#*scale = /[Picture Int Int Int Int /Picture] 
+#*scaleTo = /[Picture Int Int /Picture] 
+#*move = /[Picture Int Int /Picture] 
+#*fg = /[Color Picture /Picture] 
+#*font = /[Font Picture /Picture] 
+#*center    = /[Picture /Picture] 
+#*north     = /[Picture /Picture] 
+#*northeast = /[Picture /Picture] 
+#*east      = /[Picture /Picture] 
+#*southeast = /[Picture /Picture] 
+#*south     = /[Picture /Picture] 
+#*southwest = /[Picture /Picture] 
+#*west      = /[Picture /Picture] 
+#*northwest = /[Picture /Picture] 
+#*catchHit  = /[Picture /[CX Button Bool Sig] /Picture]
+#*quitOnHit = /[Picture /Picture]
+##]
+#{#}
+= (
+
+def fg (c:Color p:Picture) : Picture =
+  (val [#I #R methods:(M I R) i:I] = p
+   def setFg (rep:R cx:CX):[] =
+     ((xlib.setForeground cx.display cx.gc c);
+      (methods.render rep (cx where fg = c));
+      (xlib.setForeground cx.display cx.gc cx.fg))
+   [(methods where render = setFg) i])
+
+def font (f:Font p:Picture) : Picture =
+  (val [#I #R methods:(M I R) i:I] = p
+   def setFont (rep:R cx:CX):[] =
+     ((xlib.setFont cx.display cx.gc f);
+      (methods.render rep (cx where font = f));
+      (xlib.setFont cx.display cx.gc cx.font))
+   [(methods where render = setFont
+     init = \(i:I cx:CX):R = (methods.init i (cx where font = f))) i])
+
+def catchHit (p:Picture handler:/[CX Button Bool Sig]) : Picture =
+  (val [#I #R methods:(M I R) i:I] = p
+   def button (r:R cx:CX bx:Int by:Int b:Button ud:Bool t:Int):Bool =
+     if (methods.button r cx bx by b ud t) then ((handler cx b ud); true)
+     else false
+   [(methods where button = button) i])
+
+def quitOnHit (p:Picture):Picture =
+  (catchHit p \(cx:CX _:Button _:Bool):[] = (write cx.quit []))
+
+def rotate (p:Picture a:Int) : Picture =
+  (val [#I #R methods:(M I R) i:I] = p
+   if (== (mod a 360) 0) then
+     p
+   else if (== (mod a 90) 0) then
+     (val x = (mod (div a 90) 4)
+      if (== x 1) then
+	(def init (i:I cx:CX):R = (methods.rot90 (methods.init i cx))
+	 [(methods where init = init) i])
+      else if (== x 2) then
+	(def init (i:I cx:CX):R = (methods.rot180 (methods.init i cx))
+	 [(methods where init = init) i])
+      else
+	(def init (i:I cx:CX):R = (methods.rot270 (methods.init i cx))
+	 [(methods where init = init) i]))
+  else
+    (def init (i:I cx:CX):R =
+       (methods.rotate (methods.init i cx) (utils.make a))
+    [(methods where init = init) i]))
+
+def scale (p:Picture sx:Int dx:Int sy:Int dy:Int):Picture =
+  if (&& (== dx sx) (== dy sy)) then p else
+  (val [#I #R methods:(M I R) i:I] = p
+   def init (i:I cx:CX):R = (methods.scale (methods.init i cx) sx dx sy dy)
+   [(methods where init = init) i])
+
+def move (p:Picture dx:Int dy:Int):Picture =
+  if (&& (== dx 0) (== dy 0)) then p else
+  (val [#I #R methods:(M I R) i:I] = p
+   def init (i:I cx:CX):R = (methods.move (methods.init i cx) dx dy)
+   [(methods where init = init) i])
+
+def scaleTo (p:Picture w:Int h:Int):Picture =
+  (val [#I #R methods:(M I R) i:I] = p
+   def init (i:I cx:CX):R =
+     (val rep = (methods.init i cx)
+      val [l r a b] = (methods.boundary rep)
+      val width = (- r l)  val height = (- a b)
+      if (&& (== w width) (== h height)) then rep
+      else (methods.scale rep width w height h))
+   [(methods where init = init) i])
+
+def moveOrigin (p:Picture f:/[Int Int /Int] g:/[Int Int /Int]) : Picture =
+  (val [#I #R methods:(M I R) i:I] = p
+   def init (i:I cx:CX):R =
+     (val rep = (methods.init i cx)
+      val [l r a b] = (methods.boundary rep)
+      val dx = (f l r)  val dy = (g b a)
+      if (&& (== dx 0) (== dy 0)) then rep
+      else (methods.move rep dx dy))
+   [(methods where init = init) i])
+
+inline def middle (l:Int r:Int):Int = (neg (div (- r l) 2))
+inline def min (l:Int r:Int):Int = (neg l)
+inline def max (l:Int r:Int):Int = (neg r)
+
+def center    (p:Picture):Picture = (moveOrigin p middle middle)
+def north     (p:Picture):Picture = (moveOrigin p middle    min)
+def northeast (p:Picture):Picture = (moveOrigin p    max    min)
+def east      (p:Picture):Picture = (moveOrigin p    max middle)
+def southeast (p:Picture):Picture = (moveOrigin p    max    max)
+def south     (p:Picture):Picture = (moveOrigin p middle    max)
+def southwest (p:Picture):Picture = (moveOrigin p    min    max)
+def west      (p:Picture):Picture = (moveOrigin p    min middle)
+def northwest (p:Picture):Picture = (moveOrigin p    min    min)
+
+[rotate=rotate scale=scale scaleTo=scaleTo move=move fg=fg
+ font=font center=center north=north northeast=northeast east=east
+ southeast=southeast south=south southwest=southwest west=west
+ northwest=northwest catchHit=catchHit quitOnHit=quitOnHit]
+)

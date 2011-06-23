@@ -1,0 +1,36 @@
+{-
+ - Records and record extension.
+ -}
+
+inline def prI (x:Int):[] = ((pr " "); (int.pr x))
+
+{-
+ - These functions are necessary to stop the optimiser doing all 
+ - the record operations at compile-time.
+ -}
+
+type R = [v=Int w=Int x=Int y=Int]
+
+def f1 () : R = [v = 11 w = 22 x = 33 y = 44]
+def f2 (r:R):R = (r where y = 55)
+def f3 (r:R):(R with z=Int) = (r with z = 66)
+
+val r1 = (f1)
+(pr "r1 ="); (prI r1.v); (prI r1.w); (prI r1.x); (prI r1.y); (nl);
+
+val r2 = (f2 r1)
+(pr "r1 ="); (prI r1.v); (prI r1.w); (prI r1.x); (prI r1.y); (nl);
+(pr "r2 ="); (prI r2.v); (prI r2.w); (prI r2.x); (prI r2.y); (nl);
+
+val r3 = (f3 r1)
+(pr "r1 ="); (prI r1.v); (prI r1.w); (prI r1.x); (prI r1.y); (nl);
+(pr "r3 ="); (prI r3.v); (prI r3.w); (prI r3.x);
+(prI r3.y); (prI r3.z); (nl);
+
+{-
+ - We let the optimiser do this one at compile time.
+ -}
+
+val r4 = (([v = 11 w = 22 x = 33 y = 44] where y = 55) with z = 66)
+(pr "r4 ="); (prI r4.v); (prI r4.w); (prI r4.x);
+(prI r4.y); (prI r4.z); (nl);

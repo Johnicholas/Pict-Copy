@@ -1,0 +1,260 @@
+\section{@Posix/Sockets@: Socket Utilities}
+
+This library implements a low-level interface to the Posix sockets facility.
+
+##import "Std/Bool"
+##import "Std/Int"
+##import "Std/Opt"
+##import "Posix/Signals"
+##import "Posix/Fd"
+
+##val [
+
+\subsection{Types}
+
+#*#Port = Int
+\begin{doc}
+Communication ports are integers in the range @0@ to @65535@ (note that we
+don't currently do any range checking on port numbers).
+\end{doc}
+
+#*#Address
+\begin{doc}
+The type @Address@ represents a pair of a hostname and a port number.
+\end{doc}
+
+#*#Socket < Fd
+\begin{doc}
+Sockets are a special kind of file descriptor.
+\end{doc}
+
+##sockets:[
+
+\subsection{Service Ports}
+
+#*reservedPort = Port
+#*userReservedPort = Port
+\begin{doc}
+Standard servers (such as @ftp@ and @telnet@) use port numbers less than
+@reservedPort@ (as we will see below, you can look up such services by
+name).  If you write a server that is not one of the standard ones, you
+should use a number greater than @userReservedPort@ since such numbers will
+never be generated automatically by the system.  Unfortunately, no facility
+is available to avoid conflicts with servers being run by other users.
+\end{doc}
+
+#*getServicePortByName = /[String Exn /Port]
+\begin{doc}
+Looks up the service port associated with @name@ in the database of
+standard system services.  Calls the given error handler if no matching
+service is found.
+\end{doc}
+
+\subsection{Host Addresses}
+
+#*getHostByName = /[String Port Exn /Address]
+\begin{doc}
+@(getHostByName name p h)@ looks up @name@ is the hosts database.  If
+successful, it pairs the given port number @p@ with the resulting address
+and returns an address suitable for use with @bind@ and @connect@.  If no
+host called @name@ can be found, it calls the error handler @h@.
+\end{doc}
+
+#*addressString = /[Address /String]
+\begin{doc}
+Converts an address to a string.
+\end{doc}
+
+\subsection{Socket Creation}
+
+#*streamSocket = /[Exn /Socket]
+\begin{doc}
+We only provide support for sockets which use the Internet protocol.
+@(streamSocket h)@ creates a socket which has sequenced, reliable, two-way
+connection-based byte streams, calling the error handler @h@ if a socket
+could not be created.
+\end{doc}
+
+\subsection{Accepting Connections}
+
+#*bind = /[Socket Address Int Exn Sig]
+\begin{doc}
+@(bind s a i h)@ binds the socket @s@ to the address @a@ and then enables
+client connections (@i@ specifies how many pending client connections are
+allowed before we start rejecting new connections).  Calls the error
+handler @h@ if anything fails.
+\end{doc}
+
+#*bindAny = /[Socket Port Int Exn Sig]
+\begin{doc}
+@(bindAny s p i h)@ binds the socket @s@ to the port @p@ on the local
+machine and then enables client connections (@i@ specifies how many pending
+client connections are allowed before we start rejecting new connections).
+Calls the error handler @h@ if anything fails.
+\end{doc}
+
+#*accept = /[Socket Exn /Fd]
+\begin{doc}
+@(accept s h)@ waits for a client to make a connection to the socket @s@,
+returning a new file descriptor which can be used to read and write to the
+client.  The socket @s@ must already be bound to an address (using one of
+the above functions).  If @s@ is set to be asynchronous and if there are no
+connections pending then @accept@ will suspend itself until the next
+@SIGIO@ and then retry the accept operation.
+\end{doc}
+
+\subsection{Making Connections}
+
+#*connect = /[Socket Address Exn /Fd]
+\begin{doc}
+@(connect s a h)@ makes a connection between @s@ and the socket at the
+address @a@ (the socket addressed by @a@ must already be set up as a
+server).  The error handler @h@ is called if a connection could not be
+made.  Upon successful connection to @a@, we return a file descriptor which
+can be used to read and write to the server at @a@.  If @s@ is set to be
+asynchronous and connecting to @a@ would block then @connect@ will suspend
+itself until the next @SIGIO@ and then retry the connection operation.
+\end{doc}
+
+#{#}
+]] =(
+(ccode 0 I "##include <sys/types.h>");
+(ccode 0 I "##include <sys/socket.h>");
+(ccode 0 I "##include <netinet/in.h>");
+(ccode 0 I "##include <netinet/tcp.h>");
+(ccode 0 I "##include <arpa/inet.h>");
+(ccode 0 I "##include <netdb.h>");
+(ccode 0 I "##include <errno.h>");
+(ccode 0 I "
+####ifdef __USE_FIXED_PROTOTYPES__
+extern int socket(int,int,int);
+extern int bind(int,struct sockaddr *,int);
+extern int listen(int,int);
+extern int accept(int,struct sockaddr *,int*);
+extern int connect(int,struct sockaddr *,int);
+extern char *inet_ntoa(struct in_addr in);
+####endif
+");
+
+type Port = Int
+val reservedPort : Port = (ccode 0 C "intInt(IPPORT_RESERVED)")
+val userReservedPort : Port = (ccode 0 C "intInt(IPPORT_USERRESERVED)")
+
+inline
+def getServicePortByName (name:String fail:Exn) : Port
+= (
+  val se:CString = (ccode 0 R "(Val)getservbyname(S(#),\"tcp\")" name)
+  if (prim.nullPtr se) then
+    (int.fromString name (exn.rename fail "getServicePortByName"))
+  else
+    (ccode 0 P "intInt(ntohs(((struct servent *)#)->s_port))" se)
+)
+
+val [#Address] = [#Top]
+
+def getHostByName (name:String p:Port fail:Exn) : Address
+= (val h:CString = (ccode 0 R "(Val)gethostbyname(S(#))" name)
+   val sa:Address = (ccode 0 R "(Val)malloc(sizeof(struct sockaddr_in))")
+   (error.check "getHostByName: malloc failed" (not(prim.nullPtr sa)));
+   if (prim.nullPtr h) then
+     (exn.raise fail "getHostByName: Failed to get host address")
+   else
+    if (ccode 0 R "(((struct hostent *)#)->h_addrtype != AF_INET)" h) then
+      (exn.raise fail "getHostByName: Non-Internet address")
+    else
+      ((ccode 0 E "((struct sockaddr_in *)#)->sin_family = AF_INET;" sa);
+       (ccode 0 E "((struct sockaddr_in *)#)->sin_port = htons(I(#));" sa p);
+       (ccode 0 E "
+         ((struct sockaddr_in *)#)->sin_addr.s_addr =
+           *(unsigned long int *)((struct hostent *)#)->h_addr_list[0];
+        " sa h);
+        sa))
+
+inline def addressString (a:Address):String =
+  (ccode 0 P "(Val)inet_ntoa(((struct sockaddr_in *)#)->sin_addr)" a)
+
+type Socket = Fd
+inline def isBad (#X x:X) : Bool = (ccode 0 C "(# == -One)" x)
+
+inline def streamSocket (fail:Exn):Socket =
+  (val s:Socket = (ccode 0 W "intInt(socket(PF_INET,SOCK_STREAM,0))")
+   if (isBad s) then (exn.raise fail "streamSocket") else s)
+
+inline def bind (s:Socket a:Address backlog:Int fail:Exn):[] =
+  if
+    (ccode 0 W
+     "(bind(I(#),(struct sockaddr *)#,sizeof(struct sockaddr_in)) == 0)" s a)
+  then
+    if (not (ccode 0 W "(listen(I(#),I(#)) == 0)" s backlog)) then
+      (exn.raise fail "bind: listen failed")
+    else
+      []
+  else
+    (exn.raise fail "bind: bind failed")
+
+inline
+def bindAny (s:Socket p:Port backlog:Int fail:Exn) : []
+= (
+   val ok:Bool = (ccode 0 W "({
+     struct sockaddr_in sa;
+     sa.sin_addr.s_addr = INADDR_ANY;
+     sa.sin_family = AF_INET; sa.sin_port = htons(I(#));
+     (bind(I(#),(struct sockaddr *)&sa,sizeof(struct sockaddr_in)) == 0);
+   })" p s)
+   if ok then
+     if (not (ccode 0 W "(listen(I(#),I(#)) == 0)" s backlog)) then
+       (exn.raise fail "bindAny: listen failed")
+     else
+       []
+   else
+     (exn.raise fail (+$ "bindAny: bind failed with errno " 
+                      ($$ (ccode 0 R "intInt(errno)"))))
+  )
+
+def accept (s:Socket fail:Exn) : Fd
+= (val err =
+     (signals.retry signals.SIGIO \():(Opt Fd) =
+        (val err:Fd = (ccode 0 W "({
+           struct sockaddr sa;
+           int len=sizeof(struct sockaddr);
+           intInt(accept(I(#),&sa,&len));
+         })" s)
+        if (isBad err) then
+          if (|| (ccode 0 R "(errno == EINTR)")
+                (ccode 0 R "(errno == EWOULDBLOCK)"))
+          then opt.no
+          else (opt.yes err)
+        else
+          (opt.yes err)))
+   if (isBad err) then
+     (exn.raise fail (+$ "accept: failed with errno="
+                      ($$ (ccode 0 R "intInt(errno)"))))
+   else
+     err)
+
+def connect (s:Socket a:Address fail:Exn) : Fd
+= (val err =
+     (signals.retry signals.SIGIO \():(Opt Int) =
+      (val err:Int = (ccode 0 W "
+         intInt(connect(I(#),(struct sockaddr *)#,sizeof(struct sockaddr)))
+       " s a)
+       if (&& (== err -1) (ccode 0 R "(errno != EISCONN)")) then
+         if
+           (|| > (ccode 0 R "(errno == EINPROGRESS)")
+            (ccode 0 R "(errno == EALREADY)")
+            (ccode 0 R "(errno == EWOULDBLOCK)"))
+         then
+           opt.no
+         else
+           (opt.yes err)
+       else
+         (opt.yes 0)))
+   if (== err 0) then (ccode 0 P "#" s) else
+   (exn.raise fail (+$ "connect: failed " ($$ (ccode 0 R "intInt(errno)")))))
+
+[#Port #Address #Socket
+ [reservedPort=reservedPort userReservedPort=userReservedPort
+  getServicePortByName=getServicePortByName getHostByName=getHostByName
+  addressString=addressString streamSocket=streamSocket bind=bind
+  bindAny=bindAny accept=accept connect=connect]]
+)

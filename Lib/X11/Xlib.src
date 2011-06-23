@@ -1,0 +1,1470 @@
+\section{@X11/Xlib@: X Library Interface}
+
+##import "Std/Bool"
+##import "Std/Exn"
+##import "Std/Opt"
+##import "Std/External"
+##import "Posix/Fd"
+
+This library implements a low-level interface to the @Xlib@ X library
+interface.  We only give brief descriptions of the types and functions
+defined here.  Please refer to the @Xlib@ documentation for more detailed
+information~\cite{Scheifler92,Nye90}\footnote{Some of our documentation
+uses extracts from the X Consortium @Xlib@ manual pages}.
+
+##val [
+
+\subsection{Types}
+
+#*#Display
+\begin{doc} The type of display connections. \end{doc}
+
+#*#ScreenNum
+\begin{doc}
+Each display supports a number of screens.  Each screen is referenced by a
+@ScreenNum@.
+\end{doc}
+
+#*#XID
+\begin{doc}
+Values of type @XID@ identify many different kinds of resources (such as
+fonts, windows and pixmaps).
+\end{doc}
+
+#*#XContext : (Type -> Type)
+\begin{doc}
+An value of type @(XContext X)@ is a table which maps resource identifiers
+of type @XID@ to values of type @X@.
+\end{doc}
+
+#*#Xfunction
+\begin{doc}
+Values of type @Xfunction@ are used when you update a section of a drawable
+(the destination) with bits from somewhere else (the source).  An
+@Xfunction@ value defines how the new destination bits are to be computed
+from the source bits and the old destination bits.
+\end{doc}
+
+#*#Color
+\begin{doc}
+The type @Color@ corresponds to what @Xlib@ calls an @XColor@ and contains
+both RGB values and a pixel value (which can be used for drawing
+operations).
+\end{doc}
+
+#*#Font
+\begin{doc}
+The @Font@ type defined here actually corresponds to what @Xlib@ calls a
+@FontStruct@, since it contains extra information about the font (enabling
+us to, for instance, calculate text extents).
+\end{doc}
+
+#*#TextExtents =
+#*  [fontAscent = Int
+#*   fontDescent = Int
+#*   lbearing = Int
+#*   rbearing = Int
+#*   width = Int
+#*   ascent = Int
+#*   descent = Int]
+\begin{doc}
+Information about a particular font.
+\end{doc}
+
+#*#GC
+\begin{doc}
+A @GC@ contains various pieces of style information for drawing functions
+(such as foreground and background color, font, etc.).
+\end{doc}
+
+#*#Drawable < XID
+\begin{doc}
+The type @Drawable@ is a subtype of @XID@, and denotes those resource
+identifiers which can sensibly be the target of drawing operations.
+\end{doc}
+
+#*#Pixmap < Drawable
+\begin{doc}
+The type @Pixmap@ is a subtype of @Drawable@ and denotes an off-screen area
+on the server which can be the target of any drawing operation.
+\end{doc}
+
+#*#Window < Drawable
+\begin{doc}
+The type @Window@ is a subtype of @Drawable@ and denotes an on-screen area
+on the server which can be the target of any drawing operation.  Unlike a
+@Pixmap@, the client program is responsible for maintaining the contents of
+a @Window@.
+\end{doc}
+
+#*#Geometry =
+#*  [x = Int
+#*   y = Int
+#*   width = Int
+#*   height = Int
+#*   borderWidth = Int
+#*   depth = Int]
+\begin{doc}
+The type @Geometry@ describes the size and position on a @Drawable@,
+along with the width of its border and the depth of the display.
+\end{doc}
+
+#*#KeySym < Int
+\begin{doc}
+The type @KeySym@ is used to return the symbolic name of a key that has 
+been pressed.
+\end{doc}
+
+#*#Button
+\begin{doc} The type of mouse buttons. \end{doc}
+
+#*#XEvent
+\begin{doc}
+The type @XEvent@ can be though of as the union of a number of specific
+event types.
+\end{doc}
+
+#*#EventMask
+\begin{doc}
+An @EventMask@ can be used to indicate to the X server which events we are
+interested in receiving.
+\end{doc}
+
+##xlib:[
+
+\subsection{Displays}
+
+#*openDisplay = /[String Exn /Display]
+\begin{doc}
+@(openDisplay name h)@ Opens a connection to the named X server.  If @name@
+is the empty string, we use the value of the @DISPLAY@ environment variable
+to determine the name of the X server.  Calls the error handler @h@ if
+the server connection could not be made.
+\end{doc}
+
+#*closeDisplay = /[Display Sig]
+\begin{doc}
+@(closeDisplay d)@ closes the specified connection to the display @d@.  No
+resources allocated by the client on the display @d@ should be referenced
+after calling @closeDisplay@, since it deallocates all resources created
+on @d@.  It is good to call @closeDisplay@ explicitly before exiting so
+that any pending errors are reported.
+\end{doc}
+
+#*displayFd = /[Display /Fd]
+\begin{doc}
+@(displayFd d)@ returns the underlying file descriptor used to communicate
+with the X server.  This is necessary to implement non-blocking I/O on the
+X server connection.
+\end{doc}
+
+#*synchronize = /[Display Bool Sig]
+\begin{doc}
+@(synchronize d b)@ makes interaction with the display @d@ synchronous, if
+@b@ is @true@, or asynchronous if @b@ is @false@ (useful for debugging,
+since errors will be reported synchronously).
+\end{doc}
+
+#*flush = /[Display Sig]
+\begin{doc}
+@(flush d)@ flushes the output buffer to the display @d@.  Most
+applications need not use this function because the output buffer is
+automatically flushed when we check for events.  However, it may
+occasionally be advantageous to call @flush@ to avoid flicker when updating
+a window.
+\end{doc}
+
+\subsection{Screens}
+
+#*defaultScreen = /[Display /ScreenNum]
+\begin{doc}
+@(defaultScreen d)@ returns the default screen for the display @d@.
+\end{doc}
+
+#*defaultDepth = /[Display ScreenNum /Int]
+\begin{doc}
+@(defaultDepth d s)@ returns the default depth of the screen @s@ on the
+display @d@.
+\end{doc}
+
+\subsection{Resource Identifiers}
+
+#*uniqueContext = /[#X /(XContext X)]
+\begin{doc}
+@(uniqueContext)@ allocates a fresh table, suitable for storing values of
+type @X@.
+\end{doc}
+
+#*findContext = /[#X Display XID (XContext X) Exn /X]
+\begin{doc}
+@(findContext d xid c h)@ looks up the value associated with @xid@ in the
+context @c@, calling the error handler @h@ if there is no mapping for
+@xid@.
+\end{doc}
+
+#*saveContext = /[#X Display XID (XContext X) X Sig]
+\begin{doc}
+@(saveContext d xid c x)@ associates the value @x@ with @xid@ in the
+context @c@, removing the previous entry for @xid@ (if one exists).
+\end{doc}
+
+#*deleteContext = /[#X Display XID (XContext X) Exn Sig]
+\begin{doc}
+@(deleteContext d xid c h)@ removes the value associated with @xid@ from
+the context @c@, calling the error handler @h@ if there is no mapping for
+@xid@.
+\end{doc}
+
+\subsection{Drawing Styles}
+
+#*gXclear = Xfunction           {- 0                       -}
+#*gXand = Xfunction             {- src AND dst             -}
+#*gXandReverse = Xfunction      {- src AND NOT dst         -}
+#*gXcopy = Xfunction            {- src                     -}
+#*gXandInverted = Xfunction     {- (NOT src) AND dst       -}
+#*gXnoop = Xfunction            {- dst                     -}
+#*gXxor = Xfunction             {- src XOR dst             -}
+#*gXor = Xfunction              {- src OR dst              -}
+#*gXnor = Xfunction             {- (NOT src) AND (NOT dst) -}
+#*gXequiv = Xfunction           {- (NOT src) XOR dst       -}
+#*gXinvert = Xfunction          {- NOT dst                 -}
+#*gXorReverse = Xfunction       {- src OR (NOT dst)        -}
+#*gXcopyInverted = Xfunction    {- NOT src                 -}
+#*gXorInverted = Xfunction      {- (NOT src) OR dst        -}
+#*gXnand = Xfunction            {- (NOT src) OR (NOT dst)  -}
+#*gXset = Xfunction             {- 1                       -}
+\begin{doc}
+@gXcopy@ is typically the most useful drawing attribute because it will
+work on a color display, but special applications may use other functions,
+particularly in concert with particular planes of a color display.
+\end{doc}
+
+\subsection{Colors}
+
+#*colorRed = /[Color /Int]
+#*colorGreen = /[Color /Int]
+#*colorBlue = /[Color /Int]
+\begin{doc}
+@(colorRed c)@, @(colorGreen c)@ and @(colorBlue c)@ return the red, green
+and blue intensities of the color @c@.  (All RGB intensities are integers
+in the range @0@ to @65535@.)
+\end{doc}
+
+#*allocColor = /[Display ScreenNum Int Int Int (Handler [Int Int Int]) /Color]
+\begin{doc}
+@(allocColor d s r g b h)@ allocates a read-only colormap entry (in the
+default colormap of the screen @s@) corresponding to the closest RGB value
+supported by the hardware.  Calls the given error handler if the color
+could not be allocated.  Multiple clients that request the same effective
+RGB value can be assigned the same read-only entry, thus allowing entries
+to be shared.  When the last client deallocates a shared cell, it is
+deallocated.
+\end{doc}
+
+#*allocNamedColor = /[Display ScreenNum String Exn /Color]
+\begin{doc}
+@(allocNamedColor d s n h)@ looks up and allocates the color @n@ in the
+default colormap of the screen @s@.  If @n@ is not in the Host Portable
+Character Encoding, the result is implementation dependent.  Calls the
+error handler @h@ if the color could not be allocated.
+\end{doc}
+
+\subsection{Fonts}
+
+#*loadQueryFont = /[Display String Exn /Font]
+\begin{doc}
+@(loadQueryFont d n h)@ loads the font named @n@.  If @n@ is not in the Host
+Portable Character Encoding, the result is implementation dependent.  If
+the font does not exist, we call the error handler @h@.
+\end{doc}
+
+#*freeFont = /[Display Font Sig]
+\begin{doc}
+@(freeFont f)@ explicitly deallocates @f@ (@f@ should not be subsequently
+referenced).
+\end{doc}
+
+#*textExtents = /[Font String /TextExtents]
+\begin{doc}
+@(textExtents f s)@ find the extents of the string @s@ when rendered using
+the font @f@.
+\end{doc}
+
+\subsection{Graphics Contexts}
+
+#*defaultGC = /[Display ScreenNum /GC]
+\begin{doc}
+@(defaultGC d s)@ gets the default @GC@ for the screen @s@ on the display @d@.
+\end{doc}
+
+#*setBackground = /[Display GC Color Sig]
+\begin{doc}
+@(setBackground d gc c)@ sets the background color attribute in @gc@ to @c@.
+\end{doc}
+
+#*setForeground = /[Display GC Color Sig]
+\begin{doc}
+@(setForeground d gc c)@ sets the foreground color attribute in @gc@ to @c@.
+\end{doc}
+
+#*setFunction = /[Display GC Xfunction Sig]
+\begin{doc}
+@(setFunction d gc f)@ sets the drawing function attribute in @gc@ to @f@.
+\end{doc}
+
+#*setFont = /[Display GC Font Sig]
+\begin{doc}
+@(setFont d gc f)@ sets the font attribute in @gc@ to @f@.
+\end{doc}
+
+\subsection{Drawables}
+
+#*getGeometry = /[Display Drawable /Geometry]
+\begin{doc}
+@(getGeometry d dr)@ returns the geometry of the drawable @dr@.
+\end{doc}
+
+\subsection{Drawing Operations}
+
+#*copyArea = /[Display Drawable Drawable GC Int Int Int Int Int Int Sig]
+\begin{doc}
+@(copyArea d src dest gc sx sy sw sh dx dy)@ combines the specified
+rectangle of @src@ with the specified rectangle of @dest@.  The drawables
+must have the same root and depth.  If regions of the source rectangle are
+obscured and have not been retained in backing store or if regions outside
+the boundaries of the source drawable are specified, those regions are not
+copied.  Instead, the following occurs on all corresponding destination
+regions that are either visible or are retained in backing store.  If the
+destination is a window with a background other than None, corresponding
+regions of the destination are tiled with that background (with plane-mask
+of all ones and @gXcopy@ function).  Regardless of tiling or whether the
+destination is a window or a pixmap, if graphics-exposures is @true@, then
+@GraphicsExpose@ events for all corresponding destination regions are
+generated.  If graphics-exposures is @true@ but no @GraphicsExpose@ events
+are generated, a @NoExpose@ event is generated.  Note that by default
+graphics-exposures is @true@ in new graphics contexts.
+\end{doc}
+
+#*copyPlane = /[Display Drawable Drawable GC Int Int Int Int Int Int Int Sig]
+\begin{doc}
+@(copyPlane d src dest gc sx sy sw sh dx dy plane)@ uses a single bit plane
+of the specified source rectangle combined with the specified @GC@ to
+modify the specified rectangle of @dest@.  The drawables must have the same
+root but need not have the same depth.  @plane@ must have exactly one bit
+set to @1@ and have a values less than $2^n$ where where $n$ is the depth
+of @src@.
+\end{doc}
+
+#*drawArc = /[Display Drawable GC Int Int Int Int Int Int Sig]
+#*fillArc = /[Display Drawable GC Int Int Int Int Int Int Sig]
+\begin{doc}
+@(drawArc d dr gc x y w h a1 a2)@ draws a single circular or elliptical
+arc, specified by a rectangle and two angles.  The center of the circle or
+ellipse is the center of the rectangle, and the major and minor axes are
+specified by the width and height.  @a1@ specifies the start of the arc
+relative to the three-o'clock position from the center, in units of ${\it
+degrees} * 64$.  @a2@ specifies the path and extent of the arc relative to
+the start of the arc, in units of ${\it degrees} * 64$.  Positive angles
+indicate counter clockwise motion, and negative angles indicate clockwise
+motion.  If the magnitude of @a2@ is greater than @360@ degrees, @xDrawArc@
+truncates it to @360@ degrees.  @fillArc@ is similar to @drawArc@, except
+that it fills the area inside the arc.
+\end{doc}
+
+#*drawImageString = /[Display Drawable GC Int Int String Sig]
+\begin{doc}
+@(drawImageString d dr gc x y s)@ fills a destination rectangle with the
+background pixel defined in @gc@, and then draws the string @s@ at position
+@[x y]@ using the foreground pixel and font attributes defined in @gc@.
+The upper-left corner of the filled rectangle is at @[x (y-ascent)]@, the
+width is @width@, the height is @ascent+descent@, where @width@, @ascent@,
+and @descent@ are the same as would be returned by @textExtents@.
+\end{doc}
+
+#*drawLine = /[Display Drawable GC Int Int Int Int Sig]
+\begin{doc}
+@(drawLine d dr gc x1 y1 x2 y2)@ draws a line between the points @[x1 y1]@
+and @[x2 y2]@.
+\end{doc}
+
+#*drawPoint = /[Display Drawable GC Int Int Sig]
+\begin{doc}
+@(drawPoint x y)@ draws a point at the position @[x y]@.
+\end{doc}
+
+#*drawQuad = /[Display Drawable GC Int Int Int Int Int Int Int Int Sig]
+#*fillQuad = /[Display Drawable GC Int Int Int Int Int Int Int Int Sig]
+\begin{doc}
+@(drawQuad x1 y1 x2 y2 x3 y3 x4 y4)@ draws a closed polygon with vertices
+@[x1 y1]@, @[x2 y2]@, @[x3 y3]@ and @[x4 y4]@.  @fillQuad@ is similar to
+@drawQuad@, except it fills the area inside the polygon.
+\end{doc}
+
+#*drawRectangle = /[Display Drawable GC Int Int Int Int Sig]
+#*fillRectangle = /[Display Drawable GC Int Int Int Int Sig]
+\begin{doc}
+@(drawRectangle d dr gc x y w h)@ draws the outline of a rectangle,
+connecting the following four points: @[x y]@, @[(x+w) y]@, @[(x+w) (y+h)]@,
+and @[x (y+h)]@.  @fillRectangle@ is similar to @drawRectangle@, except it
+fills the area inside the rectangle.
+\end{doc}
+
+#*drawString = /[Display Drawable GC Int Int String Sig]
+\begin{doc}
+@(drawString d dr gc x y s)@ draws the string @s@ at position @[x y]@ using
+the foreground pixel and font attributes defined in @gc@.  Each character
+image, as defined by the font in @gc@, is treated as an additional mask for
+a fill operation on the drawable.  The drawable is modified only where the
+font character has a bit set to @1@.
+\end{doc}
+
+#*drawTriangle = /[Display Drawable GC Int Int Int Int Int Int Sig]
+#*fillTriangle = /[Display Drawable GC Int Int Int Int Int Int Sig]
+\begin{doc}
+@(drawTriangle d dr gc x1 y1 x2 y2 x3 y3)@ draws a triangle with vertices
+@[x1 y1]@, @[x2 y2]@ and @[x3 y3]@.  @fillTriangle@ is similar to
+@drawTriangle@, except it fills the area inside the triangle.
+\end{doc}
+
+\subsection{Pixmaps}
+
+#*createPixmap = /[Display Drawable Int Int Int /Pixmap]
+\begin{doc}
+@(createPixmap d dr w h depth)@ creates a pixmap of width, height, and
+depth you specified and returns a pixmap ID that identifies it.  The width
+and height arguments must be non-zero.  The depth argument must be one of
+the depths supported by the screen of the drawable @dr@.  The server uses
+@dr@ to determine on which screen to create the pixmap.  The pixmap can be
+used only on this screen and only with other drawables of the same depth
+(see @copyPlane@ for an exception to this rule).  The initial contents of
+the pixmap are undefined.
+\end{doc}
+
+#*freePixmap = /[Display Pixmap Sig]
+\begin{doc}
+@(freePixmap d p)@ deallocates the pixmap @p@.  The pixmap should never be
+referenced again.
+\end{doc}
+
+\subsection{Windows}
+
+#*createWindow = /[Display Window Int Int Int Int Int Color Color /Window]
+\begin{doc}
+@(createWindow d win x y w h borderWidth bg border)@ creates an unmapped,
+input-output subwindow for a parent window @win@, returning the window ID
+of the created window.  The created window is placed on top in the stacking
+order with respect to siblings.  Any part of the window that extends
+outside its parent window is clipped.  The created window inherits its
+depth, class, and visual from its parent.  All other window attributes,
+except background and border (which are specified explicitly), have their
+default values.
+\end{doc}
+
+#*defaultRootWindow = /[Display /Window]
+\begin{doc}
+@(defaultRootWindow d)@ returns the default root window for the display @d@.
+\end{doc}
+
+#*destroyWindow = /[Display Window Sig]
+\begin{doc}
+@(destroyWindow d win)@ destroys the window @win@ and all of its subwindows.
+The window should never be referenced again.  If @win@ is mapped, it is
+unmapped automatically.
+\end{doc}
+
+#*mapWindow = /[Display Window Sig]
+\begin{doc}
+@(mapWindow d win)@ maps the window @win@ and all of its subwindows that have
+had map requests.  Mapping a window that has an unmapped ancestor does not
+display the window but marks it as eligible for display when the ancestor
+becomes mapped.  This function has no effect if the window is already
+mapped.
+\end{doc}
+
+#*unmapWindow = /[Display Window Sig]
+\begin{doc}
+@(unmapWindow d win)@ unmaps the window @win@.  If the specified window is
+already unmapped, @unmapWindow@ has no effect.  Any child window of @win@
+will be invisible until @win@ is mapped again.
+\end{doc}
+
+#*moveWindow = /[Display Window Int Int Sig]
+\begin{doc}
+@(moveWindow d win x y)@ moves the window @win@ to the specified @x@ and @y@
+coordinates, but does not change the window's size, raise the window, or
+change the mapping state of the window.  Moving a mapped window may or may
+not lose the window's contents depending on if the window is obscured and
+if no backing store exists.  If the contents of the window are lost, the X
+server generates @Expose@ events.
+\end{doc}
+
+#*resizeWindow = /[Display Window Int Int Sig]
+\begin{doc}
+@(resizeWindow d win w h)@ changes the inside dimensions of the window
+@win@, not including its borders.  This function does not change the
+window's upper-left coordinate or the origin and does not restack the
+window.  Changing the size of a mapped window may lose its contents and
+generate @Expose@ events.
+\end{doc}
+
+#*moveResizeWindow = /[Display Window Int Int Int Int Sig]
+\begin{doc}
+@(moveResizeWindow d win x y w h)@ changes both the size and location of
+the window @win@.
+\end{doc}
+
+#*clearWindow = /[Display Window Sig]
+\begin{doc}
+@(clearWindow d win)@ clears the entire window @win@ (without generating
+any @Exposure@ events).
+\end{doc}
+
+#*clearArea = /[Display Window Int Int Int Int Bool Sig]
+\begin{doc}
+@(clearArea d w x y w h e)@ paints a rectangular area in the window @win@
+according to the specified dimensions using the window's background pixel
+or pixmap.  If @w@ is zero, it is replaced with the current width of the
+window minus @x@.  If @h@ is zero, it is replaced with the current height
+of the window minus @y@.  If the window has a defined background tile, the
+rectangle clipped by any children is filled with this tile.  If @e@ is
+@true@, one or more @Expose@ events are generated for regions of the
+rectangle that are either visible or are being retained in a backing store.
+\end{doc}
+
+#*setWindowBackground = /[Display Window Color Sig]
+\begin{doc}
+@(setWindowBackground d win c)@ sets the background color of the window
+@win@ to @c@.  Changing the background does not cause the window contents
+to be changed.
+\end{doc}
+
+#*setWindowBackgroundPixmap = /[Display Window Pixmap Sig]
+\begin{doc}
+@(setWindowBackgroundPixmap d win p)@ sets the background pixmap of the
+window @win@ to @p@.  The background pixmap can immediately be freed if no
+further explicit references to it are to be made.
+\end{doc}
+
+#*setWindowBorder = /[Display Window Color Sig]
+\begin{doc}
+@(setWindowBorder d win c)@ sets the border color of @win@ to @c@.
+\end{doc}
+
+#*setWindowBorderWidth = /[Display Window Int Sig]
+\begin{doc}
+@(setWindowBorderWidth d win x)@ sets the border width of @win@ to @x@.
+\end{doc}
+
+#*storeName = /[Display Window String Sig]
+\begin{doc}
+@(storeName d win s)@ assigns the name @s@ to the window @win@.  A window
+manager can display the window name in some prominent place, such as the
+title bar, to allow users to identify windows easily.  Some window managers
+may display a window's name in the window's icon, although they are
+encouraged to use the window's icon name if one is provided by the
+application.  If the string is not in the Host Portable Character Encoding,
+the result is implementation dependent.
+\end{doc}
+
+#*withdrawWindow = /[Display Window ScreenNum /Bool]
+\begin{doc}
+@(withdrawWindow d win s)@ unmaps the window @win@ and sends a synthetic
+@UnmapNotify@ event to the root window of the screen @s@.  Window managers
+may elect to receive this message and may treat it as a request to change
+the window's state to withdrawn.  When a window is in the withdrawn state,
+neither its normal nor its iconic representations are visible.  Returns
+@true@ if the @UnmapNotify@ event was successfully sent, @false@ otherwise.
+\end{doc}
+
+\subsection{KeySyms}
+
+#*XKHome  = KeySym
+#*XKLeft  = KeySym
+#*XKRight = KeySym
+#*XKUp    = KeySym
+#*XKDown  = KeySym
+\begin{doc}
+We only provide definitions for a few of common keysyms; others can be
+added very straightforwardly.
+\end{doc}
+
+\subsection{Buttons}
+
+#*button1 = Button
+#*button2 = Button
+#*button3 = Button
+#*button4 = Button
+#*button5 = Button
+\begin{doc}
+Input devices may have up to five buttons.
+\end{doc}
+
+#*eqButton = /[Button Button /Bool]
+\begin{doc}
+@(eqButton b1 b2)@ tests if the buttons @b1@ and @b2@ are equal.
+\end{doc}
+
+#*buttonString = /[Button /String]
+\begin{doc}
+@(buttonString b)@ converts the button @b@ to a string.
+\end{doc}
+
+\subsection{Events}
+
+#*allocEvent = /[/XEvent]
+\begin{doc}
+Allocates a new event (specific event values are written into
+an event by @nextEvent@).
+\end{doc}
+
+#*nextEvent = /[Display XEvent Sig]
+\begin{doc}
+@(nextEvent d e)@ reads the next event from the display @d@ and writes it
+into @e@, blocking the {\em whole} Pict system if no event is available.
+\end{doc}
+
+#*pending = /[Display /Int]
+\begin{doc}
+@(pending d)@ returns the number of events currently available in the input
+buffer of @d@ (if there are no events in the input buffer, @pending@
+flushes the output buffer and rechecks the status of the input buffer in
+case some events have become available).
+\end{doc}
+
+#*isExpose = /[XEvent /Bool]
+#*exposeEventWindow = /[XEvent /Window]
+#*exposeEventX = /[XEvent /Int]
+#*exposeEventY = /[XEvent /Int]
+#*exposeEventW = /[XEvent /Int]
+#*exposeEventH = /[XEvent /Int]
+\begin{doc}
+If @(isExpose e)@ is @true@ then the above functions extract the
+appropriate components of the event @e@.  Anything can happen if you use
+these functions on another kind of event.
+\end{doc}
+
+#*isButtonPress = /[XEvent /Bool]
+#*isButtonRelease = /[XEvent /Bool]
+#*buttonEventWindow = /[XEvent /Window]
+#*buttonEventX = /[XEvent /Int]
+#*buttonEventY = /[XEvent /Int]
+#*buttonEventButton = /[XEvent /Button]
+\begin{doc}
+If @(isButtonPress e)@ or @(isButtonRelease e)@ is @true@ then the above
+functions extract the appropriate components of the event @e@.  Anything
+can happen if you use these functions on another kind of event.
+\end{doc}
+
+#*isButtonMotion = /[XEvent /Bool]
+#*buttonMotionEventWindow = /[XEvent /Window]
+#*buttonMotionEventX = /[XEvent /Int]
+#*buttonMotionEventY = /[XEvent /Int]
+#*buttonMotionEventTime = /[XEvent /Int]
+\begin{doc}
+If @(isButtonMotion e)@ is @true@ then the above functions extract the
+appropriate components of the event @e@.  Anything can happen if you use
+these functions on another kind of event.
+\end{doc}
+
+#*isConfigureNotify = /[XEvent /Bool]
+#*configureEventWindow = /[XEvent /Window]
+#*configureEventX = /[XEvent /Int]
+#*configureEventY = /[XEvent /Int]
+#*configureEventW = /[XEvent /Int]
+#*configureEventH = /[XEvent /Int]
+\begin{doc}
+If @(isConfigureNotify e)@ is @true@ then the above functions extract the
+appropriate components of the event @e@.  Anything can happen if you use
+these functions on another kind of event.
+\end{doc}
+
+#*isKeyPress = /[XEvent /Bool]
+#*isKeyRelease = /[XEvent /Bool]
+#*keyEventWindow = /[XEvent /Window]
+#*keyEventX = /[XEvent /Int]
+#*keyEventY = /[XEvent /Int]
+#*keyEventString = /[XEvent /String]
+#*keyEventKeySym = /[XEvent /KeySym]
+\begin{doc}
+If @(isKeyPress e)@ or @(isKeyRelease e)@ is @true@ then the above
+functions extract the appropriate components of the event @e@.  Anything
+can happen if you use these functions on another kind of event.
+\end{doc}
+
+\subsection{Event Masks}
+
+#*noEventMask = EventMask
+#*keyPressMask = EventMask
+#*keyReleaseMask = EventMask
+#*buttonPressMask = EventMask
+#*buttonReleaseMask = EventMask
+#*enterWindowMask = EventMask
+#*leaveWindowMask = EventMask
+#*pointerMotionMask = EventMask
+#*pointerMotionHintMask = EventMask
+#*button1MotionMask = EventMask
+#*button2MotionMask = EventMask
+#*button3MotionMask = EventMask
+#*button4MotionMask = EventMask
+#*button5MotionMask = EventMask
+#*buttonMotionMask = EventMask
+#*keymapStateMask = EventMask
+#*exposureMask = EventMask
+#*visibilityChangeMask = EventMask
+#*structureNotifyMask = EventMask
+#*resizeRedirectMask = EventMask
+#*substructureNotifyMask = EventMask
+#*substructureRedirectMask = EventMask
+#*focusChangeMask = EventMask
+#*propertyChangeMask = EventMask
+#*colormapChangeMask = EventMask
+#*ownerGrabButtonMask = EventMask
+\begin{doc}
+Including one of the above mask values in a window's mask indicates an
+interest in the like-named event.
+\end{doc}
+
+#*selectInput = /[Display Window EventMask Sig]
+\begin{doc}
+@(selectInput d win m)@ requests that the X server ignore all events in the
+window @win@ except those specified in the event mask @m@.  Initially, X
+will not report any events for a window.  Events are reported relative to a
+window.  If a window is not interested in a device event, it usually
+propagates to the closest ancestor that is interested.
+\end{doc}
+
+#*mergeMasks = /[EventMask EventMask /EventMask]
+\begin{doc}
+@(mergeMasks m1 m2)@ merge the event masks @m1@ and @m2@.
+\end{doc}
+
+\subsection{Miscellaneous}
+
+#*bell = /[Display Int Sig]
+\begin{doc}
+@(bell d volume)@ rings the bell on the keyboard of the display @d@, if
+possible.  The specified volume is relative to the base volume for the
+keyboard.  The @volume@ argument must be in the range @-100@ to @100@
+inclusive.  The volume at which the bell rings when the @volume@ argument
+is positive is: $@base@ - ((@base@ * @volume@) / 100) + @volume@$.  The
+volume at which the bell rings when the @volume@ argument is negative is:
+$@base@ + ((@base@ * @volume@) / 100)$.
+\end{doc}
+
+#{#}
+]] = (
+
+(ccode 0 I "##include <string.h>");
+(ccode 0 I "##include <X11/Xlib.h>");
+(ccode 0 I "##include <X11/Xresource.h>");
+(ccode 0 I "##include <X11/Xutil.h>");
+(ccode 0 I "##include <X11/keysym.h>");
+(ccode 0 I "##include <X11/keysymdef.h>");
+
+type Geometry =
+  [x = Int
+   y = Int
+   width = Int
+   height = Int
+   borderWidth = Int
+   depth = Int]
+
+type TextExtents =
+  [fontAscent = Int
+   fontDescent = Int
+   lbearing = Int
+   rbearing = Int
+   width = Int
+   ascent = Int
+   descent = Int]
+
+val [#Display] = [#Top]
+
+inline
+def openDisplay (name:String onError:Exn) : Display 
+= (val d:Display = (ccode 0 W "(Val)XOpenDisplay(S(#))" name)
+   if (prim.nullPtr d) then
+     (exn.raise onError "xOpenDisplay: could not open display")
+   else d)
+
+inline
+def closeDisplay (d:Display) : []
+= (ccode 0 E "XCloseDisplay(D(#));" d)
+
+inline
+def displayFd (d:Display) : Fd
+= (ccode 0 P "intInt(ConnectionNumber(D(#)))" d)
+
+inline
+def synchronize (d:Display onOff:Bool) : []
+= (ccode 0 E "XSynchronize(D(#),#);" d onOff)
+
+inline
+def flush (d:Display) : []
+= (ccode 0 E "XFlush(D(#));" d)
+
+val [#ScreenNum] = [#Top]
+
+inline
+def defaultScreen (d:Display) : ScreenNum 
+= (ccode 0 P "intInt(XDefaultScreen(D(#)))" d)
+
+inline
+def defaultDepth (d:Display s:ScreenNum) : Int
+= (ccode 0 P "intInt(XDefaultDepth(D(#),I(#)))" d s)
+
+val [#XID] = [#Top]
+
+val [#XContext:(Type->Type)] = [#\X = Top]
+
+inline
+def uniqueContext (#X) : (XContext X)
+= (ccode 0 R "intInt(XUniqueContext())")
+
+inline def delete
+  (#X d:Display xid:XID c:(XContext X)) : []
+  = (ccode 0 E "XDeleteContext(D(#),W(#),I(#));" d xid c)
+inline def find
+  (#X d:Display xid:XID c:(XContext X)) : (External X)
+  = (ccode 0 R "({char *data;
+      (XFindContext(D(#),W(#),I(#),&data) ? (Val)NULL : (Val)data);
+    })" d xid c)
+inline def save
+  (#X d:Display xid:XID c:(XContext X) x:(External X)) : []
+  = (ccode 0 E "XSaveContext(D(#),W(#),I(#),(char*)#);" d xid c x)
+
+def findContext
+  (#X d:Display xid:XID c:(XContext X) fail:Exn) : X
+= (val ext = (find d xid c)
+   if (prim.nullPtr ext) then
+     (exn.raise fail "xFindContext: XID not found")
+   else
+     (external.get ext))
+
+def saveContext (#X d:Display xid:XID c:(XContext X) x:X) : []
+= (val ext = (find d xid c)
+   if (prim.nullPtr ext) then
+     (save d xid c (external.make x))
+   else
+     ((external.delete ext); (save d xid c (external.make x))))
+
+def deleteContext
+  (#X d:Display xid:XID c:(XContext X) fail:Exn) : []
+= (val ext = (find d xid c)
+   if (prim.nullPtr ext) then
+     (exn.raise fail "xDeleteContext: XID not found")
+   else
+     ((external.delete ext); (delete d xid c)))
+
+val [#Xfunction] = [#Top]
+
+val gXclear : Xfunction           {- 0                       -}
+= (ccode 0 C "intInt(GXclear)")
+val gXand : Xfunction             {- src AND dst             -}
+= (ccode 0 C "intInt(GXand)")
+val gXandReverse : Xfunction      {- src AND NOT dst         -}
+= (ccode 0 C "intInt(GXandReverse)")
+val gXcopy : Xfunction            {- src                     -}
+= (ccode 0 C "intInt(GXcopy)")
+val gXandInverted : Xfunction     {- (NOT src) AND dst       -}
+= (ccode 0 C "intInt(GXandInverted)")
+val gXnoop : Xfunction            {- dst                     -}
+= (ccode 0 C "intInt(GXnoop)")
+val gXxor : Xfunction             {- src XOR dst             -}
+= (ccode 0 C "intInt(GXxor)")
+val gXor : Xfunction              {- src OR dst              -}
+= (ccode 0 C "intInt(GXor)")
+val gXnor : Xfunction             {- (NOT src) AND (NOT dst) -}
+= (ccode 0 C "intInt(GXnor)")
+val gXequiv : Xfunction           {- (NOT src) XOR dst       -}
+= (ccode 0 C "intInt(GXequiv)")
+val gXinvert : Xfunction          {- NOT dst                 -}
+= (ccode 0 C "intInt(GXinvert)")
+val gXorReverse : Xfunction       {- src OR (NOT dst)        -}
+= (ccode 0 C "intInt(GXorReverse)")
+val gXcopyInverted : Xfunction    {- NOT src                 -}
+= (ccode 0 C "intInt(GXcopyInverted)")
+val gXorInverted : Xfunction      {- (NOT src) OR dst        -}
+= (ccode 0 C "intInt(GXorInverted)")
+val gXnand : Xfunction            {- (NOT src) OR (NOT dst)  -}
+= (ccode 0 C "intInt(GXnand)")
+val gXset : Xfunction             {- 1                       -}
+= (ccode 0 C "intInt(GXset)")
+
+val [#Color] = [#Top]
+
+inline
+def colorRed (c:Color) : Int
+= (ccode 0 P "intInt(((XColor*)#)->red)" c)
+inline
+def colorGreen (c:Color) : Int
+= (ccode 0 P "intInt(((XColor*)#)->green)" c)
+inline
+def colorBlue (c:Color) : Int
+= (ccode 0 P "intInt(((XColor*)#)->blue)" c)
+
+def allocColor
+  (d:Display s:ScreenNum r:Int g:Int b:Int fail:(Handler [Int Int Int]))
+  : Color
+= (
+   val color:Color = (ccode 0 R "(Val)malloc(sizeof(XColor))")
+   (error.check "xAllocColor: malloc failed" (not(prim.nullPtr color)));
+   val err:Int = (ccode 0 R "({
+     XColor *rgb = (XColor*)#;
+     rgb->red = I(#); rgb->green = I(#); rgb->blue = I(#);
+     rgb->flags = (DoRed | DoGreen | DoBlue); rgb->pixel = 0;
+     intInt(XAllocColor(D(#),DefaultColormap(D(#),I(#)),rgb));
+   })" color r g b d d s)
+   if (== err 0) then
+     (exn.raise fail [r g b])
+   else
+     color
+)
+
+def allocNamedColor
+  (d:Display s:ScreenNum name:String fail:Exn) : Color
+= (
+   val color:Color = (ccode 0 R "(Val)malloc(sizeof(XColor))")
+   (error.check "xAllocNamedColor: malloc failed"
+    (not (prim.nullPtr color)));
+   val err:Int = (ccode 0 R "({
+     XColor exact;
+     intInt(XAllocNamedColor(D(#),DefaultColormap(D(#),I(#)),
+                             S(#),(XColor*)#,&exact));
+   })" d d s name color)
+   if (== err 0) then
+     (exn.raise fail name)
+   else
+     color
+)
+
+val [#Font] = [#Top]
+
+inline
+def loadQueryFont (d:Display name:String fail:Exn) : Font
+= (val f:Font = (ccode 0 R "(Val)XLoadQueryFont(D(#),S(#))" d name)
+   if (prim.nullPtr f) then (exn.raise fail (+$ "xLoadQueryFont: " name))
+   else f)
+
+inline
+def freeFont (d:Display font:Font) : []
+= (ccode 0 E "XFreeFont(D(#),(XFontStruct *)#);" d font)
+
+inline
+def textExtents (font:Font s:String) : TextExtents
+= (ccode 8 W "({
+   int dummy, ascent, descent; XCharStruct charStruct;
+    XTextExtents((XFontStruct *)#,S(#),strlen(S(#)),
+                 &dummy,&ascent,&descent,&charStruct);
+    Free[0] = TUPLE(8);
+    Free[1] = intInt(ascent); Free[2] = intInt(descent);
+    Free[3] = intInt(charStruct.lbearing);
+    Free[4] = intInt(charStruct.rbearing);
+    Free[5] = intInt(charStruct.width);
+    Free[6] = intInt(charStruct.ascent);
+    Free[7] = intInt(charStruct.descent);
+    Free += 8; TAG(Free-8);
+  })" font s s)
+
+val [#GC] = [#Top]
+
+inline
+def defaultGC (d:Display s:ScreenNum) : GC 
+= (ccode 0 P "(Val)XDefaultGC(D(#),I(#))" d s)
+
+inline
+def setBackground (d:Display gc:GC c:Color) : []
+= (ccode 0 E "XSetBackground(D(#),G(#),((XColor*)#)->pixel);" d gc c)
+
+inline
+def setForeground (d:Display gc:GC c:Color) : []
+= (ccode 0 E "XSetForeground(D(#),G(#),((XColor*)#)->pixel);" d gc c)
+
+inline
+def setFunction (d:Display gc:GC f:Xfunction) : []
+= (ccode 0 E "XSetFunction(D(#),G(#),I(#));" d gc f)
+
+inline
+def setFont (d:Display gc:GC font:Font) : []
+= (ccode 0 E "XSetFont(D(#),G(#),((XFontStruct *)#)->fid);" d gc font)
+
+val [#Drawable < XID] = [#XID]
+
+def getGeometry (d:Display dr:Drawable) : Geometry
+= (ccode 7 R "({
+    Window root; int x,y,width,height,borderwidth,depth;
+    XGetGeometry(D(#),W(#),&root,&x,&y,&width,&height,&borderwidth,&depth);
+    Free[0] = TUPLE(7); Free[1] = intInt(x); Free[2] = intInt(y);
+    Free[3] = intInt(width); Free[4] = intInt(height);
+    Free[5] = intInt(borderwidth); Free[6] = intInt(depth);
+    Free += 7; TAG(Free-7);
+  })" d dr)
+
+inline
+def copyArea
+  (d:Display src:Drawable dest:Drawable gc:GC 
+   srcX:Int srcY:Int srcW:Int srcH:Int destX:Int destY:Int) : []
+= (ccode 0 E "XCopyArea(D(#),W(#),W(#),G(#),I(#),I(#),I(#),I(#),I(#),I(#));" 
+   d src dest gc srcX srcY srcW srcH destX destY)
+
+inline
+def copyPlane
+  (d:Display src:Drawable dest:Drawable gc:GC srcX:Int srcY:Int 
+   srcW:Int srcH:Int destX:Int destY:Int plane:Int) : []
+= (ccode 0 E 
+   "XCopyPlane(D(#),W(#),W(#),G(#),I(#),I(#),I(#),I(#),I(#),I(#),I(#));" 
+   d src dest gc srcX srcY srcW srcH destX destY plane)
+
+inline
+def drawArc
+  (d:Display dr:Drawable gc:GC x:Int y:Int w:Int h:Int a1:Int a2:Int) : []
+= (ccode 0 E "XDrawArc(D(#),W(#),G(#),I(#),I(#),I(#),I(#),I(#),I(#));" 
+   d dr gc x y w h a1 a2)
+
+inline
+def drawImageString
+  (d:Display dr:Drawable gc:GC x:Int y:Int s:String) : []
+= (ccode 0 E "XDrawImageString(D(#),W(#),G(#),I(#),I(#),S(#),I(#));" 
+   d dr gc x y s (string.size s))
+
+inline
+def drawLine
+  (d:Display dr:Drawable gc:GC x1:Int y1:Int x2:Int y2:Int) : []
+= (ccode 0 E "XDrawLine(D(#),W(#),G(#),I(#),I(#),I(#),I(#));" 
+   d dr gc x1 y1 x2 y2)
+
+inline
+def drawPoint (d:Display dr:Drawable gc:GC x:Int y:Int) : []
+= (ccode 0 E "XDrawPoint(D(#),W(#),G(#),I(#),I(#));" d dr gc x y)
+
+inline
+def drawQuad
+  (d:Display dr:Drawable gc:GC
+   x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int x4:Int y4:Int) : []
+= (ccode 0 E "{
+    XPoint p1 = {I(#),I(#)};
+    XPoint p2 = {I(#),I(#)};
+    XPoint p3 = {I(#),I(#)};
+    XPoint p4 = {I(#),I(#)};
+    XPoint points[5] = {p1,p2,p3,p4,p1};
+    XDrawLines(D(#),W(#),G(#),points,5,CoordModeOrigin);
+   }" x1 y1 x2 y2 x3 y3 x4 y4 d dr gc)
+
+inline
+def drawRectangle
+  (d:Display dr:Drawable gc:GC x:Int y:Int w:Int h:Int) : []
+= (ccode 0 E "XDrawRectangle(D(#),W(#),G(#),I(#),I(#),I(#),I(#));" 
+   d dr gc x y w h)
+
+inline
+def drawString (d:Display dr:Drawable gc:GC x:Int y:Int s:String) : []
+= (ccode 0 E "XDrawString(D(#),W(#),G(#),I(#),I(#),S(#),I(#));" 
+   d dr gc x y s (string.size s))
+
+inline
+def drawTriangle
+  (d:Display dr:Drawable gc:GC
+   x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int) : []
+= (ccode 0 E "{
+    XPoint p1 = {I(#),I(#)};
+    XPoint p2 = {I(#),I(#)};
+    XPoint p3 = {I(#),I(#)};
+    XPoint points[4] = {p1,p2,p3,p1};
+    XDrawLines(D(#),W(#),G(#),points,4,CoordModeOrigin);
+   }" x1 y1 x2 y2 x3 y3 d dr gc)
+
+inline
+def fillArc
+  (d:Display dr:Drawable gc:GC x:Int y:Int w:Int h:Int a1:Int a2:Int) : []
+= (ccode 0 E "XFillArc(D(#),W(#),G(#),I(#),I(#),I(#),I(#),I(#),I(#));" 
+   d dr gc x y w h a1 a2)
+
+inline
+def fillQuad
+  (d:Display dr:Drawable gc:GC
+   x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int x4:Int y4:Int) : []
+= (ccode 0 E "{
+    XPoint p1 = {I(#),I(#)};
+    XPoint p2 = {I(#),I(#)};
+    XPoint p3 = {I(#),I(#)};
+    XPoint p4 = {I(#),I(#)};
+    XPoint points[5] = {p1,p2,p3,p4,p1};
+    XFillPolygon(D(#),W(#),G(#),points,5,Complex,CoordModeOrigin);
+   }" x1 y1 x2 y2 x3 y3 x4 y4 d dr gc)
+
+inline
+def fillRectangle
+  (d:Display dr:Drawable gc:GC x:Int y:Int w:Int h:Int) : []
+= (ccode 0 E "XFillRectangle(D(#),W(#),G(#),I(#),I(#),I(#),I(#));" 
+   d dr gc x y w h)
+
+inline
+def fillTriangle
+  (d:Display dr:Drawable gc:GC
+   x1:Int y1:Int x2:Int y2:Int x3:Int y3:Int) : []
+= (ccode 0 E "{
+    XPoint p1 = {I(#),I(#)};
+    XPoint p2 = {I(#),I(#)};
+    XPoint p3 = {I(#),I(#)};
+    XPoint points[4] = {p1,p2,p3,p1};
+    XFillPolygon(D(#),W(#),G(#),points,4,Convex,CoordModeOrigin);
+   }" x1 y1 x2 y2 x3 y3 d dr gc)
+
+val [#Pixmap < Drawable] = [#Drawable]
+
+inline
+def createPixmap
+  (d:Display dr:Drawable width:Int height:Int depth:Int) : Pixmap
+= (ccode 0 R "intInt(XCreatePixmap(D(#),W(#),I(#),I(#),I(#)))" 
+   d dr width height depth)
+
+inline
+def freePixmap (d:Display p:Pixmap) : []
+= (ccode 0 E "XFreePixmap(D(#),W(#));" d p)
+
+val [#Window < Drawable] = [#Drawable]
+
+inline
+def createWindow
+  (d:Display win:Window x:Int y:Int w:Int h:Int 
+   borderWidth:Int border:Color bg:Color) : Window 
+= (ccode 0 R "
+    intInt(XCreateSimpleWindow(D(#),W(#),I(#),I(#),I(#),I(#),I(#),
+           ((XColor*)#)->pixel,((XColor*)#)->pixel))
+   " d win x y w h borderWidth border bg)
+
+inline
+def defaultRootWindow (d:Display) : Window 
+= (ccode 0 P "intInt(XDefaultRootWindow(D(#)))" d)
+
+inline
+def destroyWindow (d:Display win:Window) : []
+= (ccode 0 E "XDestroyWindow(D(#),W(#));" d win)
+
+inline
+def mapWindow (d:Display win:Window) : []
+= (ccode 0 E "XMapWindow(D(#),W(#));" d win)
+
+inline
+def unmapWindow (d:Display win:Window) : []
+= (ccode 0 E "XUnmapWindow(D(#),W(#));" d win)
+
+inline
+def moveWindow (d:Display win:Window x:Int y:Int) : []
+= (ccode 0 E "XMoveWindow(D(#),W(#),I(#),I(#));" d win x y)
+
+inline
+def resizeWindow (d:Display win:Window w:Int h:Int) : []
+= (ccode 0 E "XResizeWindow(D(#),W(#),I(#),I(#));" d win w h)
+
+inline
+def moveResizeWindow (d:Display win:Window x:Int y:Int w:Int h:Int) : []
+= (ccode 0 E "XMoveResizeWindow(D(#),W(#),I(#),I(#),I(#),I(#));" 
+   d win x y w h)
+
+inline
+def clearWindow (d:Display win:Window) : []
+= (ccode 0 E "XClearWindow(D(#),W(#));" d win)
+
+inline
+def clearArea
+  (d:Display win:Window x:Int y:Int w:Int h:Int exposeEvent:Bool) : []
+= (ccode 0 E "XClearArea(D(#),W(#),I(#),I(#),I(#),I(#),#);" 
+   d win x y w h exposeEvent)
+
+inline
+def setWindowBackground (d:Display win:Window c:Color) : []
+= (ccode 0 E "XSetWindowBackground(D(#),W(#),((XColor*)#)->pixel);" d win c)
+
+inline
+def setWindowBackgroundPixmap (d:Display win:Window p:Pixmap) : []
+= (ccode 0 E "XSetWindowBackgroundPixmap(D(#),W(#),I(#));" d win p)
+
+inline
+def setWindowBorder (d:Display win:Window c:Color) : []
+= (ccode 0 E "XSetWindowBorder(D(#),W(#),((XColor*)#)->pixel);" d win c)
+
+inline
+def setWindowBorderWidth (d:Display win:Window width:Int) : []
+= (ccode 0 E "XSetWindowBorderWidth(D(#),W(#),I(#));" d win width)
+
+inline
+def storeName (d:Display win:Window s:String) : []
+= (ccode 0 E "XStoreName(D(#),W(#),S(#));" d win s)
+
+inline
+def withdrawWindow (d:Display win:Window s:ScreenNum) : Bool
+= (ccode 0 W "(XWithdrawWindow(D(#),W(#),I(#)) != 0)" d win s)
+
+val [#KeySym < Int] = [#Int]
+
+val XKHome : KeySym
+= (ccode 0 R "intInt(XK_Home)")
+val XKLeft : KeySym
+= (ccode 0 R "intInt(XK_Left)")
+val XKRight : KeySym
+= (ccode 0 R "intInt(XK_Right)")
+val XKUp : KeySym
+= (ccode 0 R "intInt(XK_Up)")
+val XKDown : KeySym
+= (ccode 0 R "intInt(XK_Down)")
+
+type Button
+= Int
+val button1 : Button
+= 1
+val button2 : Button
+= 2
+val button3 : Button
+= 3
+val button4 : Button
+= 4
+val button5 : Button
+= 5
+
+inline
+def eqButton (b1:Button b2:Button) : Bool
+= (== b1 b2)
+
+inline
+def buttonString (b:Button) : String
+= if (== b button1) then "button1"
+  else if (== b button2) then "button2"
+  else if (== b button3) then "button3"
+  else if (== b button4) then "button4"
+  else "button5"
+
+val [#XEvent] = [#Top]
+
+inline
+def allocEvent () : XEvent
+= (val e:XEvent = (ccode 0 R "(Val)malloc(sizeof(XEvent))")
+   (error.check "allocEvent: malloc failed" (not (prim.nullPtr e)));
+   e)
+
+inline
+def nextEvent (d:Display e:XEvent) : []
+= (ccode 0 E "XNextEvent(D(#), (XEvent *)#);" d e)
+
+inline
+def pending (d:Display) : Int
+= (ccode 0 R "intInt(XPending(D(#)))" d)
+
+inline
+def isExpose (e:XEvent) : Bool
+= (ccode 0 R "(((XEvent *)#)->type == Expose)" e)
+inline
+def exposeEventWindow (e:XEvent) : Window
+= (ccode 0 R "intInt(((XEvent *)#)->xexpose.window)" e)
+inline
+def exposeEventX (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xexpose.x)" e)
+inline
+def exposeEventY (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xexpose.y)" e)
+inline
+def exposeEventW (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xexpose.width)" e)
+inline
+def exposeEventH (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xexpose.height)" e)
+
+inline
+def isButtonPress (e:XEvent) : Bool
+= (ccode 0 R "(((XEvent *)#)->type == ButtonPress)" e)
+inline
+def isButtonRelease (e:XEvent) : Bool
+= (ccode 0 R "(((XEvent *)#)->type == ButtonRelease)" e)
+inline
+def buttonEventWindow (e:XEvent) : Window
+= (ccode 0 R "intInt(((XEvent *)#)->xbutton.window)" e)
+inline
+def buttonEventX (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xbutton.x)" e)
+inline
+def buttonEventY (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xbutton.y)" e)
+inline
+def buttonEventButton (e:XEvent) : Button
+= (ccode 0 R "intInt(((XEvent *)#)->xbutton.button)" e)
+
+inline
+def isButtonMotion (e:XEvent) : Bool
+= (ccode 0 R "(((XEvent *)#)->type == MotionNotify)" e)
+inline
+def buttonMotionEventWindow (e:XEvent) : Window
+= (ccode 0 R "intInt(((XEvent *)#)->xmotion.window)" e)
+inline
+def buttonMotionEventX (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xmotion.x)" e)
+inline
+def buttonMotionEventY (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xmotion.y)" e)
+inline
+def buttonMotionEventTime (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xmotion.time)" e)
+
+inline
+def isConfigureNotify (e:XEvent) : Bool
+= (ccode 0 R "(((XEvent *)#)->type == ConfigureNotify)" e)
+inline
+def configureEventWindow (e:XEvent) : Window
+= (ccode 0 R "intInt(((XEvent *)#)->xconfigure.window)" e)
+inline
+def configureEventX (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xconfigure.x)" e)
+inline
+def configureEventY (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xconfigure.y)" e)
+inline
+def configureEventW (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xconfigure.width)" e)
+inline
+def configureEventH (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xconfigure.height)" e)
+
+inline
+def isKeyPress (e:XEvent) : Bool
+= (ccode 0 R "(((XEvent *)#)->type == KeyPress)" e)
+inline
+def isKeyRelease (e:XEvent) : Bool
+= (ccode 0 R "(((XEvent *)#)->type == KeyRelease)" e)
+inline
+def keyEventWindow (e:XEvent) : Window
+= (ccode 0 R "intInt(((XEvent *)#)->xkey.window)" e)
+inline
+def keyEventX (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xkey.x)" e)
+inline
+def keyEventY (e:XEvent) : Int
+= (ccode 0 R "intInt(((XEvent *)#)->xkey.y)" e)
+def keyEventString (e:XEvent) : String
+= (ccode 0 R "({
+    int len; char *res; char buffer[20]; KeySym keysym;
+    len = XLookupString(&(((XEvent*)#)->xkey),buffer,19,&keysym,NULL);
+    buffer[len] = 0; res = (char *)malloc(len+1);
+    strcpy(res,(char *)&buffer); (Val)res;
+   })" e)
+def keyEventKeySym (e:XEvent) : KeySym
+= (ccode 0 R "({
+    KeySym keysym;
+    XLookupString(&(((XEvent*)#)->xkey),NULL,0,&keysym,NULL);
+    intInt(keysym);
+   })" e)
+
+val [#EventMask] = [#Top]
+
+val noEventMask : EventMask = (ccode 0 C "intInt(NoEventMask)")
+val keyPressMask : EventMask = (ccode 0 C "intInt(KeyPressMask)")
+val keyReleaseMask : EventMask = (ccode 0 C "intInt(KeyReleaseMask)")
+val buttonPressMask : EventMask = (ccode 0 C "intInt(ButtonPressMask)")
+val buttonReleaseMask : EventMask = (ccode 0 C "intInt(ButtonReleaseMask)")
+val enterWindowMask : EventMask = (ccode 0 C "intInt(EnterWindowMask)")
+val leaveWindowMask : EventMask = (ccode 0 C "intInt(LeaveWindowMask)")
+val pointerMotionMask : EventMask = (ccode 0 C "intInt(PointerMotionMask)")
+val pointerMotionHintMask : EventMask =
+  (ccode 0 C "intInt(PointerMotionHintMask)")
+val button1MotionMask : EventMask = (ccode 0 C "intInt(Button1MotionMask)")
+val button2MotionMask : EventMask = (ccode 0 C "intInt(Button2MotionMask)")
+val button3MotionMask : EventMask = (ccode 0 C "intInt(Button3MotionMask)")
+val button4MotionMask : EventMask = (ccode 0 C "intInt(Button4MotionMask)")
+val button5MotionMask : EventMask = (ccode 0 C "intInt(Button5MotionMask)")
+val buttonMotionMask : EventMask = (ccode 0 C "intInt(ButtonMotionMask)")
+val keymapStateMask : EventMask = (ccode 0 C "intInt(KeymapStateMask)")
+val exposureMask : EventMask = (ccode 0 C "intInt(ExposureMask)")
+val visibilityChangeMask : EventMask =
+  (ccode 0 C "intInt(VisibilityChangeMask)")
+val structureNotifyMask : EventMask = (ccode 0 C "intInt(StructureNotifyMask)")
+val resizeRedirectMask : EventMask = (ccode 0 C "intInt(ResizeRedirectMask)")
+val substructureNotifyMask : EventMask =
+  (ccode 0 C "intInt(SubstructureNotifyMask)")
+val substructureRedirectMask : EventMask =
+  (ccode 0 C "intInt(SubstructureRedirectMask)")
+val focusChangeMask : EventMask = (ccode 0 C "intInt(FocusChangeMask)")
+val propertyChangeMask : EventMask = (ccode 0 C "intInt(PropertyChangeMask)")
+val colormapChangeMask : EventMask = (ccode 0 C "intInt(ColormapChangeMask)")
+val ownerGrabButtonMask : EventMask = (ccode 0 C "intInt(OwnerGrabButtonMask)")
+
+inline
+def selectInput (d:Display win:Window m:EventMask) : []
+= (ccode 0 E "XSelectInput(D(#),W(#),I(#));" d win m)
+
+inline
+def mergeMasks (m1:EventMask m2:EventMask) : EventMask
+= (ccode 0 C "(# | #)" m1 m2)
+
+inline
+def bell (d:Display volume:Int) : []
+= (ccode 0 E "XBell(D(#),I(#));" d volume)
+
+[#Display #ScreenNum #XID #XContext #Xfunction #Color #Font #TextExtents #GC
+ #Drawable #Pixmap #Window #Geometry #KeySym #Button #XEvent #EventMask
+ [openDisplay=openDisplay closeDisplay=closeDisplay displayFd=displayFd
+ synchronize=synchronize flush=flush defaultScreen=defaultScreen
+ defaultDepth=defaultDepth uniqueContext=uniqueContext
+ findContext=findContext saveContext=saveContext
+ deleteContext=deleteContext gXclear=gXclear gXand=gXand
+ gXandReverse=gXandReverse gXcopy=gXcopy gXandInverted=gXandInverted
+ gXnoop=gXnoop gXxor=gXxor gXor=gXor gXnor=gXnor gXequiv=gXequiv
+ gXinvert=gXinvert gXorReverse=gXorReverse gXcopyInverted=gXcopyInverted
+ gXorInverted=gXorInverted gXnand=gXnand gXset=gXset colorRed=colorRed
+ colorGreen=colorGreen colorBlue=colorBlue allocColor=allocColor
+ allocNamedColor=allocNamedColor loadQueryFont=loadQueryFont
+ freeFont=freeFont textExtents=textExtents defaultGC=defaultGC
+ setBackground=setBackground setForeground=setForeground
+ setFunction=setFunction setFont=setFont getGeometry=getGeometry
+ copyArea=copyArea copyPlane=copyPlane drawArc=drawArc fillArc=fillArc
+ drawImageString=drawImageString drawLine=drawLine drawPoint=drawPoint
+ drawQuad=drawQuad fillQuad=fillQuad drawRectangle=drawRectangle
+ fillRectangle=fillRectangle drawString=drawString
+ drawTriangle=drawTriangle fillTriangle=fillTriangle
+ createPixmap=createPixmap freePixmap=freePixmap
+ createWindow=createWindow defaultRootWindow=defaultRootWindow
+ destroyWindow=destroyWindow mapWindow=mapWindow unmapWindow=unmapWindow
+ moveWindow=moveWindow resizeWindow=resizeWindow
+ moveResizeWindow=moveResizeWindow clearWindow=clearWindow
+ clearArea=clearArea setWindowBackground=setWindowBackground
+ setWindowBackgroundPixmap=setWindowBackgroundPixmap
+ setWindowBorder=setWindowBorder setWindowBorderWidth=setWindowBorderWidth
+ storeName=storeName withdrawWindow=withdrawWindow XKHome=XKHome
+ XKLeft=XKLeft XKRight=XKRight XKUp=XKUp XKDown=XKDown button1=button1
+ button2=button2 button3=button3 button4=button4 button5=button5
+ eqButton=eqButton buttonString=buttonString allocEvent=allocEvent
+ nextEvent=nextEvent pending=pending isExpose=isExpose
+ exposeEventWindow=exposeEventWindow exposeEventX=exposeEventX
+ exposeEventY=exposeEventY exposeEventW=exposeEventW
+ exposeEventH=exposeEventH isButtonPress=isButtonPress
+ isButtonRelease=isButtonRelease buttonEventWindow=buttonEventWindow
+ buttonEventX=buttonEventX buttonEventY=buttonEventY
+ buttonEventButton=buttonEventButton isButtonMotion=isButtonMotion
+ buttonMotionEventWindow=buttonMotionEventWindow
+ buttonMotionEventX=buttonMotionEventX
+ buttonMotionEventY=buttonMotionEventY
+ buttonMotionEventTime=buttonMotionEventTime
+ isConfigureNotify=isConfigureNotify
+ configureEventWindow=configureEventWindow configureEventX=configureEventX
+ configureEventY=configureEventY configureEventW=configureEventW
+ configureEventH=configureEventH isKeyPress=isKeyPress
+ isKeyRelease=isKeyRelease keyEventWindow=keyEventWindow
+ keyEventX=keyEventX keyEventY=keyEventY keyEventString=keyEventString
+ keyEventKeySym=keyEventKeySym noEventMask=noEventMask
+ keyPressMask=keyPressMask keyReleaseMask=keyReleaseMask
+ buttonPressMask=buttonPressMask buttonReleaseMask=buttonReleaseMask
+ enterWindowMask=enterWindowMask leaveWindowMask=leaveWindowMask
+ pointerMotionMask=pointerMotionMask
+ pointerMotionHintMask=pointerMotionHintMask
+ button1MotionMask=button1MotionMask button2MotionMask=button2MotionMask
+ button3MotionMask=button3MotionMask button4MotionMask=button4MotionMask
+ button5MotionMask=button5MotionMask buttonMotionMask=buttonMotionMask
+ keymapStateMask=keymapStateMask exposureMask=exposureMask
+ visibilityChangeMask=visibilityChangeMask
+ structureNotifyMask=structureNotifyMask
+ resizeRedirectMask=resizeRedirectMask
+ substructureNotifyMask=substructureNotifyMask
+ substructureRedirectMask=substructureRedirectMask
+ focusChangeMask=focusChangeMask propertyChangeMask=propertyChangeMask
+ colormapChangeMask=colormapChangeMask
+ ownerGrabButtonMask=ownerGrabButtonMask selectInput=selectInput
+ mergeMasks=mergeMasks bell=bell]]
+
+)

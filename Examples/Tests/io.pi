@@ -1,0 +1,42 @@
+{-
+ - IO.
+ -}
+
+import "Std/Bytes"
+import "Std/Io"
+
+def testTxt (f:Rd):[] = (
+  def show (s:String):[] = (prNL (+$ > "  \"" s "\""))
+  (show (f.read 5 exn.exit));
+  (show (f.read 5 exn.exit));
+  (show (f.read 5 exn.exit));
+  (f.close)
+)
+
+(prNL "Testing read (openRd)...");
+(testTxt (io.openRd "sample.txt" exn.exit));
+
+(prNL "\nTesting read (stringRd)...");
+(testTxt (io.stringRd "Some good fun!\nFor us."));
+
+def testByteArray (f:Rd):[] = (
+  val buff = (bytes.make 'A' 5)
+
+  def showBin (l:Int):[] = (
+    (pr (+$ > "  Read " ($$ l) " bytes: "));
+    (int.for 0 (dec l) \(i) =
+       (pr (+$ " " ($$ (bytes.nth buff i)))));
+    (nl)
+  )
+
+  (showBin (f.readBytes buff 0 5));
+  (showBin (f.readBytes buff 0 5));
+  (showBin (f.readBytes buff 0 5));
+  (f.close)
+)
+
+(prNL "\nTesting readByteArray (openRd)...");
+(testByteArray (io.openRd "sample.bin" exn.exit));
+
+(prNL "\nTesting readByteArray (stringRd)...");
+(testByteArray (io.stringRd "nulls are bad"));

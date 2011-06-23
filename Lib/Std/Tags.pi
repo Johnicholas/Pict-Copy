@@ -1,0 +1,81 @@
+# line 1 "/home/pierce/pict/Lib/Std/Tags.src"
+
+
+  import "Std/Misc"
+  import "Std/Int"
+
+  val [
+
+
+
+  #Tag
+
+
+
+
+  tags:[
+
+
+
+  make = /[/Tag]
+
+
+
+
+  dummy = Tag
+
+
+
+
+
+
+
+  << = /[Tag Tag /Bool]
+  <= = /[Tag Tag /Bool] 
+  == = /[Tag Tag /Bool]
+  <> = /[Tag Tag /Bool] 
+  >= = /[Tag Tag /Bool]
+  >> = /[Tag Tag /Bool] 
+
+
+
+
+  cmp = /[Tag Tag /Cmp] 
+
+
+
+
+
+
+
+  hash = /[Tag /Int]
+
+
+
+
+  toString = /[Tag /String]
+
+
+
+
+  pr = /[Tag Sig] 
+
+
+
+
+    
+]] = (
+
+type Tag = Int
+     
+new current:^Int
+run current!1
+
+def make () : Tag =
+  (val x = (read current) (write current (inc x)); x)
+
+[[make = make dummy = 0 << = << <= = <= == = == <> = <> >= = >=
+   >> = >> cmp = int.cmp hash = int.hash toString = int.toString
+   pr = int.pr]]
+
+)

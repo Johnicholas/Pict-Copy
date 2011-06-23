@@ -1,0 +1,77 @@
+# line 1 "/home/pierce/pict/Lib/Std/Opt.src"
+
+
+
+
+  import "Std/Error"
+  import "Std/Misc"
+
+  val [
+
+
+
+  #Opt : (Pos Type -> Type)
+
+
+
+
+  opt:[
+
+
+
+  yes = /[#X X /(Opt X)]
+  no = (Opt Bot)
+
+
+
+
+
+
+
+  case = /[#X #R (Opt X) /[/R] /[X /R] /R]
+
+
+
+
+
+
+  get = /[#X (Opt X) X /X]
+
+
+
+
+
+  map = /[#X #Y /[X /Y] (Opt X) /(Opt Y)]
+
+
+
+
+
+
+  pr = /[#X (Opt X) String /[X Sig] Sig]
+
+
+
+
+
+
+    
+]] = (
+
+val [#Opt:(Pos Type->Type)] = [#\X = Top]
+inline def yes (#X x:X):(Opt X) = (ccode 0 C "#" [x])
+val no:(Opt Bot) = (ccode 0 C "#" 0)
+inline def grab (#X o:(Opt X)):X = (val [x:X] = (ccode 0 C "#" o) x)
+inline def null (#X o:(Opt X)):Bool = (ccode 0 C "(# == 0)" o)
+
+inline def case (#X #R o:(Opt X) no:/[/R] yes:/[X /R]):R =
+  if (null o) then (no) else (yes (grab o))
+inline def get (#X o:(Opt X) x:X):X =
+  if (null o) then x else (grab o)
+inline def map (#X #Y f:/[X /Y] o:(Opt X)):(Opt Y) =
+  if (null o) then no else (yes (f (grab o)))
+inline def pr (#X o:(Opt X) no:String yes:/[X Sig]):[] =
+  if (null o) then (misc.pr no) else (yes (grab o))
+
+[#Opt [yes=yes no=no case=case get=get map=map pr=pr]]
+)

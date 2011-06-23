@@ -1,0 +1,18 @@
+{-
+ - Unix persona.
+ -}
+
+import "Posix/Persona"
+
+(pr "Effective user id: "); (int.pr (persona.euid)); (nl);
+(pr "Effective group id: "); (int.pr (persona.egid)); (nl);
+(pr "Real user id: "); (int.pr (persona.uid)); (nl);
+(pr "Real group id: "); (int.pr (persona.gid)); (nl);
+(list.pr (persona.groups) "Supplementary groups: " " " "\n" int.pr);
+
+val info = (persona.uidInfo (persona.uid) exn.exit)
+(pr "userName: "); (prNL info.userName);
+(pr "realName: "); (prNL info.realName);
+(pr "password: "); (prNL info.password);
+(pr "homeDir : "); (prNL info.homeDir);
+(pr "shell   : "); (prNL info.shell);

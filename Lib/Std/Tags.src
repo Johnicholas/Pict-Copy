@@ -1,0 +1,80 @@
+\section{@Std/Tags@: Unique Tags}
+
+##import "Std/Misc"
+##import "Std/Int"
+
+##val [
+
+\subsection{Types}
+
+#*#Tag
+\begin{doc}
+A value of type @Tag@ can be used as a unique identifier for an object.
+\end{doc}
+
+##tags:[
+
+\subsection{Creation}
+
+#*make = /[/Tag]
+\begin{doc}
+@(make)@ creates a globally unique tag.
+\end{doc}
+
+#*dummy = Tag
+\begin{doc}
+A dummy tag (which is guaranteed to be distinct from all tags generated
+using @make@).
+\end{doc}
+
+\subsection{Comparison}
+
+#*<< = /[Tag Tag /Bool]
+#*<= = /[Tag Tag /Bool] 
+#*== = /[Tag Tag /Bool]
+#*<> = /[Tag Tag /Bool] 
+#*>= = /[Tag Tag /Bool]
+#*>> = /[Tag Tag /Bool] 
+\begin{doc}
+The above functions provide an ordering on tags.
+\end{doc}
+
+#*cmp = /[Tag Tag /Cmp] 
+\begin{doc}
+@(cmp t1 t2)@ returns a single value indicating the ordering of @t1@ and
+@t2@ (cf.\ Section~\ref{s:Cmp}).
+\end{doc}
+
+\subsection{Conversion and Printing}
+
+#*hash = /[Tag /Int]
+\begin{doc}
+@(hash t)@ Returns a hash value for @t@.
+\end{doc}
+
+#*toString = /[Tag /String]
+\begin{doc}
+@(toString t)@ converts @t@ to a string.
+\end{doc}
+
+#*pr = /[Tag Sig] 
+\begin{doc}
+@(pr t)@ prints @t@ on stdout.
+\end{doc}
+
+#{#}
+]] = (
+
+type Tag = Int
+     
+new current:^Int
+run current!1
+
+def make () : Tag =
+  (val x = (read current) (write current (inc x)); x)
+
+[[make = make dummy = 0 << = << <= = <= == = == <> = <> >= = >=
+   >> = >> cmp = int.cmp hash = int.hash toString = int.toString
+   pr = int.pr]]
+
+)

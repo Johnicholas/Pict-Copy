@@ -1,0 +1,29 @@
+{-
+ - Parsing.
+ -}
+
+import "Std/Io"
+import "Contrib/Parse"
+
+val r = (io.openRd "parse.txt" exn.exit)
+
+val firstLine = (parse.line r)
+(pr "first line = \""); (pr firstLine); (pr "\"\n");
+
+(parse.whitespace r);
+(pr "first integer = "); (int.pr (parse.int r exn.exit)); (nl);
+
+(parse.whitespace r);
+(pr "second integer = "); (int.pr (parse.int r exn.exit)); (nl);
+
+(parse.whitespace r);
+(parse.char r 'H' exn.exit);
+(pr "parsed literal 'H'\n");
+
+(parse.match r "ello" exn.exit);
+(pr "matched string \"ello\"\n");
+
+(parse.whitespace r);
+(pr "parsed final whitespace\n");
+
+(r.close);

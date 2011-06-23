@@ -1,0 +1,37 @@
+{-
+ - Arrays.
+ -}
+
+import "Std/Array"
+import "Std/Char"
+
+val a = (array.make 35 1000)
+
+def inTest ():Int = (array.fold #Int #Int a \(_ x y) = (+ x y) 0)
+def revTest ():Int = (array.revFold #Int #Int a \(_ x y) = (+ x y) 0)
+
+(prNL (+$ "Array size: " ($$ (array.size a))));
+(prNL (+$ "Sum of original array items (inFold): " ($$ (inTest))));
+(prNL (+$ "Sum of original array items (revFold): " ($$ (revTest))));
+(array.map #Int a \(x _) = x);
+(prNL (+$ "Sum of new array items (inFold): " ($$ (inTest))));
+(prNL (+$ "Sum of new array items (revFold): " ($$ (revTest))));
+(array.reset a 35);
+(prNL (+$ "Sum of reset array items (inFold): " ($$ (inTest))));
+(prNL (+$ "Sum of reset array items (revFold): " ($$ (revTest))));
+
+val b = (array.tabulate #Char 26 \(x) = (char.fromInt (+ 'A' x)))
+def prArr ():[] = ((array.apply #Char b \(_ c) = (char.pr c)); (nl))
+
+(prArr);
+(array.rotate b   0); (prArr);
+(array.rotate b   1); (prArr);
+(array.rotate b  -1); (prArr);
+(array.rotate b   2); (prArr);
+(array.rotate b  -2); (prArr);
+(array.rotate b  27); (prArr);
+(array.rotate b -27); (prArr);
+(array.rotate b  26); (prArr);
+(array.rotate b -26); (prArr);
+(array.rotate b  25); (prArr);
+(array.rotate b -25); (prArr);

@@ -1,0 +1,127 @@
+\section{@Picture/Package@: Unpackaging Pictures}
+\label{s:Package}
+
+##import "Picture/Types"
+
+This module provides various operations which unpackage an active picture
+and call one of its methods.  It should not be necessary to use these
+operations in user programs, unless you are constructing your own pictures
+from scratch.
+
+##val package : [
+
+#*rotate = /[Active Rot /Active]
+#*rot90  = /[Active /Active]
+#*rot180 = /[Active /Active]
+#*rot270 = /[Active /Active]
+\begin{doc}
+@(rotate ac a)@ rotates the active picture @ac@ by @a@ degrees.  We provide
+@rot90@, @rot180@ and @rot270@ as special cases of @rotate@, since it is
+often possible to implement rotations by these angles more efficiently.
+\end{doc}
+
+#*scale = /[Active Int Int Int Int /Active]
+\begin{doc}
+@(scale ac sx dx sy dy)@ scales a active picture @ac@ by @dx/sx@ in the
+x-axis, and @dy/sy@ in the y-axis.
+\end{doc}
+
+#*move = /[Active Int Int /Active]
+\begin{doc}
+@(move ac dx dy)@ moves the active picture @ac@ by @dx@ along the x-axis and
+@dy@ along the y-axis.
+\end{doc}
+
+#*button = /[Active CX Int Int Button Bool Int /Bool]
+\begin{doc}
+@(button ac cx x y b ud t)@ sends a button press/release message to the
+active picture @ac@.  The coordinates of the button press/release are
+@[x y]@, the button pressed is @b@, @ud@ indicates whether the button was
+released or pressed.  The integer @t@ indicates (in pixels) how close a
+button press must be to an object before it is considered a hit.
+\end{doc}
+
+#*boundary = /[Active /[Int Int Int Int]]
+\begin{doc}
+@(boundary ac)@ computes the bounding box of the active picture @ac@.
+\end{doc}
+
+#*render = /[Active CX Sig]
+\begin{doc}
+@(render ac cx)@ renders the active picture @ac@ using the context @cx@.
+\end{doc}
+
+#*init = /[Picture CX /Active]
+\begin{doc}
+@(init p cx)@ initialises the picture @p@ using the context @cx@,
+return a new active picture.
+\end{doc}
+
+#*constant = /[Picture /Bool]
+\begin{doc}
+@(constant p)@ returns @true@ if the picture @p@ has no updatable
+components.  This attribute is used to avoid needlessly reconfiguring
+components of pictures which have not changed.
+\end{doc}
+
+#*reconfigure = /[Active CX /Active]
+\begin{doc}
+@(reconfigure ac cx)@ reconfigures the active picture @ac@.  This operation
+is used when a picture has signalled that it wishes to change its bounding
+box, or rearrange some of its sub-pictures.
+\end{doc}
+
+#*delete = /[Active Sig]
+\begin{doc}
+@(delete ac)@ frees any resources consumed by the active picture @ac@.
+\end{doc}
+
+#{#}
+] = (
+
+inline def rotate (p:Active rot:Rot) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.rotate r rot)])
+inline def delete (p:Active) : [] =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   (methods.delete r))
+inline def constant (p:Picture) : Bool =
+  (val [#I #R methods:(M I R) i:I] = p
+   methods.constant)
+inline def reconfigure (p:Active cx:CX) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   if methods.constant then p else [methods i (methods.reconfigure i r cx)])
+inline def boundary (p:Active) : [Int Int Int Int] =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   (methods.boundary r))
+inline def render (p:Active cx:CX) : [] =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   (methods.render r cx))
+inline def rot90 (p:Active) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.rot90 r)])
+inline def rot180 (p:Active) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.rot180 r)])
+inline def rot270 (p:Active) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.rot270 r)])
+inline def scale (p:Active sx:Int dx:Int sy:Int dy:Int) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.scale r sx dx sy dy)])
+inline def move (p:Active dx:Int dy:Int) : Active =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   [methods i (methods.move r dx dy)])
+inline
+def button (p:Active cx:CX bx:Int by:Int b:Button ud:Bool t:Int) : Bool =
+  (val [#I #R methods:(M I R) i:I r:R] = p
+   (methods.button r cx bx by b ud t))
+inline def init (p:Picture cx:CX) : Active =
+  (val [#I #R methods:(M I R) i:I] = p
+   [methods i (methods.init i cx)])
+
+[rotate=rotate rot90=rot90 rot180=rot180 rot270=rot270 scale=scale
+ move=move button=button boundary=boundary render=render init=init
+ constant=constant reconfigure=reconfigure delete=delete]
+
+)

@@ -1,0 +1,82 @@
+\section{@Std/Cmp@: Comparison Results}
+\label{s:Cmp}
+
+##import "Std/Prim"
+##import "Std/Misc"
+
+##val [
+
+\subsection{Types}
+
+#*#Cmp
+\begin{doc}
+Values of type @Cmp@ are usually returned by comparison functions.  They
+are particularly useful in the case of comparisons of strings or lists,
+since a single comparison operation, which returns a value of type @Cmp@,
+can be much more efficient that making two calls to an ordering predicate.
+\end{doc}
+
+##cmp:[
+
+\subsection{Construction}
+
+#*LT = Cmp
+#*EQ = Cmp
+#*GT = Cmp
+\begin{doc}
+The values @LT@, @EQ@ and @GT@ indicate that a comparison
+operator found that its first argument was (respectively) strictly
+less than, equal to, or strictly greater than its second argument.
+\end{doc}
+
+\subsection{Operations}
+
+#*lt = /[Cmp /Bool]
+#*le = /[Cmp /Bool]
+#*eq = /[Cmp /Bool]
+#*ne = /[Cmp /Bool]
+#*ge = /[Cmp /Bool]
+#*gt = /[Cmp /Bool]
+\begin{doc}
+The above functions test whether the result of a comparison was strictly
+less than, less than or equal to, equal to, not equal to, greater than or
+equal to, or strictly greater than.
+\end{doc}
+
+\subsection{Conversion}
+
+#*toString = /[Cmp /String]
+\begin{doc} @(toString c)@ converts @c@ to a string. \end{doc}
+
+\subsection{Printing}
+
+#*pr = /[Cmp Sig]
+\begin{doc} @(pr c)@ prints @c@ on stdout. \end{doc}
+
+#{#}
+]]
+= (
+
+type Cmp = Int
+
+{-
+ - Note that we interpret ANY strictly positive number as meaning GT,
+ - 0 as meaning EQ and ANY strictly negative number as meaning LT.
+ -}
+
+inline def toString (c:Cmp) : String =
+  if (prim.<< c 0) then "LT" else if (prim.>> c 0) then "GT" else "EQ"
+
+[#Cmp
+ [LT = -1
+  EQ = 0
+  GT = 1
+  lt = \(c) = (prim.<< c 0)
+  le = \(c) = (prim.<= c 0)
+  eq = \(c) = (prim.== c 0)
+  ne = \(c) = (prim.<> c 0)
+  ge = \(c) = (prim.>= c 0)
+  gt = \(c) = (prim.>> c 0)
+  toString = toString
+  pr = \(c) = (misc.pr (toString c))]]
+)

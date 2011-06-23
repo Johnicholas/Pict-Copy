@@ -1,0 +1,24 @@
+{-
+ - Regression test: ensures that types of t1 and t2 do not
+ - have their quantifiers stripped off.
+ -}
+
+type T = [#X X]
+def a (t1:T t2:T) : T = [22]
+val b : /[T T /T] = a
+
+{-
+ - Test if the explicit type [#X X] is propagated correctly
+ - to the package value [33].
+ -}
+
+val [#X x:X] = [33]
+val [#Y y:Y] = [#Int 33]
+val z:[#Z Z] = [33]
+
+{-
+ - Ensures that the type of r is propagated to the record selection.
+ -}
+
+val r = [x=33]
+val s = r.x

@@ -1,0 +1,244 @@
+# line 1 "/home/pierce/pict/Lib/Std/Float.src"
+
+
+
+
+
+
+
+
+  import "Std/Bool"
+  import "Std/Cmp"
+  import "Std/Misc"
+  import "Std/Exn"
+  import "Std/String"
+
+  val [
+
+
+
+  #Float
+
+  float:[
+
+
+
+  + = /[Float Float /Float] 
+  - = /[Float Float /Float] 
+
+
+  * = /[Float Float /Float] 
+  div = /[Float Float /Float] 
+
+
+  neg = /[Float /Float] 
+  dec = /[Float /Float] 
+  inc = /[Float /Float] 
+
+
+
+
+  sin = /[Float /Float] 
+  cos = /[Float /Float] 
+  tan = /[Float /Float] 
+  asin = /[Float /Float] 
+  acos = /[Float /Float] 
+  atan = /[Float /Float] 
+
+
+
+
+  max = /[Float Float /Float] 
+  min = /[Float Float /Float] 
+
+
+  == = /[Float Float /Bool] 
+  <> = /[Float Float /Bool] 
+
+
+  >> = /[Float Float /Bool] 
+  << = /[Float Float /Bool] 
+
+
+  >= = /[Float Float /Bool] 
+  <= = /[Float Float /Bool] 
+
+
+  cmp = /[Float Float /Cmp]
+
+
+
+
+
+
+
+  fromInt = /[Int /Float]
+
+
+
+
+  fromString = /[String Exn /Float]
+
+
+
+
+
+
+  toString = /[Float /String]
+
+
+  hash = /[Float /Int]
+
+
+
+
+  pr = /[Float Sig]
+
+
+  format = /[String Float Sig]
+
+
+
+
+
+
+    
+]]
+= (
+
+(ccode 0 I "##include <math.h>");
+
+type Float = Word
+
+inline def + (x:Float y:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) + F(#)); f;
+   })" x y)
+
+inline def - (x:Float y:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) - F(#)); f;
+   })" x y)
+
+inline def * (x:Float y:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) * F(#)); f;
+   })" x y)
+
+inline def div (x:Float y:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) / F(#)); f;
+   })" x y)
+
+inline def neg (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (0.0 - F(#)); f;
+   })" x)
+
+inline def dec (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) - 1.0); f;
+   })" x)
+
+inline def inc (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (F(#) + 1.0); f;
+   })" x)
+
+inline def sin (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = sin(F(#)); f;
+   })" x)
+
+inline def cos (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = cos(F(#)); f;
+   })" x)
+
+inline def tan (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = tan(F(#)); f;
+   })" x)
+
+inline def asin (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = asin(F(#)); f;
+   })" x)
+
+inline def acos (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = acos(F(#)); f;
+   })" x)
+
+inline def atan (x:Float) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = atan(F(#)); f;
+   })" x)
+
+inline def == (x:Float y:Float) : Bool = (ccode 0 P "(F(#) == F(#))" x y)
+inline def <> (x:Float y:Float) : Bool = (ccode 0 P "(F(#) != F(#))" x y)
+inline def >> (x:Float y:Float) : Bool = (ccode 0 P "(F(#) > F(#))" x y)
+inline def << (x:Float y:Float) : Bool = (ccode 0 P "(F(#) < F(#))" x y)
+inline def >= (x:Float y:Float) : Bool = (ccode 0 P "(F(#) >= F(#))" x y)
+inline def <= (x:Float y:Float) : Bool = (ccode 0 P "(F(#) <= F(#))" x y)
+
+inline def max (x:Float y:Float) : Float =
+  (ccode 0 P "((F(#) >= F(#)) ? # : #)" x y x y)
+inline def min (x:Float y:Float) : Float =
+  (ccode 0 P "((F(#) <= F(#)) ? # : #)" x y x y)
+
+inline def cmp (x:Float y:Float) : Cmp =
+  if (<< x y) then cmp.LT else
+  if (>> x y) then cmp.GT else
+  cmp.EQ
+
+inline def fromInt (x:Int) : Float =
+  (ccode 2 P "({
+     Val f = TAG(Free); Free += 2; STATUS(f) = STRING(4);
+     F(f) = (float)I(#); f;
+   })" x)
+
+def fromString (s:String fail:Exn) : Float =
+  (val f = (prim.allocWord)
+   val ret:Int = (ccode 0 R "intInt(sscanf(S(#),\"%f\",&F(#)))" s f)
+   if (int.== 1 ret) then f else (exn.raise fail "Float.fromString"))
+
+inline def toString (x:Float) : String =
+  (val s = (prim.alloc 24)
+   (ccode 0 E "{
+##ifdef BAD_SPRINTF
+     char *p = sprintf(S(#),\"%f\",(double)F(#));
+     STATUS(#) = STRING(strlen(p)+1);
+##else
+     int n = sprintf(S(#),\"%f\",(double)F(#));
+     STATUS(#) = STRING(n+1);
+##endif
+    }" s x s s x s);
+   s)
+
+inline def hash (x:Float) : Int =
+  (ccode 0 P "intInt(OFFSET(#,1))" x)
+inline def pr (x:Float) : [] =
+  (ccode 0 E "printf(\"%f\",F(#));" x)
+inline def format (s:String x:Float) : [] =
+  (ccode 0 E "printf(S(#),F(#));" s x)
+
+[[+ = + - = - * = * div=div neg=neg dec = dec inc = inc
+  sin=sin cos=cos tan=tan asin=asin acos=acos atan=atan
+  max=max min=min == = ==  <> = <>  >> = >>  << = <<
+  >= = >=  <= = <=  cmp=cmp fromInt=fromInt fromString=fromString
+  toString=toString hash=hash pr=pr format=format]]
+)

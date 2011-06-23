@@ -1,0 +1,156 @@
+import "Contrib/Clock"
+import "Std/Random"
+import "Picture/Picture"
+import "Directions"
+
+type AntBody = [
+  move      = /[/Bool]    {- move forward -}
+  left      = /[Sig]      {- turn left 45 degrees -}
+  right     = /[Sig]      {- turn right 45 degrees -}
+  grasp     = /[/Bool]    {- pick up some food, if possible -}
+  drop      = /[/Bool]    {- drop the food I'm carrying -}
+  inAntHill = /[/Bool]    {- is this cell an anthill? -}
+]
+
+type Cell = [Bool Int Bool AntDirection]
+
+def antBody
+  (lines:(Array String)
+   modifyCells:![!(Modifier Cell)]
+   getCell:![Int Int ![Cell ![Bool Cell Sig]]]
+   name:String x:Int y:Int facing:AntDirection) : AntBody
+=
+  (new status:^[Int Int]
+   run status![x y]
+   
+   val debugAnts = false
+   
+   inline
+   def debugB (x y carryingFood facing mesg) =
+     if debugAnts then
+       (prNL(+$ > name "[" ($$ x) " " ($$ y) "] "
+	     ($$ facing) if carryingFood then " f " else " "
+	     mesg))
+     else
+       []
+
+   [move = \() =
+      ((clock.awaitTick);
+       val [x y] = (read status)
+       val m = (modifyCells)
+       val cell@[_ food carryingFood facing] = (m.readCell x y)
+       (debugB x y carryingFood facing "move");
+       val [dx dy] = (delta facing)
+       val newx = (+ x dx)
+       val newy = (+ y dy)
+       val newCell@[occupied newFood _ _] = (m.readCell newx newy)
+       (debugB x y carryingFood facing "move to");
+       val isRock = (== (string.nth (array.nth lines newy) newx) '#')
+       if (|| occupied isRock) then
+	 ((m.writeCell x y false cell);
+	  (m.writeCell newx newy false newCell);
+	  (m.release);
+	  (write status [x y]);
+	  (debugB x y carryingFood facing "move failed");
+	  false)
+      else
+	((m.writeCell x y true [false food false 0]);
+	 (m.writeCell newx newy true [true newFood carryingFood facing]);
+	 {-set[oldcell.scent  max[0 deref[oldcell.scent]-1]];-}
+	 (m.release);
+	 (write status [newx newy]);
+	 (debugB x y carryingFood facing "moved");
+	 true))
+    left = \() =
+      ((clock.awaitTick);
+       val [x y] = (read status)
+       val [[_ food carryingFood facing] putCell] = (getCell x y)
+       (debugB x y carryingFood facing "left");
+       (putCell true [true food carryingFood (turnLeft facing)]);
+       (write status [x y]))
+    right = \() =
+      ((clock.awaitTick);
+       val [x y] = (read status)
+       val [[_ food carryingFood facing] putCell] = (getCell x y)
+       (debugB x y carryingFood facing "right");
+       (putCell true [true food carryingFood (turnRight facing)]);
+       (write status [x y]))
+    grasp = \() =
+      ((clock.awaitTick);
+       val [x y] = (read status)
+       val [[_ food carryingFood facing] putCell] = (getCell x y)
+       if (|| carryingFood (== food 0)) then
+	 ((putCell false [true food carryingFood facing]);
+	  (write status [x y]);
+	  (debugB x y carryingFood facing "grasp failed");
+	  false)
+      else
+	((putCell true [true (dec food) true facing]);
+	 (write status [x y]);
+	 (debugB x y carryingFood facing "grasped food");
+	 true))
+    drop = \() =
+      ((clock.awaitTick);
+       val [x y] = (read status)
+       val [[_ food carryingFood facing] putCell] = (getCell x y)
+       (debugB x y carryingFood facing "drop");
+       if carryingFood then
+	((putCell true [true (inc food) false facing]);
+	 (write status [x y]);
+	 true)
+      else
+	((putCell false [true food carryingFood facing]);
+	 (write status [x y]);
+	 false))
+    inAntHill = \() =
+      (val [x y] = (read status)
+       (debugB x y false 0 "inAntHill");
+       (write status [x y]);
+       (== (string.nth (array.nth lines y) x) '@'))
+  ])
+
+def drunk [body:AntBody] =
+  (def left () =
+     if (not(body.move)) then ((body.left); (left)) else []
+
+   def right () =
+     if (not(body.move)) then ((body.right); (right)) else []
+
+   def atHome [] =
+     if (body.inAntHill) then
+       if (&& (body.move) (not (== (random.randomInt 5) 0))) then
+	 atHome![]
+       else
+	 if (random.randomCoin) then
+	   ((left); atHome![])
+	 else
+	   ((right); atHome![])
+     else
+       search![]
+    
+   and search [] =
+     if (body.inAntHill) then
+       atHome![]
+     else if (body.grasp) then
+       findHome![]
+     else if (&& (body.move) (not (== (random.randomInt 5) 0))) then
+       search![]
+     else
+       if (random.randomCoin) then
+	 ((left); search![])
+       else
+	 ((right); search![])
+
+  and findHome [] =
+    if (body.inAntHill) then
+      ((await(body.drop)); atHome![])
+    else if (&& (body.move) (not (== (random.randomInt 5) 0))) then
+      findHome![]
+    else
+      if (random.randomCoin) then
+	((left); findHome![])
+      else
+	((right); findHome![])
+
+  if (body.inAntHill) then atHome![] else search![]
+)

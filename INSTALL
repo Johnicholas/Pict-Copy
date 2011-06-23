@@ -1,0 +1,75 @@
+Pict installation instructions
+------------------------------
+
+TO INSTALL PICT...
+
+*) Untar the Pict sources using a command like "tar xvf pict-N.NN.tar"
+   or (if they are still compressed) "zcat pict-N.NN.tar.Z | tar xvf -".
+   This will create a directory named "pict".  (Since you are reading this
+   file, this step is probably already finished.)
+
+*) Install the Gnu C Compiler and Gnu Make utility, if it they are not
+   already installed on your system.  The rest of these instructions
+   assume that gnu make is named "gmake" on your system.
+
+   The current versions of Gnu software are available by anonymous FTP
+   from internet host prep.ai.mit.edu in the directory pub/gnu.  (Many
+   other internet sites carry mirrors of the GNU archive.)
+
+   If you see errors from gmake while building Pict, you may want to check
+   that your version of gmake is up to date by typing "gmake --version".
+   Pict should compile under all versions later than 3.67.
+
+*) Edit the file SiteSpecific to give appropriate values to the 
+   variables INSTALLDIR and INSTALLLIB.  These should be the only 
+   variables you need to set.
+
+   To install Pict in your own home directory, set INSTALLDIR and 
+   INSTALLLIB to values like this:
+        INSTALLDIR = $(HOME)/bin
+        INSTALLLIB = $(HOME)/lib/pict
+
+*) Now type "gmake install" to build Pict.  (You may need to become root
+   if INSTALLDIR and INSTALLLIB are not in your personal filespace.)
+
+   N.b.  Pict is written to be highly portable.  However, it has only
+   been ported to a small number of environments so far.  There may
+   very well be trouble with makefiles, search paths, include paths,
+   shared libraries, missing utilities, etc. at this point in the
+   installation procedure.
+
+   If you have trouble at this step, try typing "gmake verbose", which
+   will print a more detailed trace of exactly which arguments are being
+   passed to gcc, etc.  
+
+   Some notes about building Pict on specific machine architectures appear 
+   at the bottom of this file.
+
+*) Once Pict is built, you can test it by typing "gmake examples".
+   This will build executable files for several programs in the
+   Examples directory.
+
+   To see some demos written in Pict, type "gmake demo".
+
+*) You may now want to add INSTALLDIR to your standard search path.  
+   There is no need to add INSTALLLIB.
+
+
+If you have any trouble building Pict, please let us know.  In
+particular, if you have trouble *and* succeed in resolving it, we will
+be most grateful to hear about what you had to change.
+
+__________________________________________________________________________
+ARCHITECTURE-SPECIFIC NOTES
+
+Pict has been compiled successfully on these platforms:
+   - Sun Sparc   (SunOS and Solaris)
+   - 486/586     (Linux)
+   - DEC Alpha   (Ultrix)
+
+Architectures where problems have been encountered in the past:
+   - SGI
+
+Pict does not currently run on Windows or Macintosh systems.
+Preliminary experiments indicate that a Windows port would not be too
+difficult.

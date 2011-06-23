@@ -1,0 +1,12 @@
+term: \x->x
+type: (1->1)
+term: (\x->x \x->x)
+type: (4->4)
+term: \f->\x->(f x)
+type: ((6->7)->(6->7))
+term: ((\f->\x->(f x) \x->x) 33)
+type: Int
+term: ((\f->\x->(f x) 33) \x->x)
+type: Unification failure: (17->18) does not match Int
+term: \x->y
+type: Unbound identifier: y

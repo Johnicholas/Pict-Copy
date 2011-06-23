@@ -1,0 +1,41 @@
+{-
+ - A test for slider pictures.
+ -}
+
+import "Picture/Picture"
+
+val s = (picture.server "" "Slider")
+
+val blue = (s.colorResource "slider" "Blue")
+
+val bold =
+  (s.fontResource "smallBold"
+   "-*-times-bold-r-normal--14-140-75-75-p-77-iso8859-1")
+
+def setPos (_:Int):[] = []
+
+val [slider sref] =
+  (picture.slider [w=150 h=15 min=0 max=100 range=10 pos=33 posChanged=setPos])
+
+def setMin (x:Int):[] = (sref.put ((sref.get) where min = x))
+def setMax (x:Int):[] = (sref.put ((sref.get) where max = x))
+def setRange (x:Int):[] = (sref.put ((sref.get) where range = x))
+
+val [minP _] =
+  (picture.slider [w=150 h=15 min=0 max=105 range=5 pos=0 posChanged=setMin])
+val [maxP _] =
+  (picture.slider [w=150 h=15 min=0 max=105 range=5 pos=100 posChanged=setMax])
+val [rangeP _] =
+  (picture.slider [w=150 h=15 min=1 max=11 range=1 pos=1 posChanged=setRange])
+
+(s.open "Slider"
+ (picture.northwest
+  (picture.font bold
+   (picture.above >
+    (picture.beside > (picture.text "Slider") slider)
+    picture.hLine
+    (picture.beside > (picture.text "Min") minP)
+    picture.hLine
+    (picture.beside > (picture.text "Max") maxP)
+    picture.hLine
+    (picture.beside > (picture.text "Range") rangeP)))));

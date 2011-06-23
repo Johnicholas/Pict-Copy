@@ -1,0 +1,60 @@
+{-
+ - A simple implementation of bags.
+ -}
+
+import "Std/Random"
+
+type (Eq K) = /[K K /Bool]
+
+type (Bag K V) = [
+  add = /[K V Sig] 
+  remove = /[K Sig] 
+  lookup = /[K /V] 
+  iterate = /[/[[K V] Sig] Sig]
+]
+
+def newBag (#K #V ==:(Eq K)) : (Bag K V) = (
+  new state:^(List [K V])
+  run state!nil
+  [add = \[k v cont] = state?l =
+     (state!(cons [k v] l) | cont![]) 
+   remove = \[k cont] = state?l =
+     (def loop (l:(List [K V])):(List [K V]) =
+	if (null l) then
+	  (error.fatal "Bag.remove: Key not found")
+	else
+	  (val cell@[hd _] = (car l)
+	   if (== k hd) then (cdr l) else (cons cell (loop(cdr l))))
+      val n = (loop l)
+      (state!n | cont![])) 
+   lookup = \[k res] = state?l =
+     (def find (rest:(List [K V])):V =
+	if (null rest) then
+	  (error.fatal "Bag.lookup: Key not found")
+	else
+	  (val [hd v] = (car rest)
+	   if (== k hd) then v else (find(cdr rest)))
+      (state!l | find![l res])) 
+   iterate = \[f cont] = state?l =
+     ((list.apply l f); (cont![] | state!l))
+  ]
+)
+
+val bag = (newBag #Int #Int ==)
+
+def add ([x:Int v:Int]):[] = ((pr "#"); (bag.add x v))
+
+def lookup ([x:Int v:Int]):[] =
+  if (== (bag.lookup x) v) then
+    ((pr "?"); (bag.remove x))
+  else
+    (error.fatal "lookup failed")
+
+val l =
+  (list.tabulate #[Int Int] 75
+   \(_) = [(random.randomInt 30) (random.randomInt 1000)])
+
+(list.apply l add); (nl);
+(list.revApply l lookup); (nl);
+(list.revApply l add); (nl);
+(list.apply l lookup); (nl);

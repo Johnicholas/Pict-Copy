@@ -1,0 +1,152 @@
+\section{@Posix/Persona@: Process Persona}
+
+The priveleges assigned to a Unix process are a function of its {\em
+persona}.  A process' persona is determined by its {\em effective user id},
+{\em effective group id}, and a set of {\em supplementary group ids}.  In
+normal circumstances, all child processes inherit their persona from their
+parents.  However, it is possible in some circumstances to modify the
+effective user and group ids of a process.  Some programs can be executed
+with different user and group ids to those of the parent process.  In this
+case, the {\em real user id} and {\em real group id} identify the user who
+created the process, but the effective user and group ids may be different.
+
+##import "Std/Int"
+##import "Std/List"
+##import "Std/String"
+
+##val [
+
+\subsection{Types}
+
+#*#UID<Int
+#*#GID<Int
+\begin{doc}
+@UID@ and @GID@ are the types of user and group identifiers, respectively.
+\end{doc}
+
+#*#PasswordInfo =
+#*  [userName = String
+#*   realName = String
+#*   password = String
+#*   user     = UID
+#*   group    = GID
+#*   homeDir  = String
+#*   shell    = String]
+\begin{doc}
+A record of type @PasswordInfo@ contains various information about a user,
+and is stored in the system password database.
+\end{doc}
+
+##persona:[
+
+\subsection{User Identifiers}
+
+#*uid = /[/UID]
+\begin{doc}
+Returns the real user id of the current Unix process.
+\end{doc}
+
+#*euid = /[/UID]
+\begin{doc}
+Returns the effective user id of the current Unix process.
+\end{doc}
+
+\subsection{Group Identifiers}
+
+#*gid = /[/GID]
+\begin{doc}
+Returns the real group id of the current Unix process.
+\end{doc}
+
+#*egid = /[/GID]
+\begin{doc}
+Returns the effective group id of the current Unix process.
+\end{doc}
+
+#*groups = /[/(List GID)]
+\begin{doc}
+Returns a list of the supplementary groups of the current Unix process.
+\end{doc}
+
+\subsection{Password Database}
+
+#*uidInfo = /[UID Exn /PasswordInfo]
+\begin{doc}
+@(uidInfo uid h)@ returns the information about @uid@ in the system
+password database.  Calls the handler @h@ if there is no entry for @uid@ in
+the database.
+\end{doc}
+
+#*userInfo = /[String Exn /PasswordInfo]
+\begin{doc}
+@(userInfo user h)@ returns the information about @user@ in the system
+password database.  Calls the handler @h@ if there is no entry for @user@
+in the database.
+\end{doc}
+
+#{#}
+]] = (
+
+(ccode 0 I "##include <pwd.h>");
+(ccode 0 I "##include <grp.h>");
+
+val [#UID<Int] = [#Int]
+
+inline def uid () : UID = (ccode 0 R "intInt(getuid())")
+inline def euid () : UID = (ccode 0 R "intInt(geteuid())")
+
+val [#GID<Int] = [#Int]
+
+inline def gid () : GID = (ccode 0 R "intInt(getgid())")
+inline def egid () : GID = (ccode 0 R "intInt(getegid())")
+
+def groups () : (List GID) =
+  (val n:Int = (ccode 0 R "intInt(getgroups(0,NULL))")
+   val b = (prim.alloc (* n (ccode 0 C "intInt(sizeof(gid_t))")))
+   if (ccode 0 W "(getgroups(I(#),(gid_t *)S(#)) < 0)" n b) then
+     (error.fatal "getGroups")
+   else
+     (list.tabulate n
+      \(x:Int):GID = (ccode 0 R "intInt(((gid_t *)S(#))[I(#)])" b x)))
+
+val [#PASSWD] = [#Top]
+
+type PasswordInfo =
+  [userName = String
+   realName = String
+   password = String
+   user     = UID
+   group    = GID
+   homeDir  = String
+   shell    = String]
+
+inline def copyPwd (pwd:PASSWD) : PasswordInfo =
+  [userName =
+     (prim.fromCString (ccode 0 R "(Val)((struct passwd *)#)->pw_name" pwd))
+   realName =
+     (prim.fromCString (ccode 0 R "(Val)((struct passwd *)#)->pw_gecos" pwd))
+   password =
+     (prim.fromCString (ccode 0 R "(Val)((struct passwd *)#)->pw_passwd" pwd))
+   user =
+     (ccode 0 R "intInt(((struct passwd *)#)->pw_uid)" pwd)
+   group =
+     (ccode 0 R "intInt(((struct passwd *)#)->pw_gid)" pwd)
+   homeDir =
+     (prim.fromCString (ccode 0 R "(Val)((struct passwd *)#)->pw_dir" pwd))
+   shell =
+     (prim.fromCString (ccode 0 R "(Val)((struct passwd *)#)->pw_shell" pwd))]
+
+inline def uidInfo (uid:UID fail:Exn):PasswordInfo =
+  (val pwd:PASSWD = (ccode 0 R "(Val)getpwuid(I(#))" uid)
+   if (prim.nullPtr pwd) then (exn.raise fail "uidPasswordInfo")
+   else (copyPwd pwd))
+
+inline def userInfo (user:String fail:Exn):PasswordInfo =
+  (val pwd:PASSWD = (ccode 0 R "(Val)getpwnam(S(#))" user)
+   if (prim.nullPtr pwd) then (exn.raise fail "uidPasswordInfo")
+   else (copyPwd pwd))
+
+[[uid=uid euid=euid gid=gid egid=egid groups=groups uidInfo=uidInfo
+  userInfo=userInfo]]
+
+)

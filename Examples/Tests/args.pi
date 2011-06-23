@@ -1,0 +1,24 @@
+import "Posix/Args"
+
+val [intOpts strOpts boolOpts rem] =
+  (args.getOpts
+   (cons ["int-arg" "int"] nil)
+   (cons ["str-arg"  "str"] nil)
+   (cons > ["flag-a" "a"] ["flag-b" "b"] nil)
+   exn.exit)
+
+val i =
+  (exn.try #String #String
+   \(h) = ($$ (intOpts "int-arg" h)) \(_) = "<default>")
+val s =
+  (exn.try #String #String
+   \(h) = (strOpts "str-arg" h) \(_) = "<default>")
+
+val a = (bool.toString (boolOpts "flag-a"))
+val b = (bool.toString (boolOpts "flag-b"))
+
+(pr "int-arg = "); (prNL i);
+(pr "str-arg = "); (prNL s);
+(pr "flag-a = "); (prNL a);
+(pr "flag-b = "); (prNL b);
+(list.pr rem "remainder = " " " "\n" pr);

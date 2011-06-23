@@ -1,0 +1,25 @@
+{-
+ - Test text pictures.
+ -}
+
+import "Picture/Picture"
+
+val s = (picture.server "" "Text")
+
+val normal =
+  (s.fontResource "font"
+   "-*-times-medium-r-normal--14-140-75-75-p-74-iso8859-1")
+val bold =
+  (s.fontResource "smallBold"
+   "-*-times-bold-r-normal--14-140-75-75-p-77-iso8859-1")
+val largeBold =
+  (s.fontResource "largeBold"
+   "-*-times-bold-r-normal--24-240-75-75-p-132-iso8859-1")
+
+(s.open "Text"
+ (picture.quitOnHit
+  (picture.northwest
+   (picture.above >
+    (picture.font normal (picture.text "Text"))
+    (picture.font bold (picture.text "Bold text"))
+    (picture.font largeBold (picture.text "Large bold text"))))));

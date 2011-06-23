@@ -1,0 +1,76 @@
+{-
+ - The torus function connects up an array of processes so that each
+ - process can communicate with all eight of its immediate neighbours
+ - (the edges of the array wrap around).
+ -}
+
+import "Std/Array2"
+
+type (Cell X) = ![Int Int ^X !X !X !X !X !X !X !X !X]
+
+def torus (#X mkCell:(Cell X) width:Int height:Int) : (Array2 ^X) = (
+  val offsetW = (dec width)
+  val offsetH = (dec height)
+
+  def prevX (x:Int):Int = (mod (+ x offsetW) width)
+  def nextX (x:Int):Int = (mod (+ x       1) width)
+  def prevY (y:Int):Int = (mod (+ y offsetH) height)
+  def nextY (y:Int):Int = (mod (+ y       1) height)
+
+  def makeCh (_:Int _:Int):^X = (new ch:^X ch)
+
+  val a = (array2.tabulate width height makeCh)
+
+  def applyCell (x:Int y:Int ch:^X):[] =
+    (val n  = (array2.nth a         x (nextY y))
+     val ne = (array2.nth a (nextX x) (nextY y))
+     val e  = (array2.nth a (nextX x)         y)
+     val se = (array2.nth a (nextX x) (prevY y))
+     val s  = (array2.nth a         x (prevY y))
+     val sw = (array2.nth a (prevX x) (prevY y))
+     val w  = (array2.nth a (prevX x)         y)
+     val nw = (array2.nth a (prevX x) (nextY y))
+     run mkCell![x y ch n ne e se s sw w nw]
+     [])
+
+  (array2.apply a applyCell);
+  a
+)
+
+{-
+ - As an example, we create a simple network of processes which
+ - route messages to a particular x,y coordinate.
+ -}
+
+type Msg = [Int Int String Sig]
+
+def routeMsg
+  [x:Int y:Int ch:^Msg n:!Msg ne:!Msg e:!Msg
+   se:!Msg s:!Msg sw:!Msg w:!Msg nw:!Msg]
+ =
+  forward![ch \(ax:Int ay:Int txt:String):[] = (
+    (int.pr x); (pr "x"); (int.pr y);
+    if (>> ax x) then
+      if (>> ay y) then
+        ((pr " forwarding message north-east\n"); (ne ax ay txt))
+      else if (<< ay y) then
+        ((pr " forwarding message south-east\n"); (se ax ay txt))
+      else
+        ((pr " forwarding message east\n"); (e ax ay txt))
+    else if (<< ax x) then
+      if (>> ay y) then
+        ((pr " forwarding message north-west\n"); (nw ax ay txt))
+      else if (<< ay y) then
+        ((pr " forwarding message south-west\n"); (sw ax ay txt))
+      else
+        ((pr " forwarding message west\n"); (w ax ay txt))
+    else
+      ((pr " received "); (prNL txt))
+  )]
+
+val a = (torus #Msg routeMsg 10 10)
+
+((array2.nth a 0 0) 5 5 "message 1");
+((array2.nth a 2 3) 7 5 "message 2");
+((array2.nth a 9 9) 3 8 "message 3");
+((array2.nth a 3 7) 7 4 "message 4");

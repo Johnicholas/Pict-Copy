@@ -1,0 +1,250 @@
+# line 1 "/home/pierce/pict/Lib/Std/PP.src"
+
+
+
+
+  import "Std/Io"
+  import "Std/List"
+
+  val [
+
+
+
+  #PP =
+    [format = /[Wr Int Int /Int]
+     sizes  = (List Int)
+     breaks = Int]
+
+
+
+
+
+
+
+
+
+
+
+
+  pp:[
+
+
+
+  null = PP
+
+
+
+
+
+  string = /[String /PP]
+
+
+
+
+
+
+
+  int = /[Int /PP]
+
+
+
+
+
+
+  bool = /[Bool /PP]
+
+
+
+
+
+
+
+
+  extend = /[Int Char Int Char PP /PP]
+
+
+
+
+
+
+  break = /[Int PP /PP]
+
+
+
+
+  leftJustify = /[Int PP /PP]
+
+
+
+
+
+
+
+  rightJustify = /[Int PP /PP]
+
+
+
+
+
+
+
+  center = /[Int PP /PP]
+
+
+
+
+
+  hbox = /[(List PP) /PP]
+  vbox = /[(List PP) /PP]
+
+
+
+
+
+
+  hvbox = /[(List PP) /PP]
+
+
+
+
+
+  list = /[(List PP) start=PP before=PP after=PP finish=PP /(List PP)]
+
+
+
+
+
+
+    
+]] = (
+
+type PP =
+  [format = /[Wr Int Int /Int]
+   sizes  = (List Int)
+   breaks = Int]
+
+def findSize (size:Int breaks:Int l:(List Int) fail:Exn):[Int Int] =
+  if (null l) then
+    (exn.raise fail "findSize")
+  else if (<= (car l) size) then
+    [breaks (car l)]
+  else
+    (findSize size (inc breaks) (cdr l) fail)
+
+def sizeAfterBreak (br:Int pp:PP):Int =
+  if (<= br pp.breaks) then (list.nth pp.sizes br)
+  else (list.nth pp.sizes pp.breaks)
+
+def combineSizesH (l:(List PP) format:/[Wr Int Int /Int]):PP =
+  (def getUnbrokenSize (pp:PP acc:Int):Int = (+ (car pp.sizes) acc)
+   [format = format
+    sizes = (cons (list.fold l getUnbrokenSize 0) nil)
+    breaks = 0])
+
+def combineSizesV (l:(List PP) format:/[Wr Int Int /Int]):PP =
+  (def mostBreaks (pp:PP most:Int):Int = (max most pp.breaks)
+   val breaks = (list.fold l mostBreaks 0)
+   def sizeWithBreak (br:Int sizes:(List Int)):(List Int) =
+     (def sizePP (pp:PP acc:Int):Int = (+ (sizeAfterBreak br pp) acc)
+      (cons (list.fold l sizePP 0) sizes))
+   [format = format
+    sizes = (int.fold breaks -1 0 sizeWithBreak nil)
+    breaks = breaks])
+
+val nullPP:PP =
+  [format = \(_ _ column) = column
+   sizes = (cons 0 nil)
+   breaks = 0]
+
+def stringPP (s:String):PP =
+  (val sz = (string.size s)
+   [format = \(file _ column) = ((file.write s); (+ column sz))
+    sizes = (cons sz nil)
+    breaks = 0])
+
+def intPP (i:Int):PP = (stringPP (int.toString i))
+def boolPP (b:Bool):PP = (stringPP (bool.toString b))
+
+def extendPP (left:Int lc:Char right:Int rc:Char pp:PP):PP =
+  [format = \(file breaks column) =
+     ((file.write (string.make lc left));
+      val column = (pp.format file breaks (+ column left))
+      (file.write (string.make rc right));
+      (+ column right))
+   sizes = (list.map pp.sizes \(sz:Int):Int = (+ < sz left right))
+   breaks = pp.breaks]
+
+def breakPP (breaks:Int pp:PP):PP =
+  [format = \(file br column) = (pp.format file (+ breaks br) column)
+   sizes = (cons (list.nth pp.sizes breaks) nil)
+   breaks = (+ pp.breaks breaks)]
+
+def leftJustifyPP (width:Int pp:PP):PP =
+  (val handler = (exn.fail "leftJustifyPP: width too small")
+   val [breaks sz] = (findSize width 0 pp.sizes handler)
+   (extendPP 0 ' ' (- width sz) ' ' (breakPP breaks pp)))
+
+def rightJustifyPP (width:Int pp:PP):PP =
+  (val handler = (exn.fail "rightJustifyPP: width too small")
+   val [breaks sz] = (findSize width 0 pp.sizes handler)
+   (extendPP (- width sz) ' ' 0 ' ' (breakPP breaks pp)))
+
+def centerPP (width:Int pp:PP):PP =
+  (val handler = (exn.fail "centerPP: width too small")
+   val [breaks sz] = (findSize width 0 pp.sizes handler)
+   val left = (div (- width sz) 2)
+   (extendPP left ' ' (- < width sz left) ' ' (breakPP breaks pp)))
+
+def hboxPP (l:(List PP)):PP = 
+  (def format (file:Wr _:Int column:Int):Int =
+     (def formatPP (pp:PP column:Int):Int = (pp.format file 0 column)
+      (list.fold l formatPP column))
+   (combineSizesH l format))
+
+def vboxPP (l:(List PP)):PP =
+  (def format (file:Wr breaks:Int column:Int):Int =
+     (val indent = (+$ "\n" (string.make ' ' column))
+      def formatV (l:(List PP) doSep:Bool col:Int):Int =
+        if (null l) then
+          col
+        else
+          (val hd = (car l) val tl = (cdr l)
+           if doSep then
+             ((file.write indent);
+              (formatV tl true (hd.format file breaks column)))
+           else
+             (formatV tl true (hd.format file breaks column)))
+      (formatV l false column))
+   (combineSizesV l format))
+
+def hvboxPP (l:(List PP)):PP =
+  (val horiz = (hboxPP l)
+   val vert  = (vboxPP l)
+   [format = \(file breaks column) =
+      if (== breaks 0) then (horiz.format file breaks column)
+      else (vert.format file (- breaks 1) column)
+    sizes = (cons (car horiz.sizes) vert.sizes)
+    breaks = (+ vert.breaks 1)])
+
+def listPP
+  (l:(List PP) start=start:PP before=before:PP after=after:PP finish=finish:PP)
+  : (List PP)
+=
+  (def formatList (l:(List PP) didBreak:Bool):(List PP) =
+     if (null l) then
+       (cons finish nil)
+     else if (&& didBreak (null (cdr l))) then
+       (cons > (hboxPP (cons > after (car l) nil)) finish nil)
+     else if didBreak then
+       (cons > (hboxPP (cons > after (car l) before nil))
+        (formatList (cdr l) true))
+     else
+       (cons > (hboxPP (cons > (car l) before nil))
+        (formatList (cdr l) true))
+   (cons start (formatList l false)))
+
+[[null=nullPP string=stringPP int=intPP bool=boolPP extend=extendPP
+  break=breakPP leftJustify=leftJustifyPP rightJustify=rightJustifyPP
+  center=centerPP hbox=hboxPP vbox=vboxPP hvbox=hvboxPP list=listPP]]
+
+)

@@ -1,0 +1,117 @@
+# line 1 "/home/pierce/pict/Lib/Std/Random.src"
+
+
+  import "Std/Misc"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  val random:[
+
+
+
+  randomize = /[Int /[]]
+
+
+
+
+  max = Int
+
+
+
+
+  random = /[/Int]
+
+
+
+
+
+  randomInt = /[Int /Int]
+
+
+
+
+
+  randomCoin = /[/Bool]
+
+
+
+
+    
+] = (
+
+(ccode 0 I "##include <math.h>");
+(ccode 0 I "extern long randomSeed;");
+(ccode 0 S "long randomSeed=123456789;");
+
+(ccode 0 I "extern long Random (void);");
+(ccode 0 I "extern long RandomInt (Val max);");
+(ccode 0 I "extern Val RandomCoin (void);");
+
+(ccode 0 S "
+long Random (void) {
+  long A = 48271;
+  long M = 2147483647;
+  long hi = randomSeed / (M / A);
+  long lo = randomSeed % (M / A);
+  long test = A * lo - (M % A) * hi;
+  randomSeed = (test > 0) ? (test) : (test + M);
+  return randomSeed;
+}");
+
+(ccode 0 S "
+long RandomInt (Val max) {
+  double f,r;
+  long A = 48271;
+  long M = 2147483647;
+  long hi = randomSeed / (M / A);
+  long lo = randomSeed % (M / A);
+  long test = A * lo - (M % A) * hi;
+  randomSeed = (test > 0) ? (test) : (test + M);
+  r = ((double)randomSeed * ((double)max / (double)M)); f = floor(r);
+  return ((r - f) < 0.5) ? (long)f : ((long)f)+1;
+}");
+
+(ccode 0 S "
+Val RandomCoin (void) {
+  long A = 48271;
+  long M = 2147483647;
+  long hi = randomSeed / (M / A);
+  long lo = randomSeed % (M / A);
+  long test = A * lo - (M % A) * hi;
+  randomSeed = (test > 0) ? (test) : (test + M);
+  return (randomSeed > (M/2));
+}");
+
+inline def randomize (x:Int) : [] =
+  (ccode 0 E "randomSeed = I(#);" x)
+
+val max = 2147483647
+
+inline def random () : Int =
+  (ccode 0 W "intInt(Random())")
+
+inline def randomInt (m:Int) : Int =
+  (ccode 0 W "intInt(RandomInt(I(#)))" m)
+
+inline def randomCoin () : Bool =
+  (ccode 0 W "RandomCoin()")
+
+[randomize=randomize max=max random=random randomInt=randomInt
+ randomCoin=randomCoin]
+
+)

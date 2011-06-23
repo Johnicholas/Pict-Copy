@@ -1,0 +1,10 @@
+{-
+ - Timer interrupts
+ -}
+
+import "Contrib/Clock"
+
+def f (x:Int):[] =
+  if (>> x 0) then ((clock.awaitTick); (pr "Got tick\n"); (f (dec x))) else []
+
+(clock.go); (f 10); (pr "Finished\n");

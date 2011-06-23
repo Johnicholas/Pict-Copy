@@ -1,0 +1,99 @@
+\section{@Std/Bool@: Booleans}
+
+##import "Std/Misc"
+##import "Std/Prim"
+##import "Std/Exn"
+
+##val bool : [
+
+\subsection{Types}
+
+The type @Bool@ is built in, and cannot be redefined.  The boolean
+constructors @true@ and @false@ are also built in, and cannot be redefined.
+
+\subsection{Operations}
+
+#*&&  = /[Bool Bool /Bool]
+#*||  = /[Bool Bool /Bool]
+#*xor = /[Bool Bool /Bool]
+#*not = /[Bool /Bool]
+\begin{doc}
+Conjunction, disjunction, exclusive-or and negation of booleans.
+\end{doc}
+
+\subsection{Iteration}
+
+#*while = /[/[/Bool] /[Sig] Sig]
+#*until = /[/[Sig] /[/Bool] Sig]
+\begin{doc}
+@(while b f)@ evaluates @(f)@ while @(b)@ is true. Similarly, @(until f b)@
+evaluates @(f)@ until @(b)@ is true.
+\end{doc}
+
+\subsection{Conversion}
+
+#*fromString = /[String Exn /Bool]
+\begin{doc}
+@(fromString s h)@ converts the string @s@ to an boolean.  If @s@ is not
+equal to the string @"true"@ or the string @"false"@ then error handler @h@
+is called.
+\end{doc}
+
+#*toString = /[Bool /String]
+\begin{doc} @(toString b)@ converts @b@ to a string. \end{doc}
+
+#*fromInt = /[Int /Bool]
+\begin{doc}
+@(fromInt x)@ converts the integer @x@ to an boolean.  If @x@ is zero,
+we return @false@, otherwise we return @true@.
+\end{doc}
+
+#*toInt = /[Bool /Int]
+\begin{doc}
+@(toInt b)@ converts @b@ to the integer @1@ if @b@ is true, and @0@ if @b@
+is false.
+\end{doc}
+
+\subsection{Printing}
+
+#*pr = /[Bool Sig]
+\begin{doc} @(pr b)@ prints @b@ on stdout. \end{doc}
+
+#{#}
+]= (
+
+inline def && (a:Bool b:Bool):Bool = (ccode 0 C "(# & #)" a b)
+inline def || (a:Bool b:Bool):Bool = (ccode 0 C "(# | #)" a b)
+inline def xor (a:Bool b:Bool):Bool = (ccode 0 C "(# ^ #)" a b)
+inline def not (b:Bool):Bool = (ccode 0 C "(# ^ 1)" b)
+
+def while (b:/[/Bool] f:/[Sig]):[] =
+  if (b) then ((f); (while b f)) else []
+def until (f:/[Sig] b:/[/Bool]):[] =
+  ((f); if (not(b)) then (until f b) else [])
+
+inline def fromString (s:String fail:Exn):Bool =
+  if (prim.==$ s "true") then true
+  else if (prim.==$ s "false") then false
+  else (exn.raise fail "bool.toString")
+
+inline def toString (b:Bool):String = if b then "true" else "false"
+
+inline def fromInt (x:Int):Bool = (prim.<> x 0)
+inline def toInt (b:Bool):Int = if b then 1 else 0
+
+inline def pr (b:Bool):[] = (misc.pr (toString b))
+
+[&& = && || = || xor=xor not=not while=while until=until fromString=fromString
+ toString=toString fromInt=fromInt toInt=toInt pr=pr]
+
+)
+
+#@\subsection{Abbreviations}
+
+#*val &&    = bool.&&
+#*val ||    = bool.||
+#*val xor   = bool.xor
+#*val not   = bool.not
+#*val while = bool.while
+#*val until = bool.until

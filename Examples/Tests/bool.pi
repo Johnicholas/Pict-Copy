@@ -1,0 +1,33 @@
+{-
+ - Booleans, conditionals and boolean operators.
+ -}
+
+def test (name:String b:Bool):[] = ((pr name); (pr " == "); (bool.pr b); (nl))
+
+{- We need the cond function to stop the optimiser removing the conditionals -}
+
+def tt (b:Bool):[] =
+  if b then (prNL "Conditional OK for true")
+  else (error.fatal "Conditional FAILED for true")
+
+def ff (b:Bool):[] =
+  if b then (error.fatal "Conditional FAILED for false")
+  else (prNL "Conditional OK for false")
+
+(pr "true  prints out as "); (bool.pr true); (nl);
+(pr "false prints out as "); (bool.pr false); (nl);
+(nl);
+(tt true); (ff false);
+(nl);
+(test "true  &&  true" (&& true  true));
+(test "true  && false" (&& true  false));
+(test "false &&  true" (&& false true));
+(test "false && false" (&& false false));
+(nl);
+(test "true  ||  true" (|| true  true));
+(test "true  || false" (|| true  false));
+(test "false ||  true" (|| false true));
+(test "false || false" (|| false false));
+(nl);
+(test "not[false]" (not false));
+(test "not[ true]" (not  true));

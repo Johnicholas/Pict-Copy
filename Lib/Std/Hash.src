@@ -1,0 +1,131 @@
+\section{@Std/Hash@: Hashtables}
+
+##import "Std/Int"
+##import "Std/List"
+##import "Std/Array"
+##import "Std/Opt"
+
+##val [
+
+\subsection{Types}
+
+#*#Hash : (Type Type -> Type)
+\begin{doc}
+@(Hash K V)@ denotes the type of hashtables with keys of type @K@ and
+elements of type @V@.  We allow only fixed-size hashtables for the
+moment. This implementation will be extended later to allow dynamic
+resizing of hashtables.
+\end{doc}
+
+##hash:[
+
+\subsection{Creation}
+
+#*make = /[#K #V /[K /Int] /[K K /Bool] /(Hash K V)]
+\begin{doc}
+@(make hash eq)@ creates a new hashtable with the hash function
+@hash@ and equality function @eq@.
+\end{doc}
+
+\subsection{Interrogation}
+
+#*lookup = /[#K #V (Hash K V) K /V]
+\begin{doc}
+@(lookup h k)@ looks up the value associated with @k@ in @h@. If @k@
+has no associated value, then we generate a runtime error.
+\end{doc}
+
+#*tryLookup = /[#K #V (Hash K V) K /(Opt V)]
+\begin{doc}
+@(tryLookup h k)@ returns @(opt.yes v)@ if @v@ is the value associated
+with @k@ in @h@. If @k@ has no associated value, it returns @opt.no@.
+\end{doc}
+
+#*lookupDefault = /[#K #V (Hash K V) K V /V]
+\begin{doc}
+@(lookupDefault h k dflt)@ looks up the value associated with @k@ in
+@h@.  If @k@ has no associated value, then we return the default value
+@dflt@.
+\end{doc}
+
+\subsection{Modification}
+
+#* insert = /[#K #V (Hash K V) K V Sig]
+\begin{doc}
+@(insert h k v)@ inserts the value @v@ with key @k@ into the hashtable
+@h@.  This does not overwrite previous entries with the same key, so that a
+subsequent @(remove h k)@ call will restore the previous value
+associated with @k@.
+\end{doc}
+
+#*remove = /[#K #V (Hash K V) K Sig]
+\begin{doc}
+@(remove h k)@ removes the value with key @k@ from the hashtable.
+If no such value exists, we generate a runtime error.
+\end{doc}
+
+#{#}
+]]
+= (
+
+type (Hash K V) =
+  [/[K /Int] /[K K /Bool] (Array (List [K V])) Int]
+
+def make (#K #V hash:/[K /Int] eq:/[K K /Bool]) : (Hash K V) =
+  [hash eq (array.make #(List [K V]) nil 128) 127]{-HACK-}
+
+def lookup (#K #V h:(Hash K V) key:K) : V =
+  (val [hash eq a mask] = h
+
+   def find (l:(List [K V])):V =
+     if (null l) then
+       (error.fatal "lookupHash: Key not found")
+     else
+       (val [k v] = (list.unsafeCar l)
+        if (eq k key) then v else (find (list.unsafeCdr l)))
+
+   (find (array.unsafeNth a (int.land (hash key) mask))))
+
+def tryLookup (#K #V h:(Hash K V) key:K) : (Opt V) =
+  (val [hash eq a mask] = h
+   def find (l:(List [K V])):(Opt V) =
+     if (null l) then
+       opt.no
+     else
+       (val [k v] = (list.unsafeCar l)
+        if (eq k key) then (opt.yes v)
+        else (find (list.unsafeCdr l)))
+   (find (array.unsafeNth a (int.land (hash key) mask))))
+
+def lookupDefault (#K #V h:(Hash K V) key:K dflt:V) : V =
+  (val [hash eq a mask] = h
+   def find (l:(List [K V])):V =
+     if (null l) then
+       dflt
+     else
+       (val [k v] = (list.unsafeCar l)
+        if (eq k key) then v else (find (list.unsafeCdr l)))
+   (find (array.unsafeNth a (int.land (hash key) mask))))
+
+def insert (#K #V h:(Hash K V) key:K v:V) : [] =
+  (val [hash eq a mask] = h
+   val x = (int.land (hash key) mask)
+   (array.unsafeUpdate a x (cons [key v] (array.unsafeNth a x))))
+
+def remove (#K #V h:(Hash K V) key:K) : [] =
+  (val [hash eq a mask] = h
+   val x = (int.land (hash key) mask)
+   def find (l:(List [K V])):(List [K V]) =
+     if (null l) then
+       (error.fatal "removeHash: Key not found")
+     else
+       (val item@[k v] = (list.unsafeCar l)
+       if (eq k key) then (list.unsafeCdr l)
+       else (cons item (find (list.unsafeCdr l))))
+   (array.unsafeUpdate a x (find (array.unsafeNth a x))))
+
+[#Hash
+ [make=make lookup=lookup tryLookup=tryLookup lookupDefault=lookupDefault
+ insert=insert remove=remove]]
+
+)

@@ -1,0 +1,290 @@
+\section{@Picture/Picture@: Picture Operations}
+
+This module does not define any new operations in itself, it simply
+re-exports all the user-level operations defined in the picture libraries.
+If you wish to write new picture primitives (rather than composing new
+pictures from the existing primitives), you will probably need to use
+picture operations which are not re-exported here (cf.\
+Sections~\ref{s:Utils}, \ref{s:Package} and~\ref{s:Types}).
+
+(The @Picture@ and @Server@ types referred to in the following type
+definitions are defined in Section~\ref{s:Types}.)
+
+##import "Picture/Types"
+##import "Picture/Basic"
+##import "Picture/Transform"
+##import "Picture/Combine"
+##import "Picture/Other"
+##import "Picture/Server"
+
+##val picture : [
+
+\subsection{Server Connection}
+
+#*server = /[String String /Server]
+\begin{doc}
+@(server d a)@ opens a connection to the display @d@ (an empty string means
+connect to the default display).  The string @a@ is the application name
+(used for resource database lookup).
+\end{doc}
+
+\subsection{Picture Primitives}
+
+#*null = Picture
+\begin{doc}
+The null picture.
+\end{doc}
+
+#*point = /[Int Int /Picture] 
+\begin{doc}
+@(point x y)@ creates a point picture (a single pixel).  Scaling a point
+will affect its coordinates, but not its size.
+\end{doc}
+
+#*line = /[Int Int Int Int /Picture] 
+\begin{doc}
+@(line x0 y0 x1 y1)@ creates a line from @[x0 y0]@ to @[x1 y1]@.  Scaling a
+line will affect its endpoints but not its thickness.
+\end{doc}
+
+#*hLine = Picture
+#*vLine = Picture
+\begin{doc}
+Unit length horizontal and vertical lines (equivalent to @(line 0 0 1 0)@
+and @(line 0 0 0 1)@ respectively).
+\end{doc}
+
+#*quad = /[Int Int Int Int Int Int Int Int /Picture] 
+#*fillQuad = /[Int Int Int Int Int Int Int Int /Picture] 
+\begin{doc}
+@(quad x0 y0 x1 y1 x2 y2 x3 y3)@ creates a closed polygon with four
+vertices.  Scaling such a polygon will affect its shape but not the
+thickness of its lines.  @fillQuad@ creates a filled polygon.
+\end{doc}
+
+#*rect = /[Int Int Int Int /Picture] 
+#*fillRect = /[Int Int Int Int /Picture] 
+\begin{doc}
+@(rect x y w h)@ creates a rectangle whose leftmost corner is at @[x y]@,
+and whose width and height are @w@ and @h@ respectively.  @fillRect@
+creates a filled rectangle.
+\end{doc}
+
+#*clickable = /[Int Int Int Int /[Button Bool Int Int Int Int] /Picture] 
+
+#*spacer = /[Int Int Int Int /Picture] 
+\begin{doc}
+@(spacer x y w h)@ creates a space whose leftmost corner is at @[x y]@, and
+whose width and height are @w@ and @h@ respectively.
+\end{doc}
+
+#*ellipse = /[Int Int Int Int /Picture] 
+#*fillEllipse = /[Int Int Int Int /Picture] 
+\begin{doc}
+@(ellipse x y w h)@ creates an ellipse of width @w@ and height @h@, centred
+at @[x y]@.  @fillEllipse@ creates a filled ellipse.
+\end{doc}
+
+#*text = /[String /Picture] 
+\begin{doc}
+@(text s)@ creates a text picture using the string @s@.  Note that we do
+not currently implement font rotation or scaling, so scaling or rotating a
+text picture will not affect the size or orientation of the text, just the
+drawing origin.  The string @s@ should not contain newlines.
+\end{doc}
+
+#*pixmap = /[String Exn /Picture]
+\begin{doc}
+@(pixmap f h)@ loads a pixmap in ppm format from the file @f@, calling the
+error handler @h@ if the @f@ could not be opened or @f@ is not a valid ppm
+file.  Note that we do not currently implement pixmap rotation or scaling,
+so scaling or rotating a pixmap will not affect the size or orientation of
+the pixmap, just the drawing origin.
+\end{doc}
+
+\subsection{Picture Transformations}
+
+#*rotate = /[Picture Int /Picture] 
+\begin{doc}
+@(rotate p x)@ rotates the picture @p@ by @x@ degrees.
+\end{doc}
+
+#*scale = /[Picture Int Int Int Int /Picture]
+\begin{doc}
+@(scale p sx dx sy dy)@ scales the picture @p@ by @dx/sx@ in
+the x-axis and @dy/sy@ in the y-axis.
+\end{doc}
+
+#*scaleTo = /[Picture Int Int /Picture]
+\begin{doc}
+@(scaleTo p w h)@ scales the picture @p@ so that it has width @w@ and
+height @h@.
+\end{doc}
+
+#*move = /[Picture Int Int /Picture] 
+\begin{doc}
+@(move p x y)@ moves the picture @p@ along the x-axis by @x@ pixels
+and along the y-axis by @y@ pixels.
+\end{doc}
+
+#*fg = /[Color Picture /Picture] 
+#*font = /[Font Picture /Picture] 
+\begin{doc}
+Functions to change the default foreground color and font of a picture.
+\end{doc}
+
+#*center    = /[Picture /Picture] 
+#*north     = /[Picture /Picture] 
+#*northeast = /[Picture /Picture] 
+#*east      = /[Picture /Picture] 
+#*southeast = /[Picture /Picture] 
+#*south     = /[Picture /Picture] 
+#*southwest = /[Picture /Picture] 
+#*west      = /[Picture /Picture] 
+#*northwest = /[Picture /Picture] 
+\begin{doc}
+Moves the origin of the given picture to the appropriate point on the
+picture's bounding box.
+\end{doc}
+
+#*catchHit  = /[Picture /[CX Button Bool Sig] /Picture]
+\begin{doc}
+@(catchHit p a)@ creates a picture with the same visual appearance as @p@.
+The modified picture catches any button presses which hit @p@, and sends a
+message to @a@, notifying it of the button that was pressed (the boolean
+value indicates whether the button was released or pressed).
+\end{doc}
+
+#*quitOnHit = /[Picture /Picture]
+\begin{doc}
+@(quitOnHit p)@ creates a picture with the same visual appearance as @p@.
+The modified picture catches any button presses which hit @p@, and responds
+by sending a quit request to the picture's parent.
+\end{doc}
+
+\subsection{Combining Pictures}
+
+#*add = /[Picture Picture /Picture] 
+\begin{doc}
+@(add p q)@ overlays the pictures @p@ and @q@.  The bounding box for the
+combined picture is the least bounding box which includes the bounding
+boxes of @p@ and @q@.  This function can be combined with the transposition
+functions described above to provide a number of other useful picture
+combinators.
+\end{doc}
+
+#*beside = /[Picture Picture /Picture] 
+\begin{doc}
+@(beside p q)@ is an example of a useful combination of the above
+transposition functions and the picture overlay function @add@.  It
+transforms @p@ and @q@ so that @p@'s origin is at the top right of its
+bounding box, and @q@'s origin is at the top left of its bounding box.
+Thus, since @add@ aligns the origins of @p@ and @q@, this has the effect of
+juxtaposing @p@ and @q@ and aligning the tops of their bounding boxes.
+\end{doc}
+
+#*above = /[Picture Picture /Picture] 
+\begin{doc}
+@(above p q)@ juxtaposes @p@ and @q@ vertically (aligning the left-hand
+sides of their bounding boxes).
+\end{doc}
+
+#*scaledAbove = /[Int Int Picture Picture /Picture]
+\begin{doc}
+@(scaledAbove n1 n2 p1 p2)@ composes @p1@ and @p2@ vertically, scaling @p1@
+so that it is @n1/n2@ times the height of @p2@ and either scaling up @p1@
+so that it is the same width as @p2@, or vice versa.
+\end{doc}
+
+#*scaledBeside = /[Int Int Picture Picture /Picture]
+\begin{doc}
+@(scaledAbove n1 n2 p1 p2)@ composes @p1@ and @p2@ horizontally, scaling
+@p1@ so that it is @n1/n2@ times the width of @p2@ and either scaling up
+@p1@ so that it is the same height as @p2@, or vice versa.
+\end{doc}
+
+#*background = /[Color Picture /Picture]
+\begin{doc}
+@(background c p)@ puts @p@ on top of a rectangle of color @c@
+and with the same size as @p@.
+\end{doc}
+
+#*border = /[Int Int Picture /Picture] 
+\begin{doc}
+@(border w m)@ Adds a rectangular border of width @w@ around the picture
+@p@, leaving a margin of @m@ pixels around @p@'s boundary.
+\end{doc}
+
+\subsection{Other Pictures}
+
+#*ref = /[Picture ?[Picture Sig] /Picture]
+\begin{doc}
+@(ref p u)@ creates an updatable picture whose initial appearance is @p@,
+and whose appearance can be modified using the channel @u@.  For example,
+@(u q)@ updates @(ref p u)@ with the new picture @q@.
+\end{doc}
+
+#*stringRef = /[String ?[String Sig] /Picture]
+#*intRef = /[Int ?[Int Sig] /Picture]
+\begin{doc}
+@(stringRef s u)@ creates an updatable picture which displays the string
+@s@.  The channel @u@ can be used to update the string which is being
+displayed.  @intRef@ is similar to @stringRef@ except that it displays an
+integer value.
+\end{doc}
+
+#*array = /[Int Int (Array Picture) ?[Int Int (Array Picture) Sig] /Picture]
+#*array2 = /[Int Int (Array2 Picture) ?[Int Int (Array2 Picture) Sig] /Picture]
+\begin{doc}
+@(array sz gap a u)@ create an updatable picture which displays a
+horizontal array of pictures @a@.  Each picture in @a@ is displayed in an
+area of size @sz@, with @gap@ pixels between each element.  @array2@ is
+similar to @array@, except that it creates a two-dimensional grid of
+pictures.
+\end{doc}
+
+#*button = /[String /[Sig] /Picture]
+\begin{doc}
+@(button label action)@ creates a simple button picture using the given a
+@label@ string.  The @action@ channel is signalled on whenever a mouse
+button is clicked on the picture.
+\end{doc}
+
+#*quitButton = Picture
+\begin{doc}
+A simple quit button which, whenever a mouse button is clicked on the
+picture, sends a quit request to its parent picture.  If none of the button's
+parents handle this quit request, this has the effect of quitting the
+top-level window containing the quit button.
+\end{doc}
+
+#*slider = /[Slider /[Picture (Ref Slider)]]
+\begin{doc}
+@(slider s)@ returns a slider which can represent a range of values between
+@s.min@ and @s.max@ (inclusive).  The initial range of values is
+@s.pos...(s.pos+s.range)@ (inclusive).  The @(Ref Slider)@ can be used to
+modify the aforementioned values.  The @s.posChanged@ channel is signalled
+on whenever the user changes the position of the slider.
+\end{doc}
+
+#{#}
+] =
+
+[server=server null=basic.null point=basic.point line=basic.line
+ hLine=basic.hLine vLine=basic.vLine quad=basic.quad
+ fillQuad=basic.fillQuad rect=basic.rect fillRect=basic.fillRect
+ clickable=basic.clickable spacer=basic.spacer ellipse=basic.ellipse
+ fillEllipse=basic.fillEllipse text=basic.text pixmap=basic.pixmap
+ rotate=transform.rotate scale=transform.scale scaleTo=transform.scaleTo
+ move=transform.move fg=transform.fg font=transform.font
+ center=transform.center north=transform.north
+ northeast=transform.northeast east=transform.east
+ southeast=transform.southeast south=transform.south
+ southwest=transform.southwest west=transform.west
+ northwest=transform.northwest catchHit=transform.catchHit
+ quitOnHit=transform.quitOnHit add=combine.add beside=combine.beside
+ above=combine.above scaledAbove=combine.scaledAbove
+ scaledBeside=combine.scaledBeside background=combine.background
+ border=combine.border ref=other.ref stringRef=other.stringRef
+ intRef=other.intRef array=other.array array2=other.array2
+ button=other.button quitButton=other.quitButton slider=other.slider]

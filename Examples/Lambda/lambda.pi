@@ -1,0 +1,189 @@
+{-
+ - A simple lambda-calculus typechecker.
+ -}
+
+import "Std/Hash"
+import "Std/Opt"
+import "Std/Tags"
+
+{-
+ - The datatype of terms.
+ -}
+
+type (TermAlts X Term) =
+  [int = /[Int /X]
+   var = /[String /X]
+   lam = /[String Term /X]
+   app = /[Term Term /X]]
+
+type Term = (rec Term = /[#X (TermAlts X Term) /X])
+
+{-
+ - Term constructors.
+ -}
+
+def INT (i:Int) : Term =
+  (rec \(#X r:(TermAlts X Term)):X = (r.int i))
+
+def VAR (x:String) : Term =
+  (rec \(#X r:(TermAlts X Term)):X = (r.var x))
+
+def LAM (x:String t:Term) : Term =
+  (rec \(#X r:(TermAlts X Term)):X = (r.lam x t))
+
+def APP (f:Term a:Term) : Term =
+  (rec \(#X r:(TermAlts X Term)):X = (r.app f a))
+
+{-
+ - Printing of terms.
+ -}
+
+def termString ((rec:Term t)) : String =
+  (t #String [
+   int = \(i) = ($$ i)
+   var = \(x) = x
+   lam = \(x t) = (+$ > "\\" x "->" (termString t))
+   app = \(f a) = (+$ > "(" (termString f) " " (termString a) ")")
+  ])
+
+{-
+ - The datatype of types.
+ -}
+
+type (TyAlts Ty X) =
+  [var = /[Tag /[Ty (Handler String) Sig] /X]
+   int = /[/X]
+   arr = /[Ty Ty /X]]
+
+type Ty = (rec Ty = /[#X (TyAlts Ty X) /X])
+
+{-
+ - Printing of types.
+ -}
+
+def tyString ((rec:Ty t)) : String =
+  (t #String [
+   var = \(x _) = (tags.toString x)
+   int = \() = "Int"
+   arr = \(a r) = (+$ > "(" (tyString a) "->" (tyString r) ")")
+  ])
+
+{-
+ - The occur check.
+ -}
+
+def occurTy (tag:Tag (rec:Ty t)) : Bool =
+  (t #Bool [
+   var = \(x _) = (tags.== tag x)
+   int = \() = false
+   arr = \(a r) = (|| (occurTy tag a) (occurTy tag r))
+  ])
+
+{-
+ - Type constructors.
+ -}
+
+val intTy : Ty =
+  (rec : Ty \(#X r:(TyAlts Ty X)):X = (r.int))
+
+def varTy () : Ty =
+  (new l:^(Opt Ty)
+   run l!opt.no
+   val tag = (tags.make)
+   def update (ty:Ty fail:(Handler String)):[] =
+     (opt.case (read l)
+      \():[] =
+        if (occurTy tag ty) then
+          (exn.raise fail
+	   (+$ > "Occur check failed: " (tags.toString tag) " occurs in "
+	    (tyString ty)))
+	else
+	  (write l (opt.yes ty))
+      \(_:Ty):[] =
+        (error.fatal "Multiple instantiation of type variable"))
+   (rec \(#X r:(TyAlts Ty X)):X =
+      (val o = (read l)
+       (opt.case o
+        \():X =
+          ((write l o); (r.var tag update))
+        \((rec:Ty ty)):X =
+	  ((write l o); (ty #X r))))))
+
+def arrTy (arg:Ty res:Ty) : Ty =
+  (rec \(#X r:(TyAlts Ty X)):X = (r.arr arg res))
+
+{-
+ - Unification of types.
+ -}
+
+def unifyTy (t1@(rec:Ty a1) t2@(rec:Ty a2) fail:(Handler String)) : [] =
+  (a1 #[] [
+   var = \(x1 u1) =
+     (a2 #[] [
+       var = \(x2 u2) = if (tags.== x1 x2) then [] else (u1 t2 fail)
+       int = \() = (u1 t2 fail)
+       arr = \(_ _) = (u1 t2 fail)
+     ])
+   int = \() =
+     (a2 #[] [
+       var = \(_ u2) = (u2 t1 fail)
+       int = \() = []
+       arr = \(a r) =
+	 (exn.raise fail (+$ > "Unification failure: " (tyString t1)
+			  " does not match " (tyString t2)))
+     ])
+   arr = \(arg1 res1) =
+     (a2 #[] [
+       var = \(_ u2) =
+         (u2 t1 fail)
+       int = \() =
+	 (exn.raise fail (+$ > "Unification failure: " (tyString t1)
+			  " does not match " (tyString t2)))
+       arr = \(arg2 res2) =
+	 ((unifyTy arg1 arg2 fail); (unifyTy res1 res2 fail))
+     ])
+  ])
+
+{-
+ - The type inference algorithm.
+ -}
+
+val env = (hash.make #String #Ty string.hash string.==$)
+
+def termTy ((rec:Term t) fail:(Handler String)) : Ty =
+  (t #Ty [
+   int = \(_) =
+     intTy
+   var = \(x) =
+     (opt.case (hash.tryLookup env x)
+      \():Ty = (exn.raise fail (+$ "Unbound identifier: " x))
+      \(ty:Ty):Ty = ty)
+   lam = \(x t) =
+     (val alpha = (varTy)
+      (hash.insert env x alpha);
+      val ty = (arrTy alpha (termTy t fail))
+      (hash.remove env x);
+      ty)
+   app = \(f a) =
+     (val res = (varTy)
+      (unifyTy (termTy f fail) (arrTy (termTy a fail) res) fail);
+      res)
+  ])
+
+def test (t:Term):[] =
+  ((pr "term: "); (pr (termString t)); (nl);
+   (exn.try #String #[]
+    \(h) =
+      ((pr "type: "); (pr (tyString (termTy t h))); (nl))
+    \(msg) =
+      ((pr msg); (nl))))
+
+val id = (LAM "x" (VAR "x"))
+val apply = (LAM "f" (LAM "x" (APP (VAR "f") (VAR "x"))))
+
+(test id);
+(test (APP id id));
+(test apply);
+(test (APP (APP apply id) (INT 33)));
+(test (APP (APP apply (INT 33)) id));
+(test (LAM "x" (VAR "y")));

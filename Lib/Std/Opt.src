@@ -1,0 +1,76 @@
+\section{@Std/Opt@: Optional Values}
+
+This type is used by various functions to optionally return values.
+
+##import "Std/Error"
+##import "Std/Misc"
+
+##val [
+
+\subsection{Types}
+
+#*#Opt : (Pos Type -> Type)
+\begin{doc}
+The type @(Opt X)@ represents an optional value of type @X@.
+\end{doc}
+
+##opt:[
+
+\subsection{Construction}
+
+#*yes = /[#X X /(Opt X)]
+#*no = (Opt Bot)
+\begin{doc}
+@(yes x)@ converts a value @x@ into an optional value.  @no@ is the
+null optional value.
+\end{doc}
+
+\subsection{Operations}
+
+#*case = /[#X #R (Opt X) /[/R] /[X /R] /R]
+\begin{doc}
+@(case o absent present)@ returns the value computed by @(absent)@ if @o@
+is the null optional value.  Otherwise, it returns the value returned by
+@(present x)@ where @x@ is the value contained in @o@.
+\end{doc}
+
+#*get = /[#X (Opt X) X /X]
+\begin{doc}
+@(get o d)@ returns the contents of @o@, if present.  It returns the
+default value @d@ if @o@ is the null value.
+\end{doc}
+
+#*map = /[#X #Y /[X /Y] (Opt X) /(Opt Y)]
+\begin{doc}
+@(map o f)@ applies the function @f@ to the contents of @o@ (if present).
+\end{doc}
+
+\subsection{Printing}
+
+#*pr = /[#X (Opt X) String /[X Sig] Sig]
+\begin{doc}
+@(pr o no yes)@ prints out the optional value @o@. If @o@ is not present,
+we print the string @no@, otherwise we print the contents of @o@ using the
+supplied printing function @yes@.
+\end{doc}
+
+#{#}
+]] = (
+
+val [#Opt:(Pos Type->Type)] = [#\X = Top]
+inline def yes (#X x:X):(Opt X) = (ccode 0 C "#" [x])
+val no:(Opt Bot) = (ccode 0 C "#" 0)
+inline def grab (#X o:(Opt X)):X = (val [x:X] = (ccode 0 C "#" o) x)
+inline def null (#X o:(Opt X)):Bool = (ccode 0 C "(# == 0)" o)
+
+inline def case (#X #R o:(Opt X) no:/[/R] yes:/[X /R]):R =
+  if (null o) then (no) else (yes (grab o))
+inline def get (#X o:(Opt X) x:X):X =
+  if (null o) then x else (grab o)
+inline def map (#X #Y f:/[X /Y] o:(Opt X)):(Opt Y) =
+  if (null o) then no else (yes (f (grab o)))
+inline def pr (#X o:(Opt X) no:String yes:/[X Sig]):[] =
+  if (null o) then (misc.pr no) else (yes (grab o))
+
+[#Opt [yes=yes no=no case=case get=get map=map pr=pr]]
+)

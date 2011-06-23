@@ -1,0 +1,291 @@
+# line 1 "/home/pierce/pict/Lib/Picture/Picture.src"
+
+
+
+
+
+
+
+
+
+
+
+
+  import "Picture/Types"
+  import "Picture/Basic"
+  import "Picture/Transform"
+  import "Picture/Combine"
+  import "Picture/Other"
+  import "Picture/Server"
+
+  val picture : [
+
+
+
+  server = /[String String /Server]
+
+
+
+
+
+
+
+
+  null = Picture
+
+
+
+
+  point = /[Int Int /Picture] 
+
+
+
+
+
+  line = /[Int Int Int Int /Picture] 
+
+
+
+
+
+  hLine = Picture
+  vLine = Picture
+
+
+
+
+
+  quad = /[Int Int Int Int Int Int Int Int /Picture] 
+  fillQuad = /[Int Int Int Int Int Int Int Int /Picture] 
+
+
+
+
+
+
+  rect = /[Int Int Int Int /Picture] 
+  fillRect = /[Int Int Int Int /Picture] 
+
+
+
+
+
+
+  clickable = /[Int Int Int Int /[Button Bool Int Int Int Int] /Picture] 
+
+  spacer = /[Int Int Int Int /Picture] 
+
+
+
+
+
+  ellipse = /[Int Int Int Int /Picture] 
+  fillEllipse = /[Int Int Int Int /Picture] 
+
+
+
+
+
+  text = /[String /Picture] 
+
+
+
+
+
+
+
+  pixmap = /[String Exn /Picture]
+
+
+
+
+
+
+
+
+
+
+  rotate = /[Picture Int /Picture] 
+
+
+
+
+  scale = /[Picture Int Int Int Int /Picture]
+
+
+
+
+
+  scaleTo = /[Picture Int Int /Picture]
+
+
+
+
+
+  move = /[Picture Int Int /Picture] 
+
+
+
+
+
+  fg = /[Color Picture /Picture] 
+  font = /[Font Picture /Picture] 
+
+
+
+
+  center    = /[Picture /Picture] 
+  north     = /[Picture /Picture] 
+  northeast = /[Picture /Picture] 
+  east      = /[Picture /Picture] 
+  southeast = /[Picture /Picture] 
+  south     = /[Picture /Picture] 
+  southwest = /[Picture /Picture] 
+  west      = /[Picture /Picture] 
+  northwest = /[Picture /Picture] 
+
+
+
+
+
+  catchHit  = /[Picture /[CX Button Bool Sig] /Picture]
+
+
+
+
+
+
+
+  quitOnHit = /[Picture /Picture]
+
+
+
+
+
+
+
+
+  add = /[Picture Picture /Picture] 
+
+
+
+
+
+
+
+
+  beside = /[Picture Picture /Picture] 
+
+
+
+
+
+
+
+
+
+  above = /[Picture Picture /Picture] 
+
+
+
+
+
+  scaledAbove = /[Int Int Picture Picture /Picture]
+
+
+
+
+
+
+  scaledBeside = /[Int Int Picture Picture /Picture]
+
+
+
+
+
+
+  background = /[Color Picture /Picture]
+
+
+
+
+
+  border = /[Int Int Picture /Picture] 
+
+
+
+
+
+
+
+  ref = /[Picture ?[Picture Sig] /Picture]
+
+
+
+
+
+
+  stringRef = /[String ?[String Sig] /Picture]
+  intRef = /[Int ?[Int Sig] /Picture]
+
+
+
+
+
+
+
+  array = /[Int Int (Array Picture) ?[Int Int (Array Picture) Sig] /Picture]
+  array2 = /[Int Int (Array2 Picture) ?[Int Int (Array2 Picture) Sig] /Picture]
+
+
+
+
+
+
+
+
+  button = /[String /[Sig] /Picture]
+
+
+
+
+
+
+  quitButton = Picture
+
+
+
+
+
+
+
+  slider = /[Slider /[Picture (Ref Slider)]]
+
+
+
+
+
+
+
+
+    
+] =
+
+[server=server null=basic.null point=basic.point line=basic.line
+ hLine=basic.hLine vLine=basic.vLine quad=basic.quad
+ fillQuad=basic.fillQuad rect=basic.rect fillRect=basic.fillRect
+ clickable=basic.clickable spacer=basic.spacer ellipse=basic.ellipse
+ fillEllipse=basic.fillEllipse text=basic.text pixmap=basic.pixmap
+ rotate=transform.rotate scale=transform.scale scaleTo=transform.scaleTo
+ move=transform.move fg=transform.fg font=transform.font
+ center=transform.center north=transform.north
+ northeast=transform.northeast east=transform.east
+ southeast=transform.southeast south=transform.south
+ southwest=transform.southwest west=transform.west
+ northwest=transform.northwest catchHit=transform.catchHit
+ quitOnHit=transform.quitOnHit add=combine.add beside=combine.beside
+ above=combine.above scaledAbove=combine.scaledAbove
+ scaledBeside=combine.scaledBeside background=combine.background
+ border=combine.border ref=other.ref stringRef=other.stringRef
+ intRef=other.intRef array=other.array array2=other.array2
+ button=other.button quitButton=other.quitButton slider=other.slider]

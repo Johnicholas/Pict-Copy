@@ -1,0 +1,212 @@
+\section{@X11/Xrm@: X Resource Manager Intrinsics}
+
+##import "Std/Misc"
+##import "Std/Exn"
+##import "X11/Xlib"
+
+This library provides an interface to the X resource manager
+library\footnote{This documentation is derived from the X Consortium @Xrm@
+manual pages}.
+
+\subsection{ResourceLine Syntax}
+
+The syntax of a resource file is a sequence of resource lines terminated by
+newline characters or the end of the file.  The syntax of an individual
+resource line is:
+
+\begin{center}\begin{tabular}{lcl}
+ResourceLine  & = & Comment $|$ IncludeFile $|$ ResourceSpec $|$
+                    {\em empty line} \\
+Comment       & = & @!@ {\em any character except null or newline} \\
+IncludeFile   & = & @#@ WhiteSpace @include@ WhiteSpace FileName WhiteSpace \\
+FileName      & = & {\em valid filename for operating system} \\
+ResourceSpec  & = & WhiteSpace ResourceName WhiteSpace @:@ WhiteSpace Value \\
+ResourceName  & = & [Binding] \{Component Binding\} ComponentName \\
+Binding       & = & @.@ $|$ @*@ \\
+WhiteSpace    & = & \{{\em space} $|$ {\em horizontal tab}\} \\
+Component     & = & @?@ $|$ ComponentName \\
+ComponentName & = & NameChar \{NameChar\} \\
+NameChar      & = & @a@-@z@ $|$ @A@-@Z@ $|$ @0@-@9@ $|$ @_@ $|$ @--@ \\
+Value         & = & \{{\em any character except null or unescaped newline}\}
+\end{tabular}\end{center}
+
+Elements separated by vertical bar ($|$) are alternatives.  Curly braces
+(\{\ldots\}) indicate zero or more repetitions of the enclosed elements.
+Square brackets ([\ldots]) indicate that the enclosed element is optional.
+@Teletype@ font is used for literal characters.
+
+IncludeFile lines are interpreted by replacing the line with the contents
+of the specified file.  The word @include@ must be in lowercase.  The file
+name is interpreted relative to the directory of the file in which the line
+occurs (for example, if the file name contains no directory or contains a
+relative directory specification).
+
+If a ResourceName contains a contiguous sequence of two or more Binding
+characters, the sequence will be replaced with single @.@ character if the
+sequence contains only @.@ characters; otherwise, the sequence will be
+replaced with a single @*@ character.
+
+A resource database never contains more than one entry for a given
+ResourceName.  If a resource file contains multi- ple lines with the same
+ResourceName, the last line in the file is used.
+
+Any white space characters before or after the name or colon in a
+ResourceSpec are ignored.  To allow a Value to begin with white space, the
+two-character sequence @\space@ (backslash followed by space) is recognized
+and replaced by a space character, and the two-character sequence @\tab@
+(backslash followed by horizontal tab) is recognized and replaced by a
+horizontal tab character.  To allow a Value to contain embedded newline
+characters, the two-character sequence @\n@ is recognized and replaced by a
+newline character.  To allow a Value to be broken across multiple lines in
+a text file, the two- character sequence @\newline@ (backslash followed by
+newline) is recognized and removed from the value.  To allow a Value to
+contain arbitrary character codes, the four-character sequence @\nnn@,
+where each @n@ is a digit character in the range of @0@-@7@, is recognized
+and replaced with a single byte that contains the octal value specified by
+the sequence.  Finally, the two-character sequence @\\@ is recognized and
+replaced with a single backslash.
+
+\subsection{Resource Matching}
+
+The algorithm for determining which resource database entry matches a given
+query is the heart of the resource manager.  All queries must fully specify
+the name and class of the desired resource (use of the characters @*@ and
+@?@ are not permitted).  The library supports up to 100 components in a
+full name or class.  Resources are stored in the database with only
+partially specified names and classes, using pattern matching constructs.
+An asterisk (@*@) is a loose binding and is used to represent any number of
+intervening components, including none.  A period (@.@) is a tight binding
+and is used to separate immediately adjacent components.  A question mark
+(@?@) is used to match any single component name or class.  A database
+entry cannot end in a loose binding; the final component (which cannot be
+the character @?@) must be specified.  The lookup algorithm searches the
+database for the entry that most closely matches (is most specific for) the
+full name and class being queried.  When more than one database entry
+matches the full name and class, precedence rules are used to select just
+one.
+
+The full name and class are scanned from left to right (from highest level
+in the hierarchy to lowest), one component at a time.  At each level, the
+corresponding component and/or binding of each matching entry is
+determined, and these matching components and bindings are compared
+according to precedence rules.  Each of the rules is applied at each level
+before moving to the next level, until a rule selects a single entry over
+all others.  The rules, in order of precedence, are:
+\begin{enumerate}
+
+\item An entry that contains a matching component (whether name, class, or
+the character @?@) takes precedence over entries that elide the level (that
+is, entries that match the level in a loose binding).
+
+\item An entry with a matching name takes precedence over both entries with
+a matching class and entries that match using the character @?@.  An entry
+with a matching class takes precedence over entries that match using the
+character @?@.
+
+\item An entry preceded by a tight binding takes precedence over entries
+preceded by a loose binding.
+\end{enumerate}
+
+\subsection{Types}
+
+##val [
+
+#*#XrmDatabase
+\begin{doc} The type of a resource database. \end{doc}
+
+##xrm:[
+
+\subsection{Resource Database Operations}
+
+#*initialize = /[Sig]
+\begin{doc}
+Initializes the resource manager.  This function must be called before any
+other @xrm@ functions are used.
+\end{doc}
+
+#*string = /[Display Exn /String]
+\begin{doc}
+@(string d h)@ gets the \verb#RESOURCE_MANAGER# property from the display
+@d@'s root window of screen zero.  Calls the error handler @h@ if no such
+property exists.
+\end{doc}
+
+#*getDatabase = /[Display Exn /XrmDatabase]
+\begin{doc}
+@(getDatabase d h)@ returns the database associated with the display @d@.
+Calls the handler @h@ if a database has not yet been set.
+\end{doc}
+
+#*fromString = /[String /XrmDatabase]
+\begin{doc}
+@(fromString s)@ converts @s@ into a new database.  The string @s@
+should contain a sequence of entries in valid ResourceLine format (as
+described above).
+\end{doc}
+
+#*destroy = /[XrmDatabase Sig]
+\begin{doc} @(destroy db)@ deallocates the database @db@. \end{doc}
+
+#*combine = /[XrmDatabase XrmDatabase Bool /XrmDatabase]
+\begin{doc}
+@(combine src dest o)@ merges @src@ into @dest@.  If the same specifier is
+used for an entry in both databases, the entry in the @src@ will replace
+the entry in the @dest@ if @o@ is @true@; otherwise, the entry in @src@ is
+discarded.  @src@ is destroyed by the merge.
+\end{doc}
+
+#*getResource = /[XrmDatabase String String /(Opt String)]
+\begin{doc}
+@(getResource db name class)@ gets the specified resource, returning
+@(opt.yes s)@ if the string @s@ was found, and @opt.no@ otherwise.
+\end{doc}
+
+#{#}
+]] = (
+
+(ccode 0 I "##include <X11/Xlib.h>");
+(ccode 0 I "##include <X11/Xresource.h>");
+
+inline def initialize () : [] =
+  (ccode 0 E "XrmInitialize();")
+
+inline def string (d:Display fail:Exn) : String =
+  (val cs:CString = (ccode 0 R "(Val)XResourceManagerString(D(#))" d)
+   if (prim.nullPtr cs) then (exn.raise fail "xResourceManagerString")
+   else (prim.fromCString cs))
+
+val [#XrmDatabase] = [#Top]
+
+inline def getDatabase (d:Display fail:Exn) : XrmDatabase =
+  (val db:XrmDatabase = (ccode 0 R "(Val)XrmGetDatabase(D(#))" d)
+   if (prim.nullPtr db) then (exn.raise fail "xrmGetDatabase")
+   else db)
+
+inline def fromString (s:String) : XrmDatabase =
+  (ccode 0 P "(Val)XrmGetStringDatabase(S(#))" s)
+
+inline def destroy (db:XrmDatabase) : [] =
+  (ccode 0 E "XrmDestroyDatabase((XrmDatabase)#);" db)
+
+inline def combine
+  (src:XrmDatabase dest:XrmDatabase override:Bool) : XrmDatabase
+= (ccode 0 W "({
+    XrmDatabase ret = (XrmDatabase)#;
+    XrmCombineDatabase((XrmDatabase)#,&ret,#); (Val)ret;
+  })" dest src override)
+
+inline def getResource
+  (db:XrmDatabase name:String class:String) : (Opt String)
+= (val cs:CString =
+     (ccode 0 R "({
+        char *type; XrmValue v;
+        (XrmGetResource((XrmDatabase)#,S(#),S(#),&type,&v)) ?
+        (Val)v.addr : (Val)NULL;
+      })" db name class)
+   if (prim.nullPtr cs) then opt.no else (opt.yes (prim.fromCString cs)))
+
+[[initialize=initialize string=string getDatabase=getDatabase
+  fromString=fromString destroy=destroy combine=combine
+  getResource=getResource]]
+
+)

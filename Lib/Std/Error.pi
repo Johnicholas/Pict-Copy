@@ -1,0 +1,64 @@
+# line 1 "/home/pierce/pict/Lib/Std/Error.src"
+
+
+
+
+
+  val error : [
+
+  exit = /[Int /Bot]
+
+
+
+
+
+
+
+  fatal = /[String /Bot]
+
+
+
+
+
+  fail = /String
+
+
+
+
+
+  check = /[String Bool /[]]
+
+
+
+
+
+
+
+
+  assert = /[String Bool /[]]
+
+
+
+
+
+
+
+
+
+    
+]
+= (
+
+inline def exit [n:Int r:/Bot] =
+  ((ccode 0 E "exit(I(#));" n); ())
+inline def fatal (s:String):Bot =
+  ((ccode 0 E "fprintf(stderr,\"Fatal error: %s\\n\",S(#));" s); (exit 1))
+inline def fail s:String =
+  ((ccode 0 E "fprintf(stderr,\"Fatal error: %s\\n\",S(#));" s); (exit 1); ())
+inline def check (s:String b:Bool) : [] =
+  if (ccall 0 C "%checks") then if b then [] else (fatal s) else []
+inline def assert (s:String b:Bool) : [] =
+  if (ccall 0 C "%assertions") then if b then [] else (fatal s) else []
+
+[exit=exit fatal=fatal fail=fail check=check assert=assert]
+)
